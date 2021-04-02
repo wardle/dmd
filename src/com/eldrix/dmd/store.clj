@@ -13,9 +13,7 @@
 ;   limitations under the License.
 ;;;;
 (ns com.eldrix.dmd.store
-  "A simple key value store for UK dm+d data.
-  This is principally designed to be used as part of a wider SNOMED
-  terminology server, so certain data are deliberately omitted by default."
+  "A simple key value store for UK dm+d data."
   (:require [clojure.core.async :as a]
             [clojure.java.io :as io]
             [clojure.tools.logging.readable :as log]
