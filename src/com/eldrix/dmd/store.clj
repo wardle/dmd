@@ -17,10 +17,18 @@
   (:require [clojure.core.async :as a]
             [clojure.java.io :as io]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.dmd.import :as dim])
-  (:import (org.mapdb DB Serializer DBMaker BTreeMap)
+            [com.eldrix.dmd.import :as dim]
+            [taoensso.nippy :as nippy])
+  (:import (org.mapdb DB Serializer DBMaker BTreeMap DataOutput2)
            (java.io FileNotFoundException Closeable)
-           (org.mapdb.serializer SerializerArrayTuple)))
+           (org.mapdb.serializer SerializerArrayTuple GroupSerializerObjectArray)))
+
+(def NippySerializer
+  (proxy [GroupSerializerObjectArray] []
+    (serialize [^DataOutput2 out o]
+      (nippy/freeze-to-out! out o))
+    (deserialize [in _i]
+      (nippy/thaw-from-in! in))))
 
 (deftype DmdStore [^DB db
                    ^BTreeMap core
@@ -40,10 +48,10 @@
                            read-only? (.readOnly)))
          ;; core dm+d components are stored keyed with identifier
          core (.createOrOpen
-                (.treeMap db "core" Serializer/LONG Serializer/JAVA))
+                (.treeMap db "core" Serializer/LONG NippySerializer))
          ;; lookup tables are stored keyed with tableName-code as a string
          lookups (.createOrOpen
-                   (.treeMap db "lookups" Serializer/STRING Serializer/JAVA))]
+                   (.treeMap db "lookups" Serializer/STRING NippySerializer))]
      (->DmdStore db core lookups))))
 
 ;; core dm+d components
@@ -95,7 +103,7 @@
     (.close ^DB (.db store))))
 
 (comment
-  (import-dmd "dmd.db" "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
+  (import-dmd "dmd.db" "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
   (def store (open-dmd-store "dmd.db"))
   (.get (.core store) 39211611000001104)
   (.get (.core store) 39233511000001107)

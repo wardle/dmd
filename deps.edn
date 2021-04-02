@@ -13,7 +13,7 @@
                                              :sha     "0d5ad23aa2912960949e68eeec1e6470be82e3f1"}
 
            aero/aero                        {:mvn/version "1.1.6"}
-
+           com.taoensso/nippy               {:mvn/version "3.1.1"}
            org.apache.lucene/lucene-core    {:mvn/version "8.8.1"}
            org.apache.lucene/lucene-queries {:mvn/version "8.8.1"}
 
