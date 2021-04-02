@@ -86,7 +86,8 @@
   but currently the last six digits of the filename are a date of format
   'ddMMyy' so we use the latest date as the date of the release."
   [dir]
-  {:release-date (last (sort (map :date (dmd-file-seq dir))))})
+  (when-let [release-date (last (sort (map :date (dmd-file-seq dir))))]
+    {:release-date release-date}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Generic dm+d parsing functionality
@@ -340,7 +341,9 @@
     (a/<!! ch)"
   ([dir ch] (import-dmd dir ch nil))
   ([dir ch {:keys [close? _include exclude] :or {close? true, exclude #{[:INGREDIENT :INGREDIENT]}} :as opts}]
-   (let [files (dmd-file-seq dir)]
+   (let [metadata (get-release-metadata dir)
+         files (dmd-file-seq dir)]
+     (log/info "Importing dm+d release :" metadata)
      (doseq [f files]
        (import-file f ch (assoc opts :close? false)))       ;; force 'close?' to be false
      (when close?
@@ -360,6 +363,8 @@
 
 (comment
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
+  (get-release-metadata "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
+  (get-release-metadata "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
   (def ch (a/chan))
   (a/thread (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" ch
                         {:exclude #{[:INGREDIENT :INGREDIENT]}}))
