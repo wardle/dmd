@@ -64,6 +64,10 @@
   [^DmdStore store component]
   (.put ^BTreeMap (.core store) (:ID component) component))
 
+(defmethod put :uk.nhs.dmd/INGREDIENT
+  [^DmdStore store component]
+  (.put ^BTreeMap (.core store) (:ID component) component))
+
 (defmethod put :uk.nhs.dmd/LOOKUP
   [^DmdStore store lookup]
   (.put ^BTreeMap (.-lookups store) (name (:ID lookup)) (dissoc lookup :ID)))
@@ -91,8 +95,8 @@
     (.close ^DB (.db store))))
 
 (comment
-  (import-dmd "dmd3.db" "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
-  (def store (open-dmd-store "dmd3.db"))
+  (import-dmd "dmd.db" "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
+  (def store (open-dmd-store "dmd.db"))
   (.get (.core store) 39211611000001104)
   (.get (.core store) 39233511000001107)
   (.get (.lookups store) (name :VIRTUAL_PRODUCT_NON_AVAIL-0001))
