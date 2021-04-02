@@ -18,7 +18,22 @@ That means there may be products within dm+d that are not yet within the UK
 SNOMED CT drug extension. That was one of the reasons I decided to create `dmd`
 as a separate service.
 
-### What can I use `dmd`
+### What is the use of `dmd`?
+
+dmd provides a simple library, and optionally a microservice, to help
+you make use of the UK dm+d.
+
+A library can be embedded into your application; this is easy using Clojure or 
+Java. You make calls using the dmd API just as you'd use any regular library.
+
+A microservice runs independently and you make use of the data and software
+by making an API call over the network.
+
+Like all `PatientCare` components, you can use `dmd` in either way. 
+Usually, when you're starting out, it's best to use as a library but larger 
+projects and larger installations will want to run their software components
+independently, optimising for usage patterns, resilience, reliability and 
+rate of change.
 
 ### Why do I need separate tooling for dm+d?
 
