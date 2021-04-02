@@ -38,18 +38,22 @@
 (defn- ^Boolean parse-invalidity [^String s] (= "1" s))
 (defn parse-lookup [kind code] (keyword (str (name kind) "-" code)))
 
-(def ^:private file-matcher #"^f_([a-z]*)2_(\d*)\.xml$")
+(def ^:private file-matcher #"^f_([a-z]*)2_\d(\d{6})\.xml$")
 
 (def ^:private file-ordering
   "Order of file import for relational integrity."
   [:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP])
 
+(def ^DateTimeFormatter df
+  (DateTimeFormatter/ofPattern "ddMMyy"))
+
 (defn ^:private parse-dmd-filename
   [f]
   (let [f2 (clojure.java.io/as-file f)]
-    (when-let [[_ nm _] (re-matches file-matcher (.getName f2))]
+    (when-let [[_ nm date] (re-matches file-matcher (.getName f2))]
       (let [kw (keyword (str/upper-case nm))]
         {:type  kw
+         :date  (LocalDate/parse date df)
          :order (.indexOf file-ordering kw)
          :file  f2}))))
 
@@ -64,6 +68,25 @@
        (map parse-dmd-filename)
        (filter some?)
        (sort-by :order)))
+
+(defn get-release-metadata
+  "Return release metadata from the directory specified.
+  Unfortunately, the dm+d distribution does not include a metadata file
+  containing release information, so version information is derived from
+  the filenames within the release.
+
+  Parameters:
+   - dir   : directory to examine
+
+  Result:
+   - a map containing release information:
+     |- :release-date   - date of the release (java.time.LocalDate)
+
+  As far as I am aware, there is no formal specification for  dm+d filenames,
+  but currently the last six digits of the filename are a date of format
+  'ddMMyy' so we use the latest date as the date of the release."
+  [dir]
+  {:release-date (last (sort (map :date (dmd-file-seq dir))))})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Generic dm+d parsing functionality
