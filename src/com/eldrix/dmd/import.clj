@@ -305,7 +305,7 @@
 
 (defn import-dmd
   "Streams UK dm+d data to the channel.
-  Data are ordered in order to preserve relational integrity.
+  Data are ordered, by default, to preserve relational integrity.
   Blocking so run in a thread if necessary.
   Parameters:
   - dir  : directory from which to import files
