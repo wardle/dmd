@@ -21,7 +21,8 @@
             [taoensso.nippy :as nippy])
   (:import (org.mapdb DB Serializer DBMaker BTreeMap DataOutput2)
            (java.io FileNotFoundException Closeable)
-           (org.mapdb.serializer SerializerArrayTuple GroupSerializerObjectArray)))
+           (org.mapdb.serializer SerializerArrayTuple GroupSerializerObjectArray)
+           (java.util NavigableSet Map)))
 
 (def NippySerializer
   (proxy [GroupSerializerObjectArray] []
@@ -31,8 +32,13 @@
       (nippy/thaw-from-in! in))))
 
 (deftype DmdStore [^DB db
-                   ^BTreeMap core
-                   ^BTreeMap lookups]
+                   ^Map core
+                   ^Map lookups
+                   ^NavigableSet vtm-vmps
+                   ^NavigableSet vmp-amps
+                   ^NavigableSet vmp-vmpps
+                   ^NavigableSet amp-ampps
+                   ^NavigableSet vmpp-ampps]
   Closeable
   (close [this] (.close ^DB (.db this))))
 
@@ -41,18 +47,23 @@
   ([^String filename {:keys [read-only? skip-check?] :or {read-only? true}}]
    (when (and read-only? (not (.exists (io/as-file filename))))
      (throw (FileNotFoundException. (str "file `" filename "` opened read-only but not found"))))
+   (when (and (not read-only?) (.exists (io/as-file filename)))
+     (throw (UnsupportedOperationException. (str "file `" filename "` exists, but not opened read-only"))))
    (let [db (.make (cond-> (-> (DBMaker/fileDB filename)
-                               (.fileMmapEnable)
+                               (.fileMmapEnableIfSupported)
                                (.closeOnJvmShutdown))
                            skip-check? (.checksumHeaderBypass)
                            read-only? (.readOnly)))
          ;; core dm+d components are stored keyed with identifier
-         core (.createOrOpen
-                (.treeMap db "core" Serializer/LONG NippySerializer))
+         core (.createOrOpen (.treeMap db "core" Serializer/LONG NippySerializer))
          ;; lookup tables are stored keyed with tableName-code as a string
-         lookups (.createOrOpen
-                   (.treeMap db "lookups" Serializer/STRING NippySerializer))]
-     (->DmdStore db core lookups))))
+         lookups (.createOrOpen (.treeMap db "lookups" Serializer/STRING NippySerializer))
+         vtm-vmps (.createOrOpen (.treeSet db "vtm-vmps" Serializer/LONG_ARRAY))
+         vmp-amps (.createOrOpen (.treeSet db "vmp-amps" Serializer/LONG_ARRAY))
+         vmp-vmpps (.createOrOpen (.treeSet db "vmp-vmpps" Serializer/LONG_ARRAY))
+         amp-ampps (.createOrOpen (.treeSet db "amp-ampps" Serializer/LONG_ARRAY))
+         vmpp-ampps (.createOrOpen (.treeSet db "vmpp-ampps" Serializer/LONG_ARRAY))]
+     (->DmdStore db core lookups vtm-vmps vmp-amps vmp-vmpps amp-ampps vmpp-ampps))))
 
 ;; core dm+d components
 (derive :uk.nhs.dmd/VTM :uk.nhs.dmd/COMPONENT)
@@ -62,11 +73,41 @@
 (derive :uk.nhs.dmd/VMPP :uk.nhs.dmd/COMPONENT)
 
 (defmulti put
-          "Store an arbitrary dm+d component into the backing store.
+          "Store a dm+d component into the backing store.
           Parameters:
           - store : DmdStore
           - m     : component / VTM / VMP / VMPP / AMP / AMPP / TF / TFG"
-          (fn [^DmdStore store m] (:TYPE m)))
+          (fn [^DmdStore _store m] (:TYPE m)))
+
+(defmethod put :uk.nhs.dmd/VTM
+  [^DmdStore store component]
+  (.put ^BTreeMap (.core store) (:ID component) component))
+
+(defmethod put :uk.nhs.dmd/VMP
+  [^DmdStore store vmp]
+  (.put ^BTreeMap (.core store) (:ID vmp) vmp)
+  (when-let [vtmid (:VTMID vmp)]
+    (.add ^NavigableSet (.-vtm_vmps store) (long-array [vtmid (:ID vmp)]))))
+
+(defmethod put :uk.nhs.dmd/AMP
+  [^DmdStore store amp]
+  (.put ^BTreeMap (.core store) (:ID amp) amp)
+  (when-let [vpid (:VPID amp)]
+    (.add ^NavigableSet (.-vmp_amps store) (long-array [vpid (:ID amp)]))))
+
+(defmethod put :uk.nhs.dmd/VMPP
+  [^DmdStore store vmpp]
+  (.put ^BTreeMap (.core store) (:ID vmpp) vmpp)
+  (when-let [vpid (:VPID vmpp)]
+    (.add ^NavigableSet (.-vmp_vmpps store) (long-array [vpid (:ID vmpp)]))))
+
+(defmethod put :uk.nhs.dmd/AMPP
+  [^DmdStore store ampp]
+  (.put ^BTreeMap (.core store) (:ID ampp) ampp)
+  (when-let [apid (:APID ampp)]
+    (.add ^NavigableSet (.-amp_ampps store) (long-array [apid (:ID ampp)])))
+  (when-let [vppid (:VPPID ampp)]
+    (.add ^NavigableSet (.-vmpp_ampps store) (long-array [vppid (:ID ampp)]))))
 
 (defmethod put :uk.nhs.dmd/COMPONENT
   [^DmdStore store component]
@@ -91,7 +132,7 @@
 (defn import-dmd [filename dir]
   (let [ch (a/chan)
         store (open-dmd-store filename {:read-only? false})]
-    (a/thread (dim/import-dmd dir ch {:exclude [:INGREDIENT :INGREDIENT]}))
+    (a/thread (dim/import-dmd dir ch {:ordered? false}))
     (loop [m (a/<!! ch)]
       (when m
         (try (put store m)
@@ -108,6 +149,21 @@
 
 (defn lookup [^DmdStore store nm]
   (.get ^BTreeMap (.lookups store) (name nm)))
+
+(defn vmps-for-vtm [^DmdStore store vtmid]
+  (set (map second (map seq (.subSet ^NavigableSet (.-vtm_vmps store) (long-array [vtmid 0]) (long-array [vtmid Long/MAX_VALUE]))))))
+
+(defn amps-for-vmp [^DmdStore store vpid]
+  (set (map second (map seq (.subSet ^NavigableSet (.-vmp_amps store) (long-array [vpid 0]) (long-array [vpid Long/MAX_VALUE]))))))
+
+(defn vmpps-for-vmp [^DmdStore store vpid]
+  (set (map second (map seq (.subSet ^NavigableSet (.-vmp_vmpps store) (long-array [vpid 0]) (long-array [vpid Long/MAX_VALUE]))))))
+
+(defn ampps-for-amp [^DmdStore store apid]
+  (set (map second (map seq (.subSet ^NavigableSet (.-amp_ampps store) (long-array [apid 0]) (long-array [apid Long/MAX_VALUE]))))))
+
+(defn ampps-for-vmpp [^DmdStore store vppid]
+  (set (map second (map seq (.subSet ^NavigableSet (.-vmpp_ampps store) (long-array [vppid 0]) (long-array [vppid Long/MAX_VALUE]))))))
 
 (defn make-extended-vpi
   [store vpi]
@@ -138,16 +194,99 @@
       (update :DRUG_FORM
               #(map (fn [drug-form] (lookup store (str "FORM-" (:FORMCD drug-form)))) %))
       (update :CONTROL_DRUG_INFO #(map (fn [control-info] (lookup store (str "CONTROL_DRUG_CATEGORY-" (:CATCD control-info)))) %))
-      (update :DRUG_ROUTE #(map (fn [route] (lookup store (str "ROUTE-" (:ROUTECD route)))) %))
-      ))
+      (update :DRUG_ROUTE #(map (fn [route] (lookup store (str "ROUTE-" (:ROUTECD route)))) %))))
 
+(defmulti vtms "Return identifiers for the VTMs associated with this product."
+          (fn [^DmdStore _store product] (:TYPE product)))
+
+(defmulti vmps "Returns identifiers for the VMPs associated with this product."
+          (fn [^DmdStore _store product] (:TYPE product)))
+
+(defmulti vmpps "Returns identifiers for the VMPPS associated with this product."
+          (fn [^DmdStore _store product] (:TYPE product)))
+
+(defmulti amps "Returns identifiers for the AMPs associated with this product."
+          (fn [^DmdStore _store product] (:TYPE product)))
+
+(defmulti ampps "Returns identifiers for the AMPPs associated with this product."
+          (fn [^DmdStore _store product] (:TYPE product)))
+
+(defmulti extended "Returns an extended denormalized product"
+          (fn [^DmdStore _store product] (:TYPE product)))
+
+;;
+;; VTM methods
+;;
+(defmethod vtms :uk.nhs.dmd/VTM [_store vtm]
+  #{(:VTMID vtm)})
+
+(defmethod vmps :uk.nhs.dmd/VTM [store vtm]
+  (vmps-for-vtm store (:VTMID vtm)))
+
+(defmethod amps :uk.nhs.dmd/VTM [store vtm]
+  (into #{} (mapcat (fn [vmp] (amps-for-vmp store (:ID vmp))) (map (partial fetch-product store) (vmps-for-vtm store (:ID vtm))))))
+
+(defmethod extended :uk.nhs.dmd/VTM [_store vtm]
+  vtm)
+
+;;
+;; VMP methods
+;;
+(defmethod vtms :uk.nhs.dmd/VMP [_store vmp]
+  #{(:VTMID vmp)})
+
+(defmethod vmpps :uk.nhs.dmd/VMP [store vmp]
+  (vmpps-for-vmp store (:VPID vmp)))
+
+(defmethod amps :uk.nhs.dmd/VMP [store vmp]
+  (amps-for-vmp store (:VPID vmp)))
+
+(defmethod extended :uk.nhs.dmd/VMP [store vmp]
+  (make-extended-vmp store vmp))
+;;
+;; AMP methods
+;;
+
+(defmethod vtms :uk.nhs.dmd/AMP [store amp]
+  #{(:VTMID (fetch-product store (:VPID amp)))})
+
+(defmethod vmps :uk.nhs.dmd/AMP [store amp]
+  #{(:VPID amp)})
+
+(defmethod ampps :uk.nhs.dmd/AMP [store amp]
+  (ampps-for-amp store (:APID amp)))
 
 (comment
   (import-dmd "dmd.db" "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
   (def store (open-dmd-store "dmd.db"))
   (.close store)
-  (fetch-product store 39211611000001104)
+  (def vtm (fetch-product store 108537001))
+  (product-type store 108537001)
+  (vmps store vtm)
+  (map :NM (map (partial fetch-product store) (vmps store vtm)))
+
+
+  (def vmp (fetch-product store 429828006))
+  (map :DESC (map (partial fetch-product store) (amps store vmp)))
+  (map (partial fetch-product store) (vmpps store vmp))
+
+  (map (partial fetch-product store) (vmps-for-vtm store (:ID vtm)))
+  (def amp (fetch-product store 38259611000001106))
+  (map seq (.subSet (.-vmp_amps store) (long-array [0 38259611000001106]) (long-array [Long/MAX_VALUE 38259611000001106])))
+  (vtms store amp)
+  (ampps store (fetch-product store 38259611000001106))
+
+  (amps store vtm)
+  (vmps-for-vtm store vtm)
+  (map (partial fetch-product store) (vmps-for-vtm store vtm))
+  (.-vtm_vmps store)
   (fetch-product store 39233511000001107)
+  (vtms store (fetch-product store 39233511000001107))
+  (first (map (partial fetch-product store) (vmps-for-vtm store 108537001)))
+  (map (partial amps store) (map (partial fetch-product store) (vmps-for-vtm store 108537001)))
+
+  (fetch-product store 29932711000001105)
+
   (make-extended-vmp store (fetch-product store 319283006))
   (make-extended-vmp store (fetch-product store 39233511000001107))
   (lookup store :VIRTUAL_PRODUCT_NON_AVAIL-0001)
