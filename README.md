@@ -44,7 +44,7 @@ map from dose-based prescribing to product-based prescribing.
 It is difficult to build software that processes prescribing data without those
 concrete values documenting how much of each ingredient is in each product.
 
-`dm+d` provides data and computing services for the full UK `dm+d` dataset.
+`dmd` provides data and computing services for the full UK `dm+d` dataset.
 It's there if you need to supplement the UK SNOMED drug extension with 
 additional data. That will almost certainly be the case if you're writing
 an e-prescribing system.
