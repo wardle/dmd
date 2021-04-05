@@ -223,6 +223,10 @@
 (defmethod vmps :uk.nhs.dmd/VTM [store vtm]
   (vmps-for-vtm store (:VTMID vtm)))
 
+(defmethod vmpps :uk.nhs.dmd/VTM [store vtm]
+  (let [vmps (map (partial fetch-product store) (vmps-for-vtm store (:ID vtm)))]
+    (into #{} (mapcat (fn [vmp] (vmpps-for-vmp store (:ID vmp))) vmps))))
+
 (defmethod amps :uk.nhs.dmd/VTM [store vtm]
   (into #{} (mapcat (fn [vmp] (amps-for-vmp store (:ID vmp))) (map (partial fetch-product store) (vmps-for-vtm store (:ID vtm))))))
 
@@ -287,6 +291,8 @@
 
   (fetch-product store 29932711000001105)
 
+  (make-extended-vmp store (fetch-product store 319283006))
+  (map :NM (map (partial fetch-product store) (vmpps store (fetch-product store 319283006))))
   (make-extended-vmp store (fetch-product store 319283006))
   (make-extended-vmp store (fetch-product store 39233511000001107))
   (lookup store :VIRTUAL_PRODUCT_NON_AVAIL-0001)
