@@ -78,7 +78,7 @@
 
 (defmethod put :uk.nhs.dmd/LOOKUP
   [^DmdStore store lookup]
-  (.put ^BTreeMap (.-lookups store) (name (:ID lookup)) (dissoc lookup :ID)))
+  (.put ^BTreeMap (.-lookups store) (name (:ID lookup)) (dissoc lookup :ID :TYPE)))
 
 (defmethod put :default
   [^DmdStore store component]
@@ -102,11 +102,59 @@
     (log/debug "import/compaction completed")
     (.close ^DB (.db store))))
 
+
+(defn fetch-product [^DmdStore store ^long id]
+  (.get ^BTreeMap (.core store) id))
+
+(defn lookup [^DmdStore store nm]
+  (.get ^BTreeMap (.lookups store) (name nm)))
+
+(defn make-extended-vpi
+  [store vpi]
+  (merge
+    vpi
+    (fetch-product store (:ISID vpi))
+    {:STRNT_NMRTR_UOM (lookup store (str "UNIT_OF_MEASURE-" (:STRNT_NMRTR_UOMCD vpi)))}
+    (when (:STRNT_DNMTR_UOMCD vpi)
+      {:STRNT_DNMTR_UOM (lookup store (str "UNIT_OF_MEASURE-" (:STRNT_DNMTR_UOMCD vpi)))})
+    {:BASIS_STRNT (lookup store (str "BASIS_OF_STRNTH-" (:BASIS_STRNTCD vpi)))}))
+
+(defn make-extended-vmp
+  "Denormalises a VMP."
+  [store vmp]
+  (-> vmp
+      ;; denormalize to-one relationships; these are simple lookups
+      (assoc :BASIS (lookup store (str "BASIS_OF_NAME-" (:BASISCD vmp))))
+      (assoc :UNIT_DOSE_UOM (lookup store (str "UNIT_OF_MEASURE-" (:UNIT_DOSE_UOMCD vmp))))
+      (assoc :UDFS_UOM (lookup store (str "UNIT_OF_MEASURE-" (:UDFS_UOMCD vmp))))
+      (assoc :DF_IND (lookup store (str "DF_INDICATOR-" (:DF_INDCD vmp))))
+      (assoc :PRES_STAT (lookup store (str "VIRTUAL_PRODUCT_PRES_STATUS-" (:PRES_STATCD vmp))))
+      (assoc :VTM (fetch-product store (:VTMID vmp)))
+      ;; denormalize to-many relationships; these might be lookups or ingredients
+      (update :VIRTUAL_PRODUCT_INGREDIENT
+              #(map (partial make-extended-vpi store) %))
+      (update :ONT_DRUG_FORM
+              #(map (fn [ont-drug-form] (lookup store (str "ONT_FORM_ROUTE-" (:FORMCD ont-drug-form)))) %))
+      (update :DRUG_FORM
+              #(map (fn [drug-form] (lookup store (str "FORM-" (:FORMCD drug-form)))) %))
+      (update :CONTROL_DRUG_INFO #(map (fn [control-info] (lookup store (str "CONTROL_DRUG_CATEGORY-" (:CATCD control-info)))) %))
+      (update :DRUG_ROUTE #(map (fn [route] (lookup store (str "ROUTE-" (:ROUTECD route)))) %))
+      ))
+
+
 (comment
   (import-dmd "dmd.db" "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
   (def store (open-dmd-store "dmd.db"))
+  (.close store)
+  (fetch-product store 39211611000001104)
+  (fetch-product store 39233511000001107)
+  (make-extended-vmp store (fetch-product store 319283006))
+  (make-extended-vmp store (fetch-product store 39233511000001107))
+  (lookup store :VIRTUAL_PRODUCT_NON_AVAIL-0001)
+  (.lookups store)
   (.get (.core store) 39211611000001104)
   (.get (.core store) 39233511000001107)
+  (.get (.core store) 714080005)
   (.get (.lookups store) (name :VIRTUAL_PRODUCT_NON_AVAIL-0001))
   (.get (.lookups store) (name :CONTROL_DRUG_CATEGORY-0000))
   (.get (.lookups store) (name :ONT_FORM_ROUTE-0022))
