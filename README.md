@@ -50,7 +50,8 @@ additional data. That will almost certainly be the case if you're writing
 an e-prescribing system.
 
 If the SNOMED-based UK drug extension provides all of the information you need
-in your user-facing applications, you won't need to also include `dm+d`.
+in your user-facing applications, you won't need to use `dm+d`; simply use
+[hermes](https://github.com/wardle/hermes) instead.
 
 ### Why are you building so many small repositories? 
 
@@ -66,3 +67,12 @@ in response to changes in *domain* not software itself. Accretion of functionali
 
 It is very difficult to 'prove' software is working as designed when there are
 lots of moving parts. 
+
+One of the core abtractions used across the PatientCare components is identifier
+resolution and mapping. It might be possible to use a single terminology server
+to import a range of what HL7 FHIR regards as a terminology, or a value set, 
+but that couldn't work for me. 
+
+With a federatable model, I can easily add new terminologies and value sets,
+such as resolving dm+d identifiers or OMIM references, to a loosely-coupled
+terminology server. 

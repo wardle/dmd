@@ -21,11 +21,11 @@
   For more information see
   https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf"
   (:require [clojure.core.async :as a]
+            [clojure.core.match :refer [match]]
             [clojure.data.xml :as xml]
             [clojure.data.zip.xml :as zx]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [clojure.zip :as zip])
@@ -35,19 +35,23 @@
 ;; dm+d date format = CCYY-MM-DD
 (defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
 (defn- ^Long parse-long [^String s] (Long/parseLong s))
-(defn- ^Boolean parse-invalidity [^String s] (= "1" s))
-(defn parse-lookup [kind code] (keyword (str (name kind) "-" code)))
+(defn- ^Boolean parse-flag [^String s] (= "1" s))
 
-(def ^:private file-matcher #"^f_([a-z]*)2_\d(\d{6})\.xml$")
 
 (def ^:private file-ordering
-  "Order of file import for relational integrity."
+  "Order of file import for relational integrity, if needed."
   [:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP])
 
 (def ^DateTimeFormatter df
   (DateTimeFormatter/ofPattern "ddMMyy"))
 
+(def ^:private file-matcher
+  "There is no formal specification for filename structure, but this is the de
+  facto standard."
+  #"^f_([a-z]*)2_\d(\d{6})\.xml$")
+
 (defn ^:private parse-dmd-filename
+  "Parse a dm+d filename if possible."
   [f]
   (let [f2 (clojure.java.io/as-file f)]
     (when-let [[_ nm date] (re-matches file-matcher (.getName f2))]
@@ -57,17 +61,25 @@
          :order (.indexOf file-ordering kw)
          :file  f2}))))
 
+(defn should-include?
+  [include exclude file-type]
+  (if (or (nil? include) (contains? include file-type))
+    (not (contains? exclude file-type))))
+
 (defn dmd-file-seq
   "Return an ordered sequence of dm+d files from the directory specified.
   Components are returned in an order to support referential integrity.
-  Each result is a map containing :type, :order and :file."
-  [dir]
-  (->> dir
-       clojure.java.io/file
-       file-seq
-       (map parse-dmd-filename)
-       (filter some?)
-       (sort-by :order)))
+  Each result is a map containing :type, :date, :order and :file.
+  Optionally takes a set of file types to include or exclude."
+  ([dir]
+   (->> dir
+        clojure.java.io/file
+        file-seq
+        (map parse-dmd-filename)
+        (filter some?)
+        (sort-by :order)))
+  ([dir & {:keys [include exclude]}]
+   (filter #(should-include? include exclude (:type %)) (dmd-file-seq dir))))
 
 (defn get-release-metadata
   "Return release metadata from the directory specified.
@@ -94,48 +106,53 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def ^:private property-parsers
-  {[:UNIT_OF_MEASURE :CD]     parse-long
-   [:UNIT_OF_MEASURE :CDPREV] parse-long
-   [:FORM :CD]                parse-long
-   [:FORM :CDPREV]            parse-long
-   [:ROUTE :CD]               parse-long
-   [:ROUTE :CDPREV]           parse-long
-   [:SUPPLIER :CD]            parse-long
-   [:SUPPLIER :CDPREV]        parse-long
-   :CDDT                      parse-date
-   :VTMID                     parse-long
-   :VTMIDPREV                 parse-long
-   :INVALID                   parse-invalidity
-   :VTMIDDT                   parse-date
-   :VPID                      parse-long
-   :VPIDPREV                  parse-long
-   :UDFS                      edn/read-string
-   :UDFS_UOMCD                parse-long
-   :UNIT_DOSE_UOMCD           parse-long
-   :ISID                      parse-long
-   :ISIDPREV                  parse-long
-   :ISIDDT                    parse-date
-   :BS_SUBID                  parse-long
-   :STRNT_NMRTR_VAL           edn/read-string
-   :STRNT_NMRTR_UOMCD         parse-long
-   :STRNT_DNMTR_VAL           edn/read-string
-   :STRNT_DNMTR_UOMCD         parse-long
-   [:DRUG_FORM :FORMCD]       parse-long
-   :ROUTECD                   parse-long
-   :CATDT                     parse-date
-   :NMDT                      parse-date
-   :SUPPCD                    parse-long
-   :APID                      parse-long
-   :VPPID                     parse-long
-   :QTYVAL                    edn/read-string
-   :QTY_UOMCD                 parse-long
-   :APPID                     parse-long
-   :REIMB_STATDT              parse-date
-   :DISCDT                    parse-date
-   :PRNTVPPID                 parse-long
-   :CHLDVPPID                 parse-long
-   :PRNTAPPID                 parse-long
-   :CHLDAPPID                 parse-long})
+  {[[:LOOKUP :UNIT_OF_MEASURE] :CD]     parse-long
+   [[:LOOKUP :UNIT_OF_MEASURE] :CDPREV] parse-long
+   [[:VMP :FORM] :CD]                   parse-long
+   [[:VMP :FORM] :CDPREV]               parse-long
+   [[:VMP :ROUTE] :CD]                  parse-long
+   [[:VMP :ROUTE] :CDPREV]              parse-long
+   [[:VMP :DRUG_FORM] :FORMCD]          parse-long
+   [[:LOOKUP :SUPPLIER] :CD]            parse-long
+   [[:LOOKUP :SUPPLIER] :CDPREV]        parse-long
+   :CDDT                                parse-date
+   :VTMID                               parse-long
+   :VTMIDPREV                           parse-long
+   :INVALID                             parse-flag
+   :SUG_F                               parse-flag
+   :GLU_F                               parse-flag
+   :PRES_F                              parse-flag
+   :CFC_F                               parse-flag
+   :VTMIDDT                             parse-date
+   :VPID                                parse-long
+   :VPIDPREV                            parse-long
+   :UDFS                                edn/read-string
+   :UDFS_UOMCD                          parse-long
+   :UNIT_DOSE_UOMCD                     parse-long
+   :ISID                                parse-long
+   :ISIDPREV                            parse-long
+   :ISIDDT                              parse-date
+   :BS_SUBID                            parse-long
+   :STRNT_NMRTR_VAL                     edn/read-string
+   :STRNT_NMRTR_UOMCD                   parse-long
+   :STRNT_DNMTR_VAL                     edn/read-string
+   :STRNT_DNMTR_UOMCD                   parse-long
+   :ROUTECD                             parse-long
+   :CATDT                               parse-date
+   :NMDT                                parse-date
+   :SUPPCD                              parse-long
+   :APID                                parse-long
+   :LIC_AUTHCHANGEDT                    parse-date
+   :VPPID                               parse-long
+   :QTYVAL                              edn/read-string
+   :QTY_UOMCD                           parse-long
+   :APPID                               parse-long
+   :REIMB_STATDT                        parse-date
+   :DISCDT                              parse-date
+   :PRNTVPPID                           parse-long
+   :CHLDVPPID                           parse-long
+   :PRNTAPPID                           parse-long
+   :CHLDAPPID                           parse-long})
 
 (defn- parse-property [kind kw v]
   (if-let [parser (get property-parsers [kind kw])]
@@ -149,211 +166,113 @@
   Does not process nested XML but that is not required for the dm+d XML."
   ([node] (parse-dmd-component nil node))
   ([kind node]
-   (reduce into (if kind {:TYPE (keyword "uk.nhs.dmd" (name kind))} {})
+   (reduce into (if kind {:TYPE kind} {})
            (map #(parse-property kind (:tag %) (first (:content %))) (:content node)))))
 
-(defn- resolve-in-xml
-  "Generic resolution of a node given a path.
-  Parameters:
-   - root  : a root from 'clojure.data.xml/parse'
-   - path  : a collection representing the path required.
+(defn- stream-flat-dmd
+  "Streams dm+d components from a flat XML file; blocking.
+  This expects top-level tags to represent the components themselves.
+  Suitable for parsing dm+d VTM and INGREDIENT file.
 
-  Resolution of nested tags uses only the *first* tag found; this is appropriate
-  for the dm+d files, but use zippers if more complex navigation is required."
-  [root path]
-  (if (= 0 (count path))
-    (:content root)
-    (let [item (first path)]
-      (resolve-in-xml (first (filter #(= item (:tag %)) (:content root))) (rest path)))))
+  Each component has TYPE information added in the form
+  [file-type component-type].
 
-(defn xf-component
-  "A transducer to manipulate a first class dm+d component (VTM/VMP/AMP etc).
-  Adds an ID that is the component ID."
-  [kind id-key]
-  (comp
-    (map (partial parse-dmd-component kind))
-    (map #(assoc % :ID (get % id-key)))))
+  For example: `[:VTM :VTM]`"
+  [root ch file-type close?]
+  (let [kind [file-type file-type]]
+    (a/<!! (a/onto-chan!! ch (map (partial parse-dmd-component kind) (:content root)) close?))
+    (when close? (a/close! ch))))
 
-(defn- stream-component
-  [kind path id root ch]
-  (loop [components (sequence (xf-component kind id) (resolve-in-xml root path))]
-    (when (and (first components) (a/>!! ch (first components)))
-      (recur (next components)))))
+(defn- stream-nested-dmd
+  "Stream dm+d components from a nested dm+d distribution file; blocking.
+  A nested file contains multiple components; for example VMP contains VMPS
+  as well as VIRTUAL_PRODUCT_INGREDIENT and ONT_DRUG_FORM. Unfortunately
+  the naming is inconsistent with some in the plural and some in the singular.
 
-(defn xf-property
-  "A transducer to manipulate a nested dm+d component.
-  Adds an ID that is a tuple of the parent component ID and the property type."
-  [kind fk-key]
-  (comp
-    (map (partial parse-dmd-component kind))
-    (map #(assoc % :ID (vector (get % fk-key) kind)))
-    (map #(dissoc % fk-key))))
+  Each component has TYPE information added in the form
+  [file-type component-type].
+  For example: `[:VMP :DRUG_FORM]`"
+  [root ch file-type close?]
+  (loop [components (:content root)]
+    (when-let [component (first components)]
+      (let [[_ subtag] (first component)
+            subtag' (if (= (str (name file-type) "S") (name subtag)) file-type subtag) ;; fix inconsistent naming of plural components
+            kind [file-type subtag']]
+        (a/<!! (a/onto-chan!! ch (map (partial parse-dmd-component kind) (:content component)) false)))
+      (recur (next components))))
+  (when close? (a/close! ch)))
 
-(defn- stream-property
-  [kind path fk-key root ch]
-  (loop [components (sequence (xf-property kind fk-key) (resolve-in-xml root path))]
-    (when (and (first components) (a/>!! ch (first components)))
-      (recur (next components)))))
-
-(defn xf-lookup
-  "A transducer to process LOOKUP dm+d components.
-  Adds an ID made up of the type and code."
-  [kind]
-  (comp
-    (map (partial parse-dmd-component kind))
-    (map #(assoc % :TYPE :uk.nhs.dmd/LOOKUP
-                   :ID (parse-lookup kind (:CD %))))))
-
-(defn- parse-lookup-xml
-  [root ch]
-  (let [zipper (zip/xml-zip root)
-        tags (map :tag (zip/children zipper))
-        lookups (mapcat
-                  #(sequence (xf-lookup %) (zx/xml-> zipper :LOOKUP % :INFO zip/node))
-                  tags)]
-    (loop [result lookups]
-      (if (and result (a/>!! ch (first result)))
-        (recur (next result))))))
+(defn- stream-lookup-xml
+  [root ch file-type close?]
+  (loop [lookups (:content root)]
+    (if-let [lookup (first lookups)]
+      (let [tag (:tag lookup)
+            result (->> (:content lookup)
+                        (map (partial parse-dmd-component [file-type tag]))
+                        (map #(assoc % :ID (keyword (str (name tag) "-" (:CD %))))))]
+        (a/<!! (a/onto-chan!! ch result false))
+        (recur (next lookups)))
+      (when close? (a/close! ch)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; High-level dm+d processing functionality
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def file-configuration
-  "Declarative parse configuration for individual dm+d files.
-  Each file may have one or more dm+d entities.
-  For example, the VTM file contains only VTM entities.
-  The VMP file contains the VMPs but also related properties of each
-  VMP such as VPI, ONT_DRUG_FORM, DRUG_FORM, DRUG_ROUTE etc.
-  The properties are:
-   - :nm    : name of entity (optional). If omitted, first element of path will be used
-   - :path  : 'path' in the XML from the root, or use `[]` if at root.
-   - :fk    : if this entity relates to another entity, what is the foreign key used?
-   - :func  : if bespoke parsing is needed, this will override any other configuration."
-  {:VTM        [{:nm :VTM :path [] :id :VTMID}]
-   :VMP        [{:nm :VMP :path [:VMPS] :id :VPID}
-                {:path [:VIRTUAL_PRODUCT_INGREDIENT] :fk :VPID}
-                {:path [:ONT_DRUG_FORM] :fk :VPID}
-                {:path [:DRUG_FORM] :fk :VPID}
-                {:path [:DRUG_ROUTE] :fk :VPID}
-                {:path [:CONTROL_DRUG_INFO] :fk :VPID}]
-   :AMP        [{:nm :AMP :path [:AMPS] :id :APID}
-                {:path [:AP_INGREDIENT] :fk :APID}
-                {:path [:LICENSED_ROUTE] :fk :APID}
-                {:path [:AP_INFORMATION] :fk :APID}]
-   :VMPP       [{:nm :VMPP :path [:VMPPS] :id :VPPID}
-                {:path [:DRUG_TARIFF_INFO] :fk :VPPID}
-                {:path [:COMB_CONTENT] :fk :PRNTVPPID}]
-   :AMPP       [{:nm :AMPP :path [:AMPPS] :id :APPID}
-                {:path [:APPLIANCE_PACK_INFO] :fk :APPID}
-                {:path [:DRUG_PRODUCT_PRESCRIB_INFO] :fk :APPID}
-                {:path [:MEDICINAL_PRODUCT_PRICE] :fk :APPID}
-                {:path [:REIMBURSEMENT_INFO] :fk :APPID}
-                {:path [:COMB_CONTENT] :fk :PRNTAPPID}]
-   :INGREDIENT [{:nm :INGREDIENT :path [] :id :ISID}]
-   :LOOKUP     [{:nm :LOOKUP :func parse-lookup-xml}]})
+(def ^:private streamers
+  {:VTM        stream-flat-dmd
+   :VMP        stream-nested-dmd
+   :AMP        stream-nested-dmd
+   :VMPP       stream-nested-dmd
+   :AMPP       stream-nested-dmd
+   :INGREDIENT stream-flat-dmd
+   :LOOKUP     stream-lookup-xml})
 
-(defn- filter-configurations
-  "Return the selected configurations for the specified file-type.
+(defn- stream-dmd-file [ch close? {:keys [type file] :as dmd-file}]
+  (log/info "Processing " dmd-file)
+  (if-let [streamer (get streamers type)]
+    (with-open [rdr (io/reader file)]
+      (let [root (xml/parse rdr :skip-whitespace true)]
+        (streamer root ch type close?)))
+    (log/info "Skipping file " dmd-file)))
+
+(defn stream-dmd
+  "Streams dm+d components from the directory to the channel.
+  Components are ordered to maintain relational integrity should it be required.
+  This does minimal processing; streamed data is a close representation of the
+  dm+d data structures.Some properties are parsed such as dates (xxxDT) to a
+  java.time.LocalDate, flags (e.g. invalidity) to booleans, and identifiers to
+  'long's. Each component is labelled with its type as :TYPE. This is a tuple of
+  file and entity: e.g. [:VMP :DRUG_FORM].
+
   Parameters:
-  - configs - base file configurations
-  - file-type - file type or :all for all (useful at REPL)
-  - opts - a map of options:
-    |- include - if given, tuples of file type/component type to be included.
-    |- exclude - if given, tuples of file type/component type to be excluded."
-  [configs file-type {:keys [include exclude]}]
-  (let [flattened (mapcat (fn [[k vs]] (map #(assoc % :component [k (or (:nm %) (first (:path %)))]) vs)) configs)
-        available (map :component flattened)
-        base (or include available)
-        cfgs (set (if (and file-type (not= :all file-type)) (filter #(= file-type (first %)) base) base))
-        selected (if exclude (set/difference cfgs (set exclude)) cfgs)]
-    (filter #(contains? selected (:component %)) flattened)))
-
-(defn- parse-configuration-item
-  "Generates a function from the given configuration.
-
-  A function will be generated that can take parsed XML and stream the result
-  to the channel supplied. '(fn [root ch] ...)'
-
-  Each product is exported as a first class key value pair using the ':id'
-  Each property is exported as a compound key made up of the product
-  identifier (':fk') and the relationship name (':nm').
-  The relationship name defaults to the first entry in the path."
-  [{:keys [nm path id fk func] :as config}]
-  (let [nm' (or nm (first path))]
-    (cond
-      func func
-      (and id fk) (throw (ex-info "cannot specify both 'id' and 'fk'" config))
-      id (partial stream-component nm' path id)
-      fk (partial stream-property nm' path fk)
-      :else (throw (ex-info "must provide either 'id' or 'fk'" config)))))
-
-(defn- do-import
-  [dmd-file f ch]
-  (with-open [rdr (io/reader (:file dmd-file))]
-    (let [root (xml/parse rdr :skip-whitespace true)]
-      (f root ch))))
-
-(defn import-file
-  [dmd-file ch {:keys [close?] :as opts}]
-  (if-let [configs (filter-configurations file-configuration (:type dmd-file) opts)]
-    (doseq [cfg configs]
-      (log/debug "importing from " dmd-file "; cfg:" cfg)
-      (do-import dmd-file (parse-configuration-item cfg) ch))
-    (log/warn "skipping file " dmd-file ": no implemented parser"))
-  (when close? (a/close! ch)))
-
-(defn import-dmd
-  "Streams UK dm+d data to the channel.
-  Data are ordered, by default, to preserve relational integrity.
-  Blocking so run in a thread if necessary.
-  Parameters:
-  - dir  : directory from which to import files
-  - ch   : clojure.core.async channel to which to send data
-  - opts : map of optional options including
-    |- :close?  : whether to close the channel when done (default true)
-    |- :include : a set of dm+d file / component types to include.
-    |- :exclude : a set of dm+d file / component types to exclude.
-
-  Inclusions and exclusions should be of the form of a set of tuples made up
-  of the filetype (e.g. :VTM, :VMP, :AMP, :VMPP :AMPP, :LOOKUP etc) and component
-  type (e.g. :VIRTUAL_PRODUCT_INGREDIENT, :ONT_DRUG_FORM etc).
-  e.g.  {:include #{[:VMP :VIRTUAL_PRODUCT_INGREDIENT]}}.
-
-  The naming of components is, as the dm+d standard, in the singular.
-
-  As INGREDIENTS data is redundant in the context of a wider SNOMED terminology
-  server, it would be usual to use
-     {:exclude #{[:INGREDIENT :INGREDIENT]}}
-  to exclude the import of ingredient data from dm+d XML files.
-
-  Each streamed result is a map containing a dm+d component and an extra ':ID'
-  property. The identifier is one of three types:
-  - numeric: always a SNOMED concept identifier; used for first-class high-level
-             dm+d components such as VTM/VMP/AMP etc.
-  - keyword: a keyword key is an identifier representing a value in a valueset.
-  - vector : a vector key represents a relation of a core concept, consisting of
-   a tuple of the parent concept and a keyword representing relationship type.
-
-  Example:
-    (def ch (a/chan 1 (partition-all 500)))
-    (thread (import-dmd \"dir\" ch))
-    (a/<!! ch)"
-  ([dir ch] (import-dmd dir ch nil))
-  ([dir ch {:keys [close? _include exclude] :or {close? true, exclude #{[:INGREDIENT :INGREDIENT]}} :as opts}]
-   (let [metadata (get-release-metadata dir)
-         files (dmd-file-seq dir)]
-     (log/info "Importing dm+d release :" metadata)
-     (doseq [f files]
-       (import-file f ch (assoc opts :close? false)))       ;; force 'close?' to be false
-     (when close?
-       (a/close! ch)))))
+  - dir      : directory containing dm+d distribution
+  - ch       : clojure.core.async channel
+  - ordered? : whether components should be streamed in order, default true
+  - include  : a set of dm+d file types to include (e.g. #{:VTM})
+  - exclude  : a set of dm+d file types to exclude (e.g. #{:VTM})"
+  [dir ch & {:keys [ordered? _include _exclude] :or {ordered? true} :as opts}]
+  (log/info "Importing from " dir)
+  (let [files (dmd-file-seq dir opts)]
+    (if ordered?
+      ;; simple ordered processing; do one by one
+      (doseq [dmd-file files]
+        (stream-dmd-file ch false dmd-file))
+      ;; parallel processing - process each file in separate thread
+      (loop [files' files
+             done-chs []]
+        (let [dmd-file (first files')]
+          (if-not dmd-file
+            (a/<!! (a/merge done-chs))                      ;; when all files scheduled, wait for all to complete
+            (recur (next files')
+                   (conj done-chs (a/thread (stream-dmd-file ch false dmd-file))))))))
+    ;; finally, close channel when we're done
+    (a/close! ch)))
 
 (defn statistics-dmd
   "Return statistics for dm+d data in the specified directory."
   [dir]
   (let [ch (a/chan)]
-    (a/thread (import-dmd dir ch))
+    (a/thread (stream-dmd dir ch))
     (loop [item (a/<!! ch)
            counts {}]
       (if-not item
@@ -361,15 +280,46 @@
         (recur (a/<!! ch)
                (update counts (:TYPE item) (fnil inc 0)))))))
 
+(defn- ch->seq*
+  [ch]
+  (when-let [item (a/<!! ch)]
+    (cons item (lazy-seq (ch->seq* ch)))))
+
+(defn ch->seq
+  "Turns a clojure core.async channel into a lazy sequence."
+  [ch]
+  (lazy-seq (ch->seq* ch)))
+
+(defn get-component
+  "Convenience function to stream only the specified component.
+  Useful for testing.
+  Parameters:
+  - dir            : directory from which to load dm+d files
+  - file-type      : dm+d type  e.g. :LOOKUP
+  - component-type : component type e.g. :COMBINATION_PACK_IND
+
+  `file-type` and `component-type` are keywords representing the names from the
+  dm+d specification.
+  :VTM :VTM   - returns all VTMs
+  :VMP :VMP   - returns all VMPs
+  :VMP :ONT_DRUG_FORM - returns all ONT_DRUG_FORMS from the VMP file."
+  [dir file-type component-type]
+  (let [ch (a/chan 200 (filter #(= [file-type component-type] (:TYPE %))))]
+    (a/thread (stream-dmd dir ch :include #{file-type}))
+    (ch->seq ch)))
+
 (comment
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
+  (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :include #{:VTM :VMP} :exclude #{:VMP})
+  (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :include #{:VTM})
+  (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :exclude #{:VTM})
   (get-release-metadata "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
   (get-release-metadata "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
-  (def ch (a/chan))
-  (a/thread (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" ch
-                        {:exclude #{[:INGREDIENT :INGREDIENT]}}))
-  (a/thread (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" ch
-                        {:include #{[:VMP :DRUG_FORM]}}))
-  (a/<!! ch)
   (statistics-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
+
+  (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :LOOKUP :LEGAL_CATEGORY)
+  (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :VTM :VTM)
+  (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :VMP :VMP)
+  (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :AMP :AP_INGREDIENT)
+
   )
