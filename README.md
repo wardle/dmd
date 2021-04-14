@@ -64,7 +64,7 @@ to build a new datafile for each release of the dm+d distribution. You should
 regard that file as immutable after creation. This is reference data; do not
 update in place. 
 
-You can find available releases on TRUD by looking at their [portal]https://isd.digital.nhs.uk)
+You can find available releases on TRUD by looking at their [portal](https://isd.digital.nhs.uk)
 or running:
 
 ```shell
