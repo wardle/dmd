@@ -50,12 +50,20 @@ Here I use `/var/local/trud/cache' as my cache directory. I share this among a n
 ```shell
 clj -M:run latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/trud/cache
 ```
+or
+```shell
+java -jar dmd.jar latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/trud/cache
+```
 
 This will create a file-based database named dmd-2021-04-12.db (or whatever release date is appropriate).
 Alternatively, you can manually specify a name:
 
 ```shell
 clj -M:run latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/trud/cache --db dmd.db
+```
+or
+```shell
+java -jar dmd.jar latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/trud/cache --db dmd.db
 ```
 
 Note: this does not support updating an existing datafile. It is much better
@@ -68,7 +76,10 @@ or running:
 
 ```shell
 clj -M:run list --api-key /var/local/trud/api-key.txt
+# or java -jar dmd.jar list --api-key /var/local/trud/api-key.txt
 ```
+
+
 Result:
 ```shell
 ➜  dmd git:(main) ✗  clj -M:run --api-key /var/local/trud/api-key.txt list
@@ -102,6 +113,10 @@ Once you have downloaded a distribution, you can use it to run a very fast REST 
 
 ```shell
 clj -M:serve dmd-2021-04-12.db 8080
+```
+or
+```shell
+java -jar dmd-server.jar dmd-2021-04-12.db 8080
 ```
 
 As it is very likely that the complete dm+d dataset will fit into the memory
