@@ -11,7 +11,7 @@
            ch.qos.logback/logback-classic   {:mvn/version "1.2.3"}
 
            com.eldrix/trud                  {:git/url "https://github.com/wardle/trud.git"
-                                             :sha     "0d5ad23aa2912960949e68eeec1e6470be82e3f1"}
+                                             :sha     "eb8b7d567a4a81dd970623fe2ac3380f4ce3f722"}
 
            aero/aero                        {:mvn/version "1.1.6"}
            com.taoensso/nippy               {:mvn/version "3.1.1"}
