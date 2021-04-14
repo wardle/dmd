@@ -335,6 +335,12 @@ and it is sensible to remind people of that.
 
 # Developer information
 
+#### View outdated dependencies
+
+```shell
+clj -M:outdated
+```
+
 #### Run compilation checks
 
 ```shell
