@@ -97,14 +97,12 @@ clj -M:run --api-key /var/local/trud/api-key.txt download 2021-04-05
 ```
 
 
-#### 4. Run a REST server   [not yet committed]
-
-* This isn't committed to main trunk yet so it won't work. *
+#### 4. Run a REST server  
 
 Once you have downloaded a distribution, you can use it to run a very fast REST server.
 
 ```shell
-clj -M:serve dmd-2021-04-12.db --port 8080
+clj -M:serve dmd-2021-04-12.db 8080
 ```
 
 As it is very likely that the complete dm+d dataset will fit into the memory
@@ -114,6 +112,106 @@ instances should it be necessary. It is also entirely reasonable to keep
 older instances running to provide access to data from a particular time point
 should that be necessary. Clients can then choose to use a specific version
 or simply the latest dataset.  
+
+Example usage:
+```shell
+➜  dmd git:(main) ✗ http -j http://localhost:8080/dmd/v1/product/12797611000001109 
+```
+
+Result will be the denormalized product:
+
+```json
+
+{
+    "BASIS": {
+        "CD": "0001",
+        "DESC": "rINN - Recommended International Non-proprietary"
+    },
+    "BASISCD": "0001",
+    "BASIS_PREVCD": "0001",
+    "CONTROL_DRUG_INFO": [
+        {
+            "CD": "0000",
+            "DESC": "No Controlled Drug Status"
+        }
+    ],
+    "DF_IND": {
+        "CD": "2",
+        "DESC": "Continuous"
+    },
+    "DF_INDCD": "2",
+    "DRUG_FORM": [
+        {
+            "CD": "385023001",
+            "CDDT": "2008-01-11",
+            "CDPREV": "3094611000001106",
+            "DESC": "Oral solution"
+        }
+    ],
+    "DRUG_ROUTE": [
+        {
+            "CD": "26643006",
+            "DESC": "Oral"
+        }
+    ],
+    "INVALID": true,
+    "NM": "Amlodipine 5mg/5ml oral solution sugar-free",
+    "NMDT": "2015-06-08",
+    "NMPREV": "Amlodipine 5mg/5ml oral solution sugar free",
+    "NON_AVAIL": {
+        "CD": "0001",
+        "DESC": "Actual Products not Available"
+    },
+    "NON_AVAILCD": "0001",
+    "NON_AVAILDT": "2016-12-06",
+    "ONT_DRUG_FORM": [
+        {
+            "CD": "0005",
+            "DESC": "solution.oral"
+        }
+    ],
+    "PRES_STAT": {
+        "CD": "0001",
+        "DESC": "Valid as a prescribable product"
+    },
+    "PRES_STATCD": "0001",
+    "SUG_F": false,
+    "TYPE": "uk.nhs.dmd/VMP",
+    "VIRTUAL_PRODUCT_INGREDIENT": [
+        {
+            "BASIS_STRNT": {
+                "CD": "0001",
+                "DESC": "Based on Ingredient Substance"
+            },
+            "BASIS_STRNTCD": "0001",
+            "ISID": 386864001,
+            "ISIDDT": "2005-07-27",
+            "ISIDPREV": 3512211000001104,
+            "NM": "Amlodipine",
+            "STRNT_DNMTR_UOM": {
+                "CD": 258773002,
+                "DESC": "ml"
+            },
+            "STRNT_DNMTR_UOMCD": 258773002,
+            "STRNT_DNMTR_VAL": 1,
+            "STRNT_NMRTR_UOM": {
+                "CD": 258684004,
+                "DESC": "mg"
+            },
+            "STRNT_NMRTR_UOMCD": 258684004,
+            "STRNT_NMRTR_VAL": 1
+        }
+    ],
+    "VPID": 12797611000001109,
+    "VTM": {
+        "NM": "Amlodipine",
+        "TYPE": "uk.nhs.dmd/VTM",
+        "VTMID": 108537001
+    },
+    "VTMID": 108537001
+}
+
+```
 
 #### 5. Embed as a library into a larger application
 
