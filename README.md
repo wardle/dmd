@@ -16,8 +16,7 @@ composable and yet can be developed in parallel.
 
 SNOMED releases occur at three-monthly intervals. The NHS Business Services Authority (BSA) release dm+d data weekly.
 That means there may be products within dm+d that are not yet within the UK SNOMED CT drug extension. That was one of
-the reasons I decided to create `dmd`
-as a separate service.
+the reasons I decided to create `dmd` as a separate service.
 
 # Getting started
 
@@ -53,7 +52,7 @@ clj -M:run latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/t
 ```
 
 This will create a file-based database named dmd-2021-04-12.db (or whatever release date is appropriate).
-Alternatively, you can manually specify a name
+Alternatively, you can manually specify a name:
 
 ```shell
 clj -M:run latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/trud/cache --db dmd.db
