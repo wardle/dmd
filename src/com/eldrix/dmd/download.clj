@@ -26,6 +26,7 @@
   - cache-dir    : TRUD download cache directory (e.g. \"/var/trud/cache/\".
   - release-date : optional, release date of distribution (default, latest).
                  : can be a string or a java.time.LocalDate for convenience.
+
   Returns TRUD metadata about the item specified, but also the path to the
   downloaded archive file.
   See com.eldrix.trud.core/get-latest for information about return value."
