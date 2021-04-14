@@ -113,6 +113,9 @@ older instances running to provide access to data from a particular time point
 should that be necessary. Clients can then choose to use a specific version
 or simply the latest dataset.  
 
+The REST server is under active development. At the moment, there is a single
+endpoint, mainly for demonstration purposes:
+
 Example usage:
 ```shell
 ➜  dmd git:(main) ✗ http -j http://localhost:8080/dmd/v1/product/12797611000001109 
