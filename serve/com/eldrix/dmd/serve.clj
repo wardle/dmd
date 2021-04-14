@@ -124,7 +124,7 @@
 
 (defn -main [& args]
   (if-not (= 2 (count args))
-    (println "Incorrect parameter. Usage: clj -M:serve <database> <port>")
+    (println "Usage: clj -M:serve <database> <port>\n    or java -jar dmd-server.jar <database> <port>")
     (let [[filename port] args
           store (com.eldrix.dmd.store/open-dmd-store filename)
           port' (Integer/parseInt port)]

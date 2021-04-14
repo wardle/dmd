@@ -1,5 +1,6 @@
 (ns com.eldrix.dmd.download
-  (:require [clojure.string :as str]
+  (:require [clojure.pprint :as pprint]
+            [clojure.string :as str]
             [com.eldrix.trud.core :as trud]
             [com.eldrix.trud.zip :as zipfile]
             [com.eldrix.dmd.import :as dim])
@@ -17,7 +18,7 @@
 
 (defn print-available-releases
   [api-key]
-  (clojure.pprint/print-table [:id :releaseDate :name] (fetch-available-releases api-key)))
+  (pprint/print-table [:id :releaseDate :name] (fetch-available-releases api-key)))
 
 (defn download-release
   "Download a dm+d distribution from TRUD
@@ -32,17 +33,17 @@
   See com.eldrix.trud.core/get-latest for information about return value."
   ([api-key cache-dir] (download-release api-key cache-dir nil))
   ([api-key cache-dir release-date]
-  (if-let [release-date' (cond (instance? LocalDate release-date) release-date
-                               (string? release-date) (LocalDate/parse release-date DateTimeFormatter/ISO_DATE))]
-    ;; if we have an explicit release date, find it in the releases available, and then download it.
-    (let [available (fetch-available-releases api-key)]
-      (if-let [release (first (filter #(= release-date' (:releaseDate %)) available))] ;; find the release based on the release date specified
-        (assoc release :archiveFilePath (trud/download-release cache-dir release)) ;; and once found, download it.
-        (throw (ex-info "No release found for date" {:release-date release-date' :available (map :releaseDate available)}))))
-    ;; if we don't have an explicit release date, get the latest
-    (trud/get-latest {:api-key   api-key
-                      :cache-dir cache-dir}
-                     dm+d-trud-identifier))))
+   (if-let [release-date' (cond (instance? LocalDate release-date) release-date
+                                (string? release-date) (LocalDate/parse release-date DateTimeFormatter/ISO_DATE))]
+     ;; if we have an explicit release date, find it in the releases available, and then download it.
+     (let [available (fetch-available-releases api-key)]
+       (if-let [release (first (filter #(= release-date' (:releaseDate %)) available))] ;; find the release based on the release date specified
+         (assoc release :archiveFilePath (trud/download-release cache-dir release)) ;; and once found, download it.
+         (throw (ex-info "No release found for date" {:release-date release-date' :available (map :releaseDate available)}))))
+     ;; if we don't have an explicit release date, get the latest
+     (trud/get-latest {:api-key   api-key
+                       :cache-dir cache-dir}
+                      dm+d-trud-identifier))))
 
 (comment
   (def api-key (str/trim-newline (slurp "/Users/mark/Dev/trud/api-key.txt")))

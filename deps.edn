@@ -15,7 +15,7 @@
            org.mapdb/mapdb                {:mvn/version "3.0.8"}}
 
  :aliases {:run
-           {:main-opts ["-m" "com.eldrix.dmd.core"]}
+           {:main-opts ["-m" "com.eldrix.dmd.cli"]}
 
            :serve
            {:extra-paths ["serve"]
@@ -62,4 +62,24 @@
 
            :lint/eastwood
            {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]
-            :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}}}
+            :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
+
+           :jar
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.211"}}
+            :exec-fn      hf.depstar/jar
+            :exec-args    {:jar "target/dmd-lib.jar"}}
+
+           :uberjar
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.211"}}
+            :exec-fn      hf.depstar/uberjar
+            :exec-args    {:jar        "target/dmd.jar"
+                           :aot        true
+                           :main-class "com.eldrix.dmd.cli"}}
+
+           :server-uberjar  {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.211"}}
+                             :exec-fn      hf.depstar/uberjar
+                             :exec-args    {:jar        "target/dmd-server.jar"
+                                            :aliases    [:serve]
+                                            :aot        true
+                                            :main-class com.eldrix.dmd.serve}}
+           }}

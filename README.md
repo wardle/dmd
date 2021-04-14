@@ -317,3 +317,39 @@ The COCOMO model provides an estimate of the cost of software.
 I don't think it is accurate, at all, but when you look at open-source software
 it is important to recognise that open-source work is not free. There is a cost
 and it is sensible to remind people of that.
+
+
+# Developer information
+
+#### Run compilation checks
+
+```shell
+clj -M:check
+```
+
+#### Run linting
+
+```shell
+clj -M:lint/eastwood
+clj -M:lint/kondo
+```
+
+#### Build library jar
+
+```shell
+clj -X:jar
+```
+
+#### Build and run command-line utility uberjar
+
+```shell
+clj -X:uberjar
+java -jar target/dmd.jar --help
+```
+
+#### Build and run server uberjar
+
+```shell
+clj -X:server-uberjar
+java -jar target/dmd-server.jar dmd-2021-04-12.db 8080
+```
