@@ -335,6 +335,12 @@ and it is sensible to remind people of that.
 
 # Developer information
 
+#### View all dependencies
+
+```shell
+clj -X:deps tree
+```
+
 #### View outdated dependencies
 
 ```shell
