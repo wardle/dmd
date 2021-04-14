@@ -207,7 +207,7 @@ adopting a standards-based approach. Open-source is a critical component of that
 
 There is too much incidental complexity in health and care software, and too many moving parts. 
 The domains of health and care are too complex to add to that burden by using the wrong
-technical and architectural approach. These tools show a new approach based on data
+technical and architectural approaches. These tools show a new approach based on data
 and its flow between loosely-coupled components. 
 
 ### Why do you put COCOMO estimates on your repositories?
