@@ -86,7 +86,7 @@ To download a specific edition, you can download manually, unzip and then
 directly import from that distribution.
 
 ```shell
-clj -M:run install --db dmd.db /tmp/downloads/trud
+clj -M:run --db dmd.db install /tmp/downloads/trud
 ```
 
 Or you can specify the version and let `dmd` download for you.
