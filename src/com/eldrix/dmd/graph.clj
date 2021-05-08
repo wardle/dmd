@@ -36,7 +36,7 @@
 
 (pco/defresolver fetch-vtm
   [{::keys [store]} {:uk.nhs.dmd/keys [VTMID]}]
-  {::pco/output [:uk.nhs.dmd/TYPE :uk.nhs.dmd/NM :uk.nhs.dmd/VTMID :info.snomed.Concept/id]}
+  {::pco/output [:uk.nhs.dmd/TYPE :uk.nhs.dmd/NM :uk.nhs.dmd/VTMID]}
   (record->map "uk.nhs.dmd" (store/fetch-product store VTMID)))
 
 (pco/defresolver fetch-extended-vmp
@@ -67,6 +67,7 @@
    fetch-vtm
    fetch-extended-vmp
    fetch-extended-amp
+   vmps-for-vtm
    ;; these aliasesresolvers make it possible to navigate seamlessly from a dm+d
    ;; product to the SNOMED structures, including relationships and therefore
    ;; inference
@@ -81,6 +82,7 @@
   (def store (store/open-dmd-store "dmd-2021-04-12.db"))
   (record->map "uk.nhs.dmd" (store/fetch-product store 108537001)) ;; VTM
   (store/vmps-for-vtm store 108537001)
+  (fetch-vtm {::store store} {:uk.nhs.dmd/VTMID 108537001})
   (vmps-for-vtm {::store store} {:uk.nhs.dmd/VTMID 108537001})
   (record->map "uk.nhs.dmd" (store/fetch-product store 20478011000001105))
   (fetch-extended-vmp {::store store} {:uk.nhs.dmd/VPID 20478011000001105})
