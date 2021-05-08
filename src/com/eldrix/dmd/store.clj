@@ -18,7 +18,6 @@
             [clojure.core.match :refer [match]]
             [clojure.java.io :as io]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.dmd.import :as dim]
             [taoensso.nippy :as nippy])
   (:import (org.mapdb DB Serializer DBMaker BTreeMap DataOutput2)
            (java.io FileNotFoundException Closeable)
@@ -59,6 +58,7 @@
          core (.createOrOpen (.treeMap db "core" Serializer/LONG NippySerializer))
          ;; lookup tables are stored keyed with tableName-code as a string
          lookups (.createOrOpen (.treeMap db "lookups" Serializer/STRING NippySerializer))
+         ;; relationships
          vtm-vmps (.createOrOpen (.treeSet db "vtm-vmps" Serializer/LONG_ARRAY))
          vmp-amps (.createOrOpen (.treeSet db "vmp-amps" Serializer/LONG_ARRAY))
          vmp-vmpps (.createOrOpen (.treeSet db "vmp-vmpps" Serializer/LONG_ARRAY))
@@ -117,9 +117,10 @@
         (.put ^BTreeMap (.core store) concept-id new-value))
       (throw (ex-info "no existing component for id" {:id concept-id :component component})))))
 
-
 (defn put
   "Store a dm+d component into the backing store.
+  Each component is given a type, a tuple of the file type and the component type.
+  We use that tuple to determine how to insert data into the backing store.
   Parameters:
      - store : DmdStore
      - m     : component : VTM / VMP / VMPP / AMP / AMPP "
@@ -153,6 +154,7 @@
     (.compact (.getStore ^BTreeMap (.core store)))
     (log/debug "import/compaction completed")
     (.close ^DB (.db store))))
+
 
 (defn fetch-product [^DmdStore store ^long id]
   (.get ^BTreeMap (.core store) id))
@@ -229,6 +231,7 @@
   [store amp]
   (merge
     (-> amp
+        (assoc :VMP (fetch-product store (:VPID amp)))
         (assoc :SUPP (lookup store (str "SUPPLIER-" (:SUPPCD amp))))
         (assoc :LIC_AUTH (lookup store (str "LICENSING_AUTHORITY-" (:LIC_AUTHCD amp))))
         (assoc :AVAIL_RESTRICT (lookup store (str "AVAILABILITY_RESTRICTION-" (:AVAIL_RESTRICTCD amp))))

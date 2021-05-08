@@ -11,6 +11,8 @@
            ch.qos.logback/logback-classic {:mvn/version "1.2.3"}
            com.eldrix/trud                {:git/url "https://github.com/wardle/trud.git"
                                            :sha     "eb8b7d567a4a81dd970623fe2ac3380f4ce3f722"}
+           com.wsscode/pathom             {:git/url "https://github.com/wilkerlucio/pathom3"
+                                           :sha     "ea60bb0031961fca5600630ce297b43dbd643225"}
            com.taoensso/nippy             {:mvn/version "3.1.1"}
            org.mapdb/mapdb                {:mvn/version "3.0.8"}}
 
@@ -76,10 +78,11 @@
                            :aot        true
                            :main-class "com.eldrix.dmd.cli"}}
 
-           :server-uberjar  {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.211"}}
-                             :exec-fn      hf.depstar/uberjar
-                             :exec-args    {:jar        "target/dmd-server.jar"
-                                            :aliases    [:serve]
-                                            :aot        true
-                                            :main-class com.eldrix.dmd.serve}}
+           :server-uberjar
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.211"}}
+            :exec-fn      hf.depstar/uberjar
+            :exec-args    {:jar        "target/dmd-server.jar"
+                           :aliases    [:serve]
+                           :aot        true
+                           :main-class com.eldrix.dmd.serve}}
            }}
