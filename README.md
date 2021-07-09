@@ -20,6 +20,8 @@ the reasons I decided to create `dmd` as a separate service.
 
 # Getting started
 
+`dmd` creates an immutable 
+
 #### 1. Install clojure, if not already available
 
 You can either install clojure and run from source code, or download a runnable jar file. I
@@ -27,16 +29,36 @@ suggest [installing clojure](https://clojure.org/guides/getting_started) for the
 I will make pre-built runnable jars available once development is as complete as
 I should like.
 
-#### 2. Obtain a TRUD api key
+#### 2. Register for a TRUD account and (optionally) download an api key
 
-You will need to obtain an API key from the NHS Digital [TRUD](https://isd.digital.nhs.uk) service. Copy and paste that
-key into a file on your local filesystem.
+You will need to get a dm+d distribution via [TRUD](https://isd.digital.nhs.uk), which requires registration. 
+If you want to use automatic downloads, you will also need to download an API key
+from the service.  Copy and paste that key into a file on your local filesystem, if required.
 
+e.g.
 ```shell
 echo >/var/local/trud/api-key.txt XXXXXXXXX
 ```
 
 #### 3. Download and install the latest dm+d distribution
+
+You can choose to download manually, or automatically.
+
+##### Download manually
+
+You can download a dm+d distribution from the NHS Digital's [TRUD]((https://isd.digital.nhs.uk)) service, on behalf of the NHS BSA. 
+Download the main dm+d distribution; you can optionally also download the 'extras' which include mapping from dm+d to 
+ATC BNF codes. Once downloaded, unzip one or both into a common directory and run: 
+
+```shell
+clj -M:install --db dmd-2021-07-01.db ~/Downloads/dmd-2021-07-01 
+```
+
+This will look for files in the directory specified and create a new file-based
+database at `dmd-2021-07-01.db`. 
+You can also specify multiple directories from which to import.
+
+##### Download automatically
 
 `dmd` has automatic functionality to download and install the latest distribution. The process takes less than ten
 minutes.

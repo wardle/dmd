@@ -38,7 +38,8 @@
                    ^NavigableSet vmp-amps
                    ^NavigableSet vmp-vmpps
                    ^NavigableSet amp-ampps
-                   ^NavigableSet vmpp-ampps]
+                   ^NavigableSet vmpp-ampps
+                   ^Map bnf]
   Closeable
   (close [this] (.close ^DB (.db this))))
 
@@ -63,8 +64,9 @@
          vmp-amps (.createOrOpen (.treeSet db "vmp-amps" Serializer/LONG_ARRAY))
          vmp-vmpps (.createOrOpen (.treeSet db "vmp-vmpps" Serializer/LONG_ARRAY))
          amp-ampps (.createOrOpen (.treeSet db "amp-ampps" Serializer/LONG_ARRAY))
-         vmpp-ampps (.createOrOpen (.treeSet db "vmpp-ampps" Serializer/LONG_ARRAY))]
-     (->DmdStore db core lookups vtm-vmps vmp-amps vmp-vmpps amp-ampps vmpp-ampps))))
+         vmpp-ampps (.createOrOpen (.treeSet db "vmpp-ampps" Serializer/LONG_ARRAY))
+         bnf (.createOrOpen (.treeMap db "bnf" Serializer/LONG NippySerializer))]
+     (->DmdStore db core lookups vtm-vmps vmp-amps vmp-vmpps amp-ampps vmpp-ampps bnf))))
 
 (defn tuple->identifier
   [[_file-type component-type]]
@@ -108,6 +110,10 @@
   [^DmdStore store lookup]
   (.put ^BTreeMap (.-lookups store) (name (:ID lookup)) (dissoc lookup :ID :TYPE)))
 
+(defn put-bnf
+  [^DmdStore store bnf]
+  (.put ^BTreeMap (.-bnf store) (or (:VPID bnf) (:APID bnf)) (dissoc bnf :TYPE :VPID :APID)))
+
 (defn put-property
   [^DmdStore store component fk]
   (let [[_ property] (:TYPE component)
@@ -139,22 +145,30 @@
          [[:AMPP _]] (put-property store m :APPID)          ;; for all other properties, the FK to the parent is APPID
          [[:INGREDIENT :INGREDIENT]] (put-ingredient store m)
          [[:LOOKUP _]] (put-lookup store m)
-         :else nil))
+         [[:BNF _]] (put-bnf store m)
+         :else (log/info "Unknown file type / component type tuple" m)))
+
+(defn import-worker
+  [store ch]
+  (loop [m (a/<!! ch)]
+    (when m
+      (put store m)
+      (recur (a/<!! ch)))))
 
 (defn create-store
   "Create a new dm+d store from data supplied in the channel."
   [filename ch]
-  (let [store (open-dmd-store filename {:read-only? false})]
-    (loop [m (a/<!! ch)]
-      (when m
-        (try (put store m)
-             (catch Exception e (throw (ex-info "failed to import" {:e e :component m}))))
-        (recur (a/<!! ch))))
+  (let [store (open-dmd-store filename {:read-only? false})
+        cpu (.availableProcessors (Runtime/getRuntime))]
+    (loop [n 0 chs []]
+      (if (= n cpu)
+        (a/<!! (a/merge chs))
+        (recur (inc n)
+               (conj chs (a/thread (import-worker store ch))))))
     (log/debug "compacting data store")
     (.compact (.getStore ^BTreeMap (.core store)))
     (log/debug "import/compaction completed")
     (.close ^DB (.db store))))
-
 
 (defn fetch-product [^DmdStore store ^long id]
   (.get ^BTreeMap (.core store) id))
@@ -176,6 +190,9 @@
 
 (defn ampps-for-vmpp [^DmdStore store vppid]
   (set (map second (map seq (.subSet ^NavigableSet (.-vmpp_ampps store) (long-array [vppid 0]) (long-array [vppid Long/MAX_VALUE]))))))
+
+(defn bnf-for-product [^DmdStore store ^long product-id]
+  (get ^BTreeMap (.bnf store) product-id))
 
 (defn make-extended-vpi
   [store vpi]
@@ -223,8 +240,8 @@
     (when-let [unit-dose-uomcd (:UNIT_DOSE_UOMCD vmp)]
       {:UNIT_DOSE_UOM (lookup store (str "UNIT_OF_MEASURE-" unit-dose-uomcd))})
     (when-let [udfs-uomcd (:UDFS_UOMCD vmp)]
-      {:UDFS_UOM (lookup store (str "UNIT_OF_MEASURE-" udfs-uomcd))})))
-
+      {:UDFS_UOM (lookup store (str "UNIT_OF_MEASURE-" udfs-uomcd))})
+    (bnf-for-product store (:VPID vmp))))
 
 (defn make-extended-amp
   "Denormalises an AMP."
@@ -244,8 +261,8 @@
     (when-let [comb-prod-cd (:COMBPRODCD amp)]
       {:COMBPROD (lookup store (str "COMBINATION_PROD_IND-" comb-prod-cd))})
     (when-let [flavour-cd (:FLAVOURCD amp)]
-      {:FLAVOUR (lookup store (str "FLAVOUR-" flavour-cd))})))
-
+      {:FLAVOUR (lookup store (str "FLAVOUR-" flavour-cd))})
+    (bnf-for-product store (:APID amp))))
 
 (defmulti vtms "Return identifiers for the VTMs associated with this product."
           (fn [^DmdStore _store product] (:TYPE product)))

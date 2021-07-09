@@ -50,7 +50,7 @@
     (not db)
     (exit 1 "You must specify the name of the database for manual install.")
     :else
-    (dmd/install-from-dir db (first params))))
+    (dmd/install-from-dirs db params)))
 
 (defn -main [& args]
   (let [{:keys [options arguments summary errors]} (cli/parse-opts args cli-options)]

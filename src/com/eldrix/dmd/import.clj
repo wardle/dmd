@@ -28,7 +28,8 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
-            [clojure.zip :as zip])
+            [clojure.zip :as zip]
+            [clojure.core.async :as async])
   (:import [java.time LocalDate]
            (java.time.format DateTimeFormatter DateTimeParseException)))
 
@@ -40,7 +41,7 @@
 
 (def ^:private file-ordering
   "Order of file import for relational integrity, if needed."
-  [:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP])
+  [:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP :BNF])
 
 (def ^DateTimeFormatter df
   (DateTimeFormatter/ofPattern "ddMMyy"))
@@ -48,7 +49,7 @@
 (def ^:private file-matcher
   "There is no formal specification for filename structure, but this is the de
   facto standard."
-  #"^f_([a-z]*)2_\d(\d{6})\.xml$")
+  #"^f_([a-z]*)\d_\d(\d{6})\.xml$")
 
 (defn ^:private parse-dmd-filename
   "Parse a dm+d filename if possible."
@@ -214,6 +215,12 @@
         (recur (next lookups)))
       (when close? (a/close! ch)))))
 
+(defn stream-bnf
+  [root ch _file-type close?]
+  (let [entries (mapcat :content (:content root))]
+    (a/<!! (a/onto-chan!! ch (map (partial parse-dmd-component [:BNF nil]) entries) close?))
+    (when close? (a/close! ch))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; High-level dm+d processing functionality
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -225,7 +232,8 @@
    :VMPP       stream-nested-dmd
    :AMPP       stream-nested-dmd
    :INGREDIENT stream-flat-dmd
-   :LOOKUP     stream-lookup-xml})
+   :LOOKUP     stream-lookup-xml
+   :BNF        stream-bnf})
 
 (defn- stream-dmd-file [ch close? {:keys [type file] :as dmd-file}]
   (log/info "Processing " dmd-file)
@@ -247,26 +255,16 @@
   Parameters:
   - dir      : directory containing dm+d distribution
   - ch       : clojure.core.async channel
-  - ordered? : whether components should be streamed in order, default true
+  - close?   : close the channel when done?, default true
   - include  : a set of dm+d file types to include (e.g. #{:VTM})
   - exclude  : a set of dm+d file types to exclude (e.g. #{:VTM})"
-  [dir ch & {:keys [ordered? _include _exclude] :or {ordered? true} :as opts}]
+  [dir ch & {:keys [_include _exclude close?] :or {close? true} :as opts}]
   (log/info "Importing from " dir)
   (let [files (dmd-file-seq dir opts)]
-    (if ordered?
-      ;; simple ordered processing; do one by one
-      (doseq [dmd-file files]
-        (stream-dmd-file ch false dmd-file))
-      ;; parallel processing - process each file in separate thread
-      (loop [files' files
-             done-chs []]
-        (let [dmd-file (first files')]
-          (if-not dmd-file
-            (a/<!! (a/merge done-chs))                      ;; when all files scheduled, wait for all to complete
-            (recur (next files')
-                   (conj done-chs (a/thread (stream-dmd-file ch false dmd-file))))))))
-    ;; finally, close channel when we're done
-    (a/close! ch)))
+    (log/info "files found in directory " dir ":" files)
+    (doseq [dmd-file files]
+      (stream-dmd-file ch false dmd-file))
+    (when close? (a/close! ch))))
 
 (defn statistics-dmd
   "Return statistics for dm+d data in the specified directory."
@@ -310,16 +308,26 @@
 
 (comment
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
+
+  (dmd-file-seq "/Users/mark/Downloads/week272021-r2_3-BNF")
+  (get-release-metadata "/Users/mark/Downloads/week272021-r2_3-BNF")
+  (get-component "/Users/mark/Downloads/week272021-r2_3-BNF" :BNF :BNF)
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :include #{:VTM :VMP} :exclude #{:VMP})
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :include #{:VTM})
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :exclude #{:VTM})
   (get-release-metadata "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
   (get-release-metadata "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
   (statistics-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
-
+  (statistics-dmd "/Users/mark/Downloads/week272021-r2_3-BNF")
   (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :LOOKUP :LEGAL_CATEGORY)
   (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :VTM :VTM)
   (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :VMP :VMP)
   (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :AMP :AP_INGREDIENT)
 
+  (def file "/Users/mark/Downloads/week272021-r2_3-BNF/f_bnf1_0010721.xml")
+  (def rdr (io/reader file))
+  (def root (xml/parse rdr :skip-whitespace true))
+  (def ch (a/chan))
+  (a/thread (stream-bnf root ch nil true))
+  (a/<!! ch)
   )
