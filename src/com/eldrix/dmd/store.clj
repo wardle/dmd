@@ -65,6 +65,7 @@
          vmp-vmpps (.createOrOpen (.treeSet db "vmp-vmpps" Serializer/LONG_ARRAY))
          amp-ampps (.createOrOpen (.treeSet db "amp-ampps" Serializer/LONG_ARRAY))
          vmpp-ampps (.createOrOpen (.treeSet db "vmpp-ampps" Serializer/LONG_ARRAY))
+         ;; the dm+d supplementary file is called 'bnf' and includes 'bnf' codes as well as 'ATC' codes.
          bnf (.createOrOpen (.treeMap db "bnf" Serializer/LONG NippySerializer))]
      (->DmdStore db core lookups vtm-vmps vmp-amps vmp-vmpps amp-ampps vmpp-ampps bnf))))
 
@@ -112,6 +113,8 @@
 
 (defn put-bnf
   [^DmdStore store bnf]
+  (when (.get ^BTreeMap (.-bnf store) (or (:VPID bnf) (:APID bnf)))
+    (throw (ex-info "dm+d supplementary distribution has more than one entry for each product" bnf)))
   (.put ^BTreeMap (.-bnf store) (or (:VPID bnf) (:APID bnf)) (dissoc bnf :TYPE :VPID :APID)))
 
 (defn put-property
