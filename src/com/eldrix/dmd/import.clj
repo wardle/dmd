@@ -150,10 +150,12 @@
    :APPID                               parse-long
    :REIMB_STATDT                        parse-date
    :DISCDT                              parse-date
+   :VPIDDT                              parse-date
    :PRNTVPPID                           parse-long
    :CHLDVPPID                           parse-long
    :PRNTAPPID                           parse-long
-   :CHLDAPPID                           parse-long})
+   :CHLDAPPID                           parse-long
+   :DDD_UOMCD                           parse-long})
 
 (defn- parse-property [kind kw v]
   (if-let [parser (get property-parsers [kind kw])]
