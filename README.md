@@ -20,7 +20,8 @@ the reasons I decided to create `dmd` as a separate service.
 
 # Getting started
 
-`dmd` creates an immutable 
+`dmd` creates an immutable file-based database. That database can then be used 
+by `dmd` whether operating as a library or a microservice.
 
 #### 1. Install clojure, if not already available
 
