@@ -25,7 +25,11 @@
    :PRODUCT/PRES_STAT              {:db/valueType :db.type/ref}
    :DF_INDICATOR/CD                {:db/unique :db.unique/identity}
    :PRODUCT/DF_IND                 {:db/valueType :db.type/ref}
-   :PRODUCT/VTM                    {:db/valueType :db.type/ref}})
+   :COMBINATION_PROD_IND/CD        {:db/unique :db.unique/identity}
+   :PRODUCT/COMBPROD               {:db/valueType :db.type/ref}
+   :PRODUCT/VTM                    {:db/valueType :db.type/ref}
+   :VIRTUAL_PRODUCT_NON_AVAIL/CD   {:db/unique :db.unique/identity}
+   :PRODUCT/NON_AVAIL              {:db/valueType :db.type/ref}})
 
 (defn parse-product [m id-key]
   (let [[file-type component-type] (:TYPE m)]
@@ -35,21 +39,21 @@
                 :PRODUCT/ID   (get m id-key)}
                (dissoc m id-key :TYPE))))
 
-(defn parse-vtm [m]
-  )
 (defn parse-amp [m]
   )
-(defn parse-vmp [m]
-  (-> (cond-> (parse-product m :VPID)
-              (:BASISCD m) (assoc :PRODUCT/BASIS [:BASIS_OF_NAME/CD (:BASISCD m)])
-              (:BASIC_PREVCD m) (assoc :PRODUCT/BASIS_PREV [:BASIS_OF_NAME/CD (:BASIS_PREVCD m)])
-              (:PRES_STATCD m) (assoc :PRODUCT/PRES_STAT [:VIRTUAL_PRODUCT_PRES_STATUS/CD (:PRES_STATCD m)])
-              (:VPIDPREV m) (assoc :PRODUCT/PREV [:PRODUCT/ID (:VPIDPREV m)])
-              (:DF_INDCD m) (assoc :PRODUCT/DF_IND [:DF_INDICATOR/CD (:DF_INDCD m)])
-              (:VTMID m) (assoc :PRODUCT/VTM [:PRODUCT/ID (:VTMID m)]))
-      (dissoc :PRODUCT/BASISCD
-              :PRODUCT/PRES_STATCD
-              :PRODUCT/DF_INDCD)))
+(defn parse-vmp
+  [m]
+  (cond-> (-> (parse-product m :VPID)
+              (assoc :PRODUCT/BASIS [:BASIS_OF_NAME/CD (:BASISCD m)]
+                     :PRODUCT/PRES_STAT [:VIRTUAL_PRODUCT_PRES_STATUS/CD (:PRES_STATCD m)]))
+          (:VTMID m) (assoc :PRODUCT/VTM [:PRODUCT/ID (:VTMID m)])
+          (:BASIC_PREVCD m) (assoc :PRODUCT/BASIS_PREV [:BASIS_OF_NAME/CD (:BASIS_PREVCD m)])
+          (:VPIDPREV m) (assoc :PRODUCT/PREV [:PRODUCT/ID (:VPIDPREV m)])
+          (:DF_INDCD m) (assoc :PRODUCT/DF_IND [:DF_INDICATOR/CD (:DF_INDCD m)])
+          (:NMCHANGECD m) (assoc :PRODUCT/NMCHANGE [:NAMECHANGE_REASON/CD (:NMCHANGECD m)])
+          (:COMBPRODCD m) (assoc :PRODUCT/COMBPROD [:COMBINATION_PROD_IND/CD (:COMBPRODCD m)])
+          (:NON_AVAILCD m) (assoc :PRODUCT/NON_AVAIL [:VIRTUAL_PRODUCT_NON_AVAIL/CD (:NON_AVAILCD m)])))
+
 (defn parse-ampp [m]
   )
 (defn parse-vmpp [m]
@@ -117,9 +121,9 @@
   (require '[com.eldrix.dmd.import :as dim]
            '[clojure.core.async :as a])
   (def ch (a/chan))
-  (def ch (a/chan 5 (partition-all 500)))
+  (def ch (a/chan 5 (partition-all 1000)))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:LOOKUP :VTM :VMP}))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:VMP}))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:AMP}))
   (def x (a/<!! ch))
   (print x)
   (parse x)
@@ -131,18 +135,18 @@
       (println "processing batch")
       (d/transact! conn (map parse batch))
       (recur (a/<!! ch))))
-  (d/transact! conn [{:ID 24700007 :NAMECHANGE_REASON [:NAMECHANGE_REASON/CD "0003"] :DESC "sausages"}])
   (d/q '[:find ?code ?desc
          :where
          [?e :BASIS_OF_NAME/CD ?code]
          [?e :BASIS_OF_NAME/DESC ?desc]]
        (d/db conn))
-  (time (d/q '[:find (pull ?e [:PRODUCT/ID :PRODUCT/NM :PRODUCT/VTMID {:PRODUCT/VTM [:PRODUCT/NM]} {:PRODUCT/BASIS [:BASIS_OF_NAME/DESC]}])
+
+  (time (d/q '[:find (pull ?e [:PRODUCT/ID :PRODUCT/NM :PRODUCT/VTMID {:PRODUCT/VTM [*]} {:PRODUCT/BASIS [:BASIS_OF_NAME/DESC]}])
                :where
                [?e :PRODUCT/ID 39488411000001107]]
              (d/db conn)))
-  (d/q '[:find (pull ?e [*])
+  (d/q '[:find (pull ?e [:PRODUCT/ID :PRODUCT/NM {:PRODUCT/NON_AVAIL [:VIRTUAL_PRODUCT_NON_AVAIL/DESC]}])
          :where
-         [?e :PRODUCT/ID 39488411000001107]]
+         [?e :PRODUCT/VTMID 108537001]]
        (d/db conn))
   )
