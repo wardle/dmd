@@ -1,20 +1,22 @@
 {:paths   ["src" "resources" "classes"]
 
- :deps    {org.clojure/clojure            {:mvn/version "1.11.0-alpha1"}
-           org.clojure/core.async         {:mvn/version "1.3.618"}
-           org.clojure/core.match         {:mvn/version "1.0.0"}
-           org.clojure/data.csv           {:mvn/version "1.0.0"}
-           org.clojure/data.xml           {:mvn/version "0.2.0-alpha6"}
-           org.clojure/data.zip           {:mvn/version "1.0.0"}
-           org.clojure/tools.cli          {:mvn/version "1.0.206"}
-           org.clojure/tools.logging      {:mvn/version "1.1.0"}
-           ch.qos.logback/logback-classic {:mvn/version "1.2.3"}
-           com.eldrix/trud                {:git/url "https://github.com/wardle/trud.git"
-                                           :sha     "c73e7dcb4f7420b5e22e528f74c58d884bd6907e"}
-           com.wsscode/pathom             {:git/url "https://github.com/wilkerlucio/pathom3"
-                                           :sha     "23aea9cdcad7184fdff73c16ef9656bfb73cf30d"}
-           com.taoensso/nippy             {:mvn/version "3.1.1"}
-           org.mapdb/mapdb                {:mvn/version "3.0.8"}}
+ :deps    {org.clojure/clojure       {:mvn/version "1.11.0-alpha1"}
+           org.clojure/core.async    {:mvn/version "1.3.618"}
+           org.clojure/core.match    {:mvn/version "1.0.0"}
+           org.clojure/data.csv      {:mvn/version "1.0.0"}
+           org.clojure/data.xml      {:mvn/version "0.2.0-alpha6"}
+           org.clojure/data.zip      {:mvn/version "1.0.0"}
+           org.clojure/tools.cli     {:mvn/version "1.0.206"}
+           org.clojure/tools.logging {:mvn/version "1.1.0"}
+
+           com.eldrix/trud           {:git/url "https://github.com/wardle/trud.git"
+                                      :sha     "c73e7dcb4f7420b5e22e528f74c58d884bd6907e"}
+           com.wsscode/pathom        {:git/url "https://github.com/wilkerlucio/pathom3"
+                                      :sha     "ee459b2330bff93ed70abef572000fa204f3b7f1"}
+
+           com.taoensso/nippy        {:mvn/version "3.1.1"}
+           datalevin/datalevin       {:mvn/version "0.4.40"}
+           org.mapdb/mapdb           {:mvn/version "3.0.8"}}
 
  :aliases {:run
            {:main-opts ["-m" "com.eldrix.dmd.cli"]}
