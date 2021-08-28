@@ -37,7 +37,7 @@
 (defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
 (defn- ^Long parse-long [^String s] (Long/parseLong s))
 (defn- ^Boolean parse-flag [^String s] (= "1" s))
-
+(defn- ^Double parse-double [^String s] (Double/parseDouble s))
 
 (def ^:private file-ordering
   "Order of file import for relational integrity, if needed."
@@ -116,6 +116,10 @@
    [[:VMP :DRUG_FORM] :FORMCD]          parse-long
    [[:LOOKUP :SUPPLIER] :CD]            parse-long
    [[:LOOKUP :SUPPLIER] :CDPREV]        parse-long
+   [[:LOOKUP :ROUTE] :CD]               parse-long
+   [[:LOOKUP :ROUTE] :CDPREV]           parse-long
+   [[:LOOKUP :FORM] :CD]                parse-long
+   [[:LOOKUP :FORM] :CDPREV]            parse-long
    :CDDT                                parse-date
    :VTMID                               parse-long
    :VTMIDPREV                           parse-long
@@ -127,16 +131,16 @@
    :VTMIDDT                             parse-date
    :VPID                                parse-long
    :VPIDPREV                            parse-long
-   :UDFS                                edn/read-string
+   :UDFS                                parse-double
    :UDFS_UOMCD                          parse-long
    :UNIT_DOSE_UOMCD                     parse-long
    :ISID                                parse-long
    :ISIDPREV                            parse-long
    :ISIDDT                              parse-date
    :BS_SUBID                            parse-long
-   :STRNT_NMRTR_VAL                     edn/read-string
+   :STRNT_NMRTR_VAL                     parse-double
    :STRNT_NMRTR_UOMCD                   parse-long
-   :STRNT_DNMTR_VAL                     edn/read-string
+   :STRNT_DNMTR_VAL                     parse-double
    :STRNT_DNMTR_UOMCD                   parse-long
    :ROUTECD                             parse-long
    :CATDT                               parse-date
@@ -145,7 +149,7 @@
    :APID                                parse-long
    :LIC_AUTHCHANGEDT                    parse-date
    :VPPID                               parse-long
-   :QTYVAL                              edn/read-string
+   :QTYVAL                              parse-double
    :QTY_UOMCD                           parse-long
    :APPID                               parse-long
    :REIMB_STATDT                        parse-date
