@@ -3,73 +3,152 @@
   (:require [clojure.core.match :refer [match]]
             [clojure.tools.logging.readable :as log]
             [datalevin.core :as d]
-            [com.eldrix.dmd.import :as dim]))
+            [com.eldrix.dmd.import :as dim]
+            [clojure.string :as str]))
 
 
 (def schema
   "The datalog-based schema is a close representation to the source dm+d data
-  structures. The differences are:
-   - properties are namespaced; all dm+d products (e.g. VTM/VMP etc) use
-   :PRODUCT while other entities use a code representing the filename from which
-   they were derived (e.g. :LOOKUP)
+  structures. The key characteristics are:
+   - all products are given a :PRODUCT/ID property and a :PRODUCT/TYPE property.
+   - properties are namespaced using a code representing the filename from which
+   they were derived (e.g. :VTM :VMP :AMP :LOOKUP etc)
    - lookups are referenced by their code (e.g. :BASIS/CD \"0003\") and
-   the source entity has a property :PRODUCT/BASIS.
-   - the source entity does not have a property :PRODUCT/BASISCD but instead
-   the code could be looked up using {:PRODUCT/BASIS [:BASIS/CD]}"
-  {:PRODUCT/ID                     {:db/unique :db.unique/identity}
-   :NAMECHANGE_REASON/CD           {:db/unique :db.unique/identity}
-   :PRODUCT/NAMECHANGE_REASON      {:db/valueType :db.type/ref}
-   :BASIS_OF_NAME/CD               {:db/unique :db.unique/identity}
-   :PRODUCT/BASIS                  {:db/valueType :db.type/ref}
-   :VIRTUAL_PRODUCT_PRES_STATUS/CD {:db/unique :db.unique/identity}
-   :PRODUCT/PRES_STAT              {:db/valueType :db.type/ref}
-   :DF_INDICATOR/CD                {:db/unique :db.unique/identity}
-   :PRODUCT/DF_IND                 {:db/valueType :db.type/ref}
-   :COMBINATION_PROD_IND/CD        {:db/unique :db.unique/identity}
-   :PRODUCT/COMBPROD               {:db/valueType :db.type/ref}
-   :PRODUCT/VTM                    {:db/valueType :db.type/ref}
-   :VIRTUAL_PRODUCT_NON_AVAIL/CD   {:db/unique :db.unique/identity}
-   :PRODUCT/NON_AVAIL              {:db/valueType :db.type/ref}})
+   the source entity has a property :VMP/BASIS_OF_NAME.
+   - complex to-many relationships (e.g. ingredients of a product) are stored as
+   entities themselves, with a unique identifier generated to prevent
+   duplicates. Simpler to-one or to-many relationships are simply added to the
+   parent entity (e.g. drug forms)."
+  {:PRODUCT/ID                           {:db/unique    :db.unique/identity
+                                          :db/valueType :db.type/long}
+   ;; VTM
+   :VTM/VTMID                            {:db/valueType :db.type/long}
+   :VTM/INVALID                          {:db/valueType :db.type/boolean}
+   :VTM/VTMIDPREV                        {:db/valueType :db.type/long}
+
+   ;; VMP
+   :VMP/VPID                             {:db/valueType :db.type/long}
+   :VMP/VTM                              {:db/valueType :db.type/ref}
+   :VMP/INVALID                          {:db/valueType :db.type/boolean}
+   :VMP/BASIS                            {:db/valueType :db.type/ref}
+   :VMP/BASIS_PREV                       {:db/valueType :db.type/ref}
+   :VMP/NMCHANGE                         {:db/valueType :db.type/ref}
+   :VMP/COMBPROD                         {:db/valueType :db.type/ref}
+   :VMP/PRES_STAT                        {:db/valueType :db.type/ref}
+   :VMP/NON_AVAIL                        {:db/valueType :db.type/ref}
+   :VMP/DF_IND                           {:db/valueType :db.type/ref}
+   :VMP/UDFS                             {:db/valueType :db.type/double}
+
+   ;; VMP - VPIs
+   :VPI/ID                               {:db/unique :db.unique/identity} ;; we make a synthetic identifier from concatenating VPID and ISID
+   :VPI/PRODUCT                          {:db/valueType :db.type/ref}
+   :VPI/IS                               {:db/valueType :db.type/ref}
+   :VPI/BASIS_STRNT                      {:db/valueType :db.type/ref}
+   :VPI/BS_SUB                           {:db/valueType :db.type/ref}
+   :VPI/STRNT_NMRTR_VAL                  {:db/valueType :db.type/double}
+   :VPI/STRNT_NMRTR_UOMCD                {:db/valueType :db.type/long}
+
+   ;; lookups
+   :COMBINATION_PACK_IND/CD              {:db/unique :db.unique/identity}
+   :COMBINATION_PROD_IND/CD              {:db/unique :db.unique/identity}
+   :BASIS_OF_NAME/CD                     {:db/unique :db.unique/identity}
+   :NAMECHANGE_REASON/CD                 {:db/unique :db.unique/identity}
+   :VIRTUAL_PRODUCT_PRES_STATUS/CD       {:db/unique :db.unique/identity}
+   :CONTROL_DRUG_CATEGORY/CD             {:db/unique :db.unique/identity}
+   :LICENSING_AUTHORITY/CD               {:db/unique :db.unique/identity}
+   :UNIT_OF_MEASURE/CD                   {:db/unique :db.unique/identity}
+   :FORM/CD                              {:db/unique :db.unique/identity}
+   :ONT_FORM_ROUTE/CD                    {:db/unique :db.unique/identity}
+   :ROUTE/CD                             {:db/unique    :db.unique/identity
+                                          :db/valueType :db.type/long}
+   :DT_PAYMENT_CATEGORY/CD               {:db/unique :db.unique/identity}
+   :SUPPLIER/CD                          {:db/unique :db.unique/identity}
+   :FLAVOUR/CD                           {:db/unique :db.unique/identity}
+   :BASIS_OF_STRNTH/CD                   {:db/unique :db.unique/identity}
+   :REIMBURSEMENT_STATUS/CD              {:db/unique :db.unique/identity}
+   :SPEC_CONT/CD                         {:db/unique :db.unique/identity}
+   :VIRTUAL_PRODUCT_NON_AVAIL/CD         {:db/unique :db.unique/identity}
+   :DISCONTINUED_IND/CD                  {:db/unique :db.unique/identity}
+   :DF_INDICATOR/CD                      {:db/unique :db.unique/identity}
+   :PRICE_BASIS/CD                       {:db/unique :db.unique/identity}
+   :LEGAL_CATEGORY/CD                    {:db/unique :db.unique/identity}
+   :AVAILABILITY_RESTRICTION/CD          {:db/unique :db.unique/identity}
+   :LICENSING_AUTHORITY_CHANGE_REASON/CD {:db/unique :db.unique/identity}
+
+   ;; ingredients
+   :INGREDIENT/ISID                      {:db/unique :db.unique/identity}})
+
+(def lookup-references
+  "Defines how individual properties can be supplemented by adding a datalog
+  reference using the property and the foreign key specified.
+  A nested map of <file-type> <component-type> with a tuple representing
+  - property    : name of property to contain the reference
+  - foreign-key : the attribute representing the foreign key."
+  {:VMP {:VMP               {:VTMID        [:VMP/VTM :PRODUCT/ID]
+                             :BASISCD      [:VMP/BASIS :BASIS_OF_NAME/CD]
+                             :BASIC_PREVCD [:VMP/BASIC_PREV :BASIS_OF_NAME/CD]
+                             :NMCHANGECD   [:VMP/NMCHANGE :NAMECHANGE_REASON/CD]
+                             :COMBPRODCD   [:VMP/COMBPROD :COMBINATION_PROD_IND/CD]
+                             :PRES_STATCD  [:VMP/PRES_STAT :VIRTUAL_PRODUCT_PRES_STATUS/CD]
+                             :NON_AVAILCD  [:VMP/NON_AVAIL :VIRTUAL_PRODUCT_NON_AVAIL/CD]
+                             :DF_INDCD     [:VMP/DF_IND :DF_INDICATOR/CD]}
+         :VIRTUAL_PRODUCT_INGREDIENT
+                            {:BASIS_STRNTCD [:VPI/BASIS_STRNT :BASIS_OF_STRNTH/CD]
+                             :ISID          [:VPI/IS :INGREDIENT/ISID]
+                             }
+         :ONT_DRUG_FORM     {:FORMCD [:VMP/ONT_DRUG_FORMS :ONT_FORM_ROUTE/CD]}
+         :DRUG_FORM         {:FORMCD [:VMP/DRUG_FORMS :FORM/CD]}
+         :DRUG_ROUTE        {:ROUTECD [:VMP/DRUG_ROUTES :ROUTE/CD]}
+         :CONTROL_DRUG_INFO {:CATCD [:VMP/CONTROL_DRUG_CATEGORIES :CONTROL_DRUG_CATEGORY/CD]}}})
+
+(defn parse-entity [m nspace]
+  (let [[file-type component-type] (:TYPE m)]
+    (reduce-kv (fn [m k v]
+                 (let [k' (keyword nspace (name k))]
+                   (if-let [[prop fk] (get-in lookup-references [file-type component-type k])] ;; turn any known reference properties into datalog references
+                     (assoc m prop [fk v] k' v)             ;; a datalog reference is a tuple of the foreign key and the value e.g [:PRODUCT/ID 123]
+                     (assoc m k' v))))
+               {}
+               (dissoc m :TYPE))))
 
 (defn parse-product [m id-key]
   (let [[file-type component-type] (:TYPE m)]
-    (reduce-kv (fn [m k v]
-                 (assoc m (keyword "PRODUCT" (name k)) v))
-               {:PRODUCT/TYPE component-type
-                :PRODUCT/ID   (get m id-key)}
-               (dissoc m id-key :TYPE))))
+    (-> (parse-entity m (name component-type))
+        (assoc :PRODUCT/TYPE component-type
+               :PRODUCT/ID (get m id-key)))))
 
-(defn parse-amp [m]
-  )
-(defn parse-vmp
-  [m]
-  (cond-> (-> (parse-product m :VPID)
-              (assoc :PRODUCT/BASIS [:BASIS_OF_NAME/CD (:BASISCD m)]
-                     :PRODUCT/PRES_STAT [:VIRTUAL_PRODUCT_PRES_STATUS/CD (:PRES_STATCD m)]))
-          (:VTMID m) (assoc :PRODUCT/VTM [:PRODUCT/ID (:VTMID m)])
-          (:BASIC_PREVCD m) (assoc :PRODUCT/BASIS_PREV [:BASIS_OF_NAME/CD (:BASIS_PREVCD m)])
-          (:VPIDPREV m) (assoc :PRODUCT/PREV [:PRODUCT/ID (:VPIDPREV m)])
-          (:DF_INDCD m) (assoc :PRODUCT/DF_IND [:DF_INDICATOR/CD (:DF_INDCD m)])
-          (:NMCHANGECD m) (assoc :PRODUCT/NMCHANGE [:NAMECHANGE_REASON/CD (:NMCHANGECD m)])
-          (:COMBPRODCD m) (assoc :PRODUCT/COMBPROD [:COMBINATION_PROD_IND/CD (:COMBPRODCD m)])
-          (:NON_AVAILCD m) (assoc :PRODUCT/NON_AVAIL [:VIRTUAL_PRODUCT_NON_AVAIL/CD (:NON_AVAILCD m)])))
-
-(defn parse-ampp [m]
-  )
-(defn parse-vmpp [m]
-  )
 (defn parse-lookup [m]
   (let [[file-type component-type] (:TYPE m)
         nspace (name component-type)
         m' (dissoc m :TYPE :ID)]
-    (-> (reduce-kv (fn [m k v] (assoc m (keyword nspace (name k)) (or v ""))) {} m'))))
+    (reduce-kv (fn [m k v] (assoc m (keyword nspace (name k)) (or v ""))) {} m')))
 
-(defn parse-ingredient [m]
-  )
 (defn parse-bnf [m]
   )
-(defn parse-property [m fk]
-  )
+
+(defn parse-extended-property
+  "Parse a product's set of properties (e.g. VPI) by creating a new entity.
+  This is most suitable for complex to-many relationships."
+  [m nspace product-key id-key]
+  (let [nspace' (name nspace)]
+    (-> (parse-entity m nspace')
+        (assoc (keyword nspace' "ID") (id-key m)            ;; fake compound identifier for complex to-many relationship
+               (keyword nspace' "PRODUCT") [:PRODUCT/ID (product-key m)]))))
+
+(defn parse-simple-property
+  "Parse a simple to-one or to-many property that is simply a reference type.
+  For example,
+    {:TYPE [:VMP :DRUG_ROUTE], :VPID 318248001, :ROUTECD 26643006}
+  will be parsed into:
+    {:VMP/DRUG_ROUTES [:ROUTE/CD 26643006], :PRODUCT/ID 318248001}."
+  [m product-key]
+  (let [[file-type component-type] (:TYPE m)]
+    (-> (reduce-kv (fn [m k v]
+                     (when-let [[prop fk] (get-in lookup-references [file-type component-type k])] ;; turn any known reference properties into datalog references
+                       (assoc m prop [fk v])))
+                   {}
+                   (dissoc m :TYPE))
+        (assoc :PRODUCT/ID (product-key m)))))
 
 (defn parse
   "Parse a dm+d component into a map suitable for storing in the datalog store.
@@ -80,17 +159,18 @@
   [m]
   (match [(:TYPE m)]
          [[:VTM :VTM]] (parse-product m :VTMID)
-         [[:VMP :VMP]] (parse-vmp m)
-         [[:VMP _]] (parse-property m :VPID)
-         [[:AMP :AMP]] (parse-amp m)
-         [[:AMP _]] (parse-property m :APID)
-         [[:VMPP :VMPP]] (parse-vmpp m)
-         [[:VMPP :COMB_CONTENT]] (parse-property m :PRNTVPPID) ;; note reference to parent is :PRNTVPPID not :VPPID
-         [[:VMPP _]] (parse-property m :VPPID)              ;; for all other properties, the FK to the parent is VPPID
-         [[:AMPP :AMPP]] (parse-ampp m)
-         [[:AMPP :COMB_CONTENT]] (parse-property m :PRNTAPPID) ;; for COMB_CONTENT, the parent is PRNTAPPID not :APPID
-         [[:AMPP _]] (parse-property m :APPID)              ;; for all other properties, the FK to the parent is APPID
-         [[:INGREDIENT :INGREDIENT]] (parse-ingredient m)
+         [[:VMP :VMP]] (parse-product m :VPID)
+         [[:VMP :VIRTUAL_PRODUCT_INGREDIENT]] (parse-extended-property m :VPI :VPID #(str/join "-" [(:VPID %) (:ISID %)]))
+         [[:VMP _]] (parse-simple-property m :VPID)
+         [[:AMP :AMP]] (parse-product m :APID)
+         [[:AMP _]] (parse-simple-property m :APID)
+         [[:VMPP :VMPP]] (parse-product m :VPPID)
+         [[:VMPP :COMB_CONTENT]] (parse-simple-property m :PRNTVPPID) ;; note reference to parent is :PRNTVPPID not :VPPID
+         [[:VMPP _]] (parse-simple-property m :VPPID)       ;; for all other properties, the FK to the parent is VPPID
+         [[:AMPP :AMPP]] (parse-product m :APPID)
+         [[:AMPP :COMB_CONTENT]] (parse-simple-property m :PRNTAPPID) ;; for COMB_CONTENT, the parent is PRNTAPPID not :APPID
+         [[:AMPP _]] (parse-simple-property m :APPID)       ;; for all other properties, the FK to the parent is APPID
+         [[:INGREDIENT :INGREDIENT]] (parse-lookup m)
          [[:LOOKUP _]] (parse-lookup m)
          [[:BNF _]] (parse-bnf m)
          :else (log/info "Unknown file type / component type tuple" m)))
@@ -116,25 +196,59 @@
 
   ;;
   (def conn (d/create-conn "wibble.db" schema))
+  (def dir "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
+
   (parse lookup-example)
   (d/transact! conn [(parse lookup-example)])
+
   (require '[com.eldrix.dmd.import :as dim]
            '[clojure.core.async :as a])
   (def ch (a/chan))
-  (def ch (a/chan 5 (partition-all 1000)))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:LOOKUP :VTM :VMP}))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:AMP}))
-  (def x (a/<!! ch))
-  (print x)
+  (def ch (a/chan 5 (partition-all 5000)))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:LOOKUP :INGREDIENT :VTM :VMP}))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:VMP}))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:INGREDIENT}))
+  (a/<!! ch)
+  (def batch (a/<!! ch))
+  (map parse batch)
+  (loop [batch (a/<!! ch)]
+    (when batch
+      ;(println "processing batch" (map parse batch))
+      ;(println (zipmap (keys (first batch)) (map type (vals (first batch)))))
+      (d/transact! conn (map parse batch))
+      (recur (a/<!! ch))))
+
+  (def lookups (dim/get-component dir :LOOKUP :COMBINATION_PACK_IND))
+  (def lookups (dim/get-component dir :LOOKUP :ROUTE))
+  (take 4 lookups)
+  (take 4 (map parse lookups))
+  (def ingreds (dim/get-component dir :INGREDIENT :INGREDIENT))
+  (take 5 (map parse ingreds))
+
+  (def vtms (dim/get-component dir :VTM :VTM))
+  (take 5 (reverse (map parse vtms)))
+
+  (def vmps (dim/get-component dir :VMP :VMP))
+  (take 5 (map parse vmps))
+
+  (def vpis (dim/get-component dir :VMP :VIRTUAL_PRODUCT_INGREDIENT))
+  (take 2 vpis)
+  (take 5 (reverse (map parse vpis)))
+
+  (def vmp-ont-drug-forms (dim/get-component dir :VMP :ONT_DRUG_FORM))
+  (take 5 vmp-ont-drug-forms)
+  (take 2 (map parse vmp-ont-drug-forms))
+
+  (def x (dim/get-component dir :VMP :DRUG_ROUTE))
+  (take 5 x)
+  (take 5 (map parse x))
+
+  (parse-product x :VPID)
   (parse x)
+  (parse-property x :nspace :VPI :product-key :VPID :id-key (fn [m] (str (:VPID m) "-" (:ISID m))))
   (parse (a/<!! ch))
   (d/transact! conn [(parse x)])
   (d/transact! conn [(parse (a/<!! ch))])
-  (loop [batch (a/<!! ch)]
-    (when batch
-      (println "processing batch")
-      (d/transact! conn (map parse batch))
-      (recur (a/<!! ch))))
   (d/q '[:find ?code ?desc
          :where
          [?e :BASIS_OF_NAME/CD ?code]
@@ -148,5 +262,46 @@
   (d/q '[:find (pull ?e [:PRODUCT/ID :PRODUCT/NM {:PRODUCT/NON_AVAIL [:VIRTUAL_PRODUCT_NON_AVAIL/DESC]}])
          :where
          [?e :PRODUCT/VTMID 108537001]]
+       (d/db conn))
+  (d/touch (d/entity (d/db conn) (d/q '[:find ?e .
+                                        :where
+                                        [?e :PRODUCT/ID 319996000]]
+                                      (d/db conn))))
+  (d/q '[:find (pull ?vpi [*])
+         :where
+         [?vpi :PRODUCT ?e]
+         [?e :PRODUCT/ID 319996000]]
+       (d/db conn))
+  (map d/touch (map #(d/entity (d/db conn) %) (d/q '[:find [?e ...]
+                                                     :where
+                                                     [?e :PRODUCT/VTMID 108537001]]
+                                                   (d/db conn))))
+  (d/q '[:find (pull ?e [*])
+         :where
+         [?e :INGREDIENT/ISID 391730008]]
+       (d/db conn))
+
+
+  (d/q '[:find (pull ?e [* {:VMP/DRUG_ROUTES             [:ROUTE/CD :ROUTE/DESC]
+                            :VMP/DRUG_FORMS              [:FORM/CD :FORM/DESC]
+                            :VMP/DF_IND                  [:DF_INDICATOR/CD :DF_INDICATOR/DESC]
+                            :VMP/CONTROL_DRUG_CATEGORIES [:CONTROL_DRUG_CATEGORY/CD :CONTROL_DRUG_CATEGORY/DESC]
+                            :VMP/PRES_STAT               [:VIRTUAL_PRODUCT_PRES_STATUS/CD :VIRTUAL_PRODUCT_PRES_STATUS/DESC]}])
+         (pull ?vpi [* {:VPI/IS [:INGREDIENT/ISID :INGREDIENT/NM]} {:VPI/BASIS_STRNT [:BASIS_OF_STRNTH/CD :BASIS_OF_STRNTH/DESC]}])
+         :where
+         [?e :PRODUCT/ID 7322211000001104]
+         [?vpi :VPI/VPID 7322211000001104]]
+       (d/db conn))
+
+  ;; get ingredients for an arbitrary VMP:
+  (d/q '[:find (pull ?e [* {:VPI/IS [:INGREDIENT/NM]}] )
+         :where
+         [?e :VPI/PRODUCT [:PRODUCT/ID 7322211000001104]]]
+       (d/db conn))
+
+  (d/q '[:find ?code ?desc
+         :where
+         [?e :FORM/CD ?code]
+         [?e :FORM/DESC ?desc]]
        (d/db conn))
   )
