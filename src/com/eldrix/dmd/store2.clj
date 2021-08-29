@@ -18,7 +18,8 @@
    - complex to-many relationships (e.g. ingredients of a product) are stored as
    entities themselves, with a unique identifier generated to prevent
    duplicates. Simpler to-one or to-many relationships are simply added to the
-   parent entity (e.g. drug forms)."
+   parent entity (e.g. drug forms). These are given a property in the singular
+   for to-one relationships, and in the plural for to-many relationships."
   {:PRODUCT/ID                           {:db/unique    :db.unique/identity
                                           :db/valueType :db.type/long}
    ;; VTM
@@ -38,6 +39,16 @@
    :VMP/NON_AVAIL                        {:db/valueType :db.type/ref}
    :VMP/DF_IND                           {:db/valueType :db.type/ref}
    :VMP/UDFS                             {:db/valueType :db.type/double}
+   :VMP/INGREDIENTS                      {:db/valueType   :db.type/ref
+                                          :db/cardinality :db.cardinality/many}
+   :VMP/ONT_FORMS                        {:db/valueType   :db.type/ref
+                                          :db/cardinality :db.cardinality/many}
+   :VMP/DRUG_FORMS                       {:db/valueType   :db.type/ref
+                                          :db/cardinality :db.cardinality/many}
+   :VMP/DRUG_ROUTES                      {:db/valueType   :db.type/ref
+                                          :db/cardinality :db.cardinality/many}
+   :VMP/CONTROL_DRUG_INFO                {:db/valueType   :db.type/ref ;; TODO: need to check whether needs to be to-many cardinality?
+                                          :db/cardinality :db.cardinality/one}
 
    ;; VMP - VPIs
    :VPI/ID                               {:db/unique :db.unique/identity} ;; we make a synthetic identifier from concatenating VPID and ISID
@@ -129,11 +140,10 @@
 (defn parse-extended-property
   "Parse a product's set of properties (e.g. VPI) by creating a new entity.
   This is most suitable for complex to-many relationships."
-  [m nspace product-key id-key]
-  (let [nspace' (name nspace)]
-    (-> (parse-entity m nspace')
-        (assoc (keyword nspace' "ID") (id-key m)            ;; fake compound identifier for complex to-many relationship
-               (keyword nspace' "PRODUCT") [:PRODUCT/ID (product-key m)]))))
+  [m entity-name property-name product-key]
+  (let [entity-name' (name entity-name)]
+    (hash-map property-name (parse-entity m entity-name')
+              :PRODUCT/ID (product-key m))))
 
 (defn parse-simple-property
   "Parse a simple to-one or to-many property that is simply a reference type.
@@ -160,7 +170,7 @@
   (match [(:TYPE m)]
          [[:VTM :VTM]] (parse-product m :VTMID)
          [[:VMP :VMP]] (parse-product m :VPID)
-         [[:VMP :VIRTUAL_PRODUCT_INGREDIENT]] (parse-extended-property m :VPI :VPID #(str/join "-" [(:VPID %) (:ISID %)]))
+         [[:VMP :VIRTUAL_PRODUCT_INGREDIENT]] (parse-extended-property m :VPI :VMP/INGREDIENTS :VPID)
          [[:VMP _]] (parse-simple-property m :VPID)
          [[:AMP :AMP]] (parse-product m :APID)
          [[:AMP _]] (parse-simple-property m :APID)
@@ -206,7 +216,7 @@
   (def ch (a/chan))
   (def ch (a/chan 5 (partition-all 5000)))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:LOOKUP :INGREDIENT :VTM :VMP}))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:VMP}))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:AMP}))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:INGREDIENT}))
   (a/<!! ch)
   (def batch (a/<!! ch))
@@ -249,6 +259,8 @@
   (parse (a/<!! ch))
   (d/transact! conn [(parse x)])
   (d/transact! conn [(parse (a/<!! ch))])
+
+  ;; get all codes for a lookup
   (d/q '[:find ?code ?desc
          :where
          [?e :BASIS_OF_NAME/CD ?code]
@@ -286,17 +298,18 @@
                             :VMP/DRUG_FORMS              [:FORM/CD :FORM/DESC]
                             :VMP/DF_IND                  [:DF_INDICATOR/CD :DF_INDICATOR/DESC]
                             :VMP/CONTROL_DRUG_CATEGORIES [:CONTROL_DRUG_CATEGORY/CD :CONTROL_DRUG_CATEGORY/DESC]
-                            :VMP/PRES_STAT               [:VIRTUAL_PRODUCT_PRES_STATUS/CD :VIRTUAL_PRODUCT_PRES_STATUS/DESC]}])
-         (pull ?vpi [* {:VPI/IS [:INGREDIENT/ISID :INGREDIENT/NM]} {:VPI/BASIS_STRNT [:BASIS_OF_STRNTH/CD :BASIS_OF_STRNTH/DESC]}])
+                            :VMP/PRES_STAT               [:VIRTUAL_PRODUCT_PRES_STATUS/CD :VIRTUAL_PRODUCT_PRES_STATUS/DESC]
+                            :VMP/INGREDIENTS             [* {:VPI/IS [*]}]}])
          :where
-         [?e :PRODUCT/ID 7322211000001104]
-         [?vpi :VPI/VPID 7322211000001104]]
+         [?e :PRODUCT/ID 7322211000001104]]
        (d/db conn))
 
-  ;; get ingredients for an arbitrary VMP:
-  (d/q '[:find (pull ?e [* {:VPI/IS [:INGREDIENT/NM]}] )
+  ;; find all VMPs containing amoxicillin trihydrate
+  (d/q '[:find (pull ?vmp [*])
          :where
-         [?e :VPI/PRODUCT [:PRODUCT/ID 7322211000001104]]]
+         [?vmp :VMP/INGREDIENTS ?vpi]
+         [?vpi :VPI/IS ?ingred]
+         [?ingred :INGREDIENT/NM "Amoxicillin trihydrate"]]
        (d/db conn))
 
   (d/q '[:find ?code ?desc
