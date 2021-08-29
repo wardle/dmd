@@ -99,6 +99,20 @@
    :AP_INGREDIENT/UOMCD                  {:db/valueType :db.type/long}
    :AP_INGREDIENT/UOM                    {:db/valueType :db.type/ref}
 
+   ;; VMPP
+   :VMPP/VPPID                           {:db/valueType :db.type/long}
+   :VMPP/INVALID                         {:db/valueType :db.type/boolean}
+   :VMPP/NM                              {:db/valueType :db.type/string}
+   :VMPP/VPID                            {:db/valueType :db.type/long}
+   :VMPP/VP                              {:db/valueType :db.type/ref}
+   :VMPP/QTYVAL                          {:db/valueType :db.type/double}
+   :VMPP/QTY_UOMCD                       {:db/valueType :db.type/long}
+   :VMPP/QTY_UOM                         {:db/valueType :db.type/ref}
+   :VMPP/COMBPACKCD                      {:db/valueType :db.type/string}
+   :VMPP/COMBPACK                        {:db/valueType :db.type/ref}
+   :VMPP/DRUG_TARIFF_INFO                {:db/valueType :db.type/ref}
+   :VMPP/CHLDVPP                         {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+
    ;; lookups
    :COMBINATION_PACK_IND/CD              {:db/unique :db.unique/identity}
    :COMBINATION_PROD_IND/CD              {:db/unique :db.unique/identity}
@@ -136,34 +150,39 @@
   A nested map of <file-type> <component-type> with a tuple representing
   - property    : name of property to contain the reference
   - foreign-key : the attribute representing the foreign key."
-  {:VMP {:VMP                        {:VTMID           [:VMP/VTM :PRODUCT/ID]
-                                      :BASISCD         [:VMP/BASIS :BASIS_OF_NAME/CD]
-                                      :BASIC_PREVCD    [:VMP/BASIC_PREV :BASIS_OF_NAME/CD]
-                                      :NMCHANGECD      [:VMP/NMCHANGE :NAMECHANGE_REASON/CD]
-                                      :COMBPRODCD      [:VMP/COMBPROD :COMBINATION_PROD_IND/CD]
-                                      :PRES_STATCD     [:VMP/PRES_STAT :VIRTUAL_PRODUCT_PRES_STATUS/CD]
-                                      :NON_AVAILCD     [:VMP/NON_AVAIL :VIRTUAL_PRODUCT_NON_AVAIL/CD]
-                                      :DF_INDCD        [:VMP/DF_IND :DF_INDICATOR/CD]
-                                      :UDFS_UOMCD      [:VMP/UDFS_UOM :UNIT_OF_MEASURE/CD]
-                                      :UNIT_DOSE_UOMCD [:VMP/UNIT_DOSE_UOM :UNIT_OF_MEASURE/CD]}
-         :VIRTUAL_PRODUCT_INGREDIENT {:BASIS_STRNTCD [:VPI/BASIS_STRNT :BASIS_OF_STRNTH/CD]
-                                      :ISID          [:VPI/IS :INGREDIENT/ISID]}
-         :ONT_DRUG_FORM              {:FORMCD [:VMP/ONT_DRUG_FORMS :ONT_FORM_ROUTE/CD]}
-         :DRUG_FORM                  {:FORMCD [:VMP/DRUG_FORMS :FORM/CD]}
-         :DRUG_ROUTE                 {:ROUTECD [:VMP/DRUG_ROUTES :ROUTE/CD]}
-         :CONTROL_DRUG_INFO          {:CATCD [:VMP/CONTROL_DRUG_INFO :CONTROL_DRUG_CATEGORY/CD]}}
-   :AMP {:AMP            {:VPID             [:AMP/VP :PRODUCT/ID]
-                          :SUPPCD           [:AMP/SUPP :SUPPLIER/CD]
-                          :LIC_AUTHCD       [:AMP/LIC_AUTH :LICENSING_AUTHORITY/CD]
-                          :LIC_AUTH_PREVCD  [:AMP/AUTH_PREV :LICENSING_AUTHORITY/CD]
-                          :LIC_AUTHCHANGECD [:AMP/LIC_AUTHCHANGED :LICENSING_AUTHORITY_CHANGE_REASON/CD]
-                          :COMBPRODCD       [:AMP/COMBPROD :COMBINATION_PROD_IND/CD]
-                          :FLAVOURCD        [:AMP/FLAVOUR :FLAVOUR/CD]
-                          :AVAIL_RESTRICTCD [:AMP/AVAIL_RESTRICT :AVAILABILITY_RESTRICTION/CD]}
-         :AP_INGREDIENT  {:UOMCD [:AP_INGREDIENT/UOM :UNIT_OF_MEASURE/CD]
-                          :ISID  [:AP_INGREDIENT/IS :INGREDIENT/ISID]}
-         :LICENSED_ROUTE {:ROUTECD [:AMP/LICENSED_ROUTES :ROUTE/CD]}
-         :AP_INFORMATION {:COLOURCD [:AMP/COLOUR :COLOUR/CD]}}})
+  {:VMP  {:VMP                        {:VTMID           [:VMP/VTM :PRODUCT/ID]
+                                       :BASISCD         [:VMP/BASIS :BASIS_OF_NAME/CD]
+                                       :BASIC_PREVCD    [:VMP/BASIC_PREV :BASIS_OF_NAME/CD]
+                                       :NMCHANGECD      [:VMP/NMCHANGE :NAMECHANGE_REASON/CD]
+                                       :COMBPRODCD      [:VMP/COMBPROD :COMBINATION_PROD_IND/CD]
+                                       :PRES_STATCD     [:VMP/PRES_STAT :VIRTUAL_PRODUCT_PRES_STATUS/CD]
+                                       :NON_AVAILCD     [:VMP/NON_AVAIL :VIRTUAL_PRODUCT_NON_AVAIL/CD]
+                                       :DF_INDCD        [:VMP/DF_IND :DF_INDICATOR/CD]
+                                       :UDFS_UOMCD      [:VMP/UDFS_UOM :UNIT_OF_MEASURE/CD]
+                                       :UNIT_DOSE_UOMCD [:VMP/UNIT_DOSE_UOM :UNIT_OF_MEASURE/CD]}
+          :VIRTUAL_PRODUCT_INGREDIENT {:BASIS_STRNTCD [:VPI/BASIS_STRNT :BASIS_OF_STRNTH/CD]
+                                       :ISID          [:VPI/IS :INGREDIENT/ISID]}
+          :ONT_DRUG_FORM              {:FORMCD [:VMP/ONT_DRUG_FORMS :ONT_FORM_ROUTE/CD]}
+          :DRUG_FORM                  {:FORMCD [:VMP/DRUG_FORMS :FORM/CD]}
+          :DRUG_ROUTE                 {:ROUTECD [:VMP/DRUG_ROUTES :ROUTE/CD]}
+          :CONTROL_DRUG_INFO          {:CATCD [:VMP/CONTROL_DRUG_INFO :CONTROL_DRUG_CATEGORY/CD]}}
+   :AMP  {:AMP            {:VPID             [:AMP/VP :PRODUCT/ID]
+                           :SUPPCD           [:AMP/SUPP :SUPPLIER/CD]
+                           :LIC_AUTHCD       [:AMP/LIC_AUTH :LICENSING_AUTHORITY/CD]
+                           :LIC_AUTH_PREVCD  [:AMP/AUTH_PREV :LICENSING_AUTHORITY/CD]
+                           :LIC_AUTHCHANGECD [:AMP/LIC_AUTHCHANGED :LICENSING_AUTHORITY_CHANGE_REASON/CD]
+                           :COMBPRODCD       [:AMP/COMBPROD :COMBINATION_PROD_IND/CD]
+                           :FLAVOURCD        [:AMP/FLAVOUR :FLAVOUR/CD]
+                           :AVAIL_RESTRICTCD [:AMP/AVAIL_RESTRICT :AVAILABILITY_RESTRICTION/CD]}
+          :AP_INGREDIENT  {:UOMCD [:AP_INGREDIENT/UOM :UNIT_OF_MEASURE/CD]
+                           :ISID  [:AP_INGREDIENT/IS :INGREDIENT/ISID]}
+          :LICENSED_ROUTE {:ROUTECD [:AMP/LICENSED_ROUTES :ROUTE/CD]}
+          :AP_INFORMATION {:COLOURCD [:AMP/COLOUR :COLOUR/CD]}}
+   :VMPP {:VMPP             {:VPID       [:VMPP/VP :PRODUCT/ID]
+                             :QTY_UOMCD  [:VMPP/QTY_UOM :UNIT_OF_MEASURE/CD]
+                             :COMBPACKCD [:VMPP/COMBPACK :COMBINATION_PACK_IND/CD]}
+          :DRUG_TARIFF_INFO {:PAY_CATCD [:DRUG_TARIFF_INFO/PAY_CAT :DT_PAYMENT_CATEGORY/CD]}
+          :COMB_CONTENT     {:CHLDVPPID [:VMPP/CHLDVPP :PRODUCT/ID]}}})
 
 (defn parse-entity [m nspace]
   (let [[file-type component-type] (:TYPE m)]
@@ -229,6 +248,7 @@
          [[:AMP :AP_INGREDIENT]] (parse-extended-property m :AP_INGREDIENT :AMP/EXCIPIENTS :APID)
          [[:AMP _]] (parse-simple-property m :APID)
          [[:VMPP :VMPP]] (parse-product m :VPPID)
+         [[:VMPP :DRUG_TARIFF_INFO]] (parse-extended-property m :DRUG_TARIFF_INFO :VMPP/DRUG_TARIFF_INFO :VPPID)
          [[:VMPP :COMB_CONTENT]] (parse-simple-property m :PRNTVPPID) ;; note reference to parent is :PRNTVPPID not :VPPID
          [[:VMPP _]] (parse-simple-property m :VPPID)       ;; for all other properties, the FK to the parent is VPPID
          [[:AMPP :AMPP]] (parse-product m :APPID)
@@ -269,9 +289,9 @@
            '[clojure.core.async :as a])
   (def ch (a/chan))
   (def ch (a/chan 5 (partition-all 5000)))
-  (def ch (a/chan 5 (comp (map #(parse %)) (partition-all 50000))))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:LOOKUP :INGREDIENT :VTM :VMP :AMP}))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:AMP}))
+  (def ch (a/chan 5 (comp (map #(parse %)) (partition-all 5000))))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP}))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:VMPP}))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:INGREDIENT}))
   (a/<!! ch)
   (def batch (a/<!! ch))
@@ -315,9 +335,9 @@
   (take 5 x)
   (take 5 (map parse x))
 
-  (def x (dim/get-component dir :AMP :AMP))
+  (def x (dim/get-component dir :VMPP :DRUG_TARIFF_INFO))
   (take 5 x)
-  (take 5 (map parse x))
+  (take 5 (map #(parse-extended-property % "DRUG_TARIFF_INFO" :VMPP/DRUG_TARIFF_INFO :VPPID) x))
   (parse-product x :VPID)
   (parse x)
   (parse-property x :nspace :VPI :product-key :VPID :id-key (fn [m] (str (:VPID m) "-" (:ISID m))))
@@ -384,6 +404,14 @@
                                    {:VMP/VTM [*]}]}])
          :where
          [?e :AMP/VP [:PRODUCT/ID 7322211000001104]]]
+       (d/db conn))
+
+
+  (d/q '[:find (pull ?e [*
+                         {:VMPP/QTY_UOM [*]}
+                         {:VMPP/DRUG_TARIFF_INFO [* {:DRUG_TARIFF_INFO/PAY_CAT [*]}]}])
+         :where
+         [?e :VMPP/VP [:PRODUCT/ID 7322211000001104]]]
        (d/db conn))
 
   ;; find all VMPs containing amoxicillin trihydrate
