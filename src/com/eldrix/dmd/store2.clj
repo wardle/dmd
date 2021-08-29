@@ -12,15 +12,11 @@
   structures. The key characteristics are:
    - all products are given a :PRODUCT/ID property and a :PRODUCT/TYPE property.
    - properties are namespaced using a code representing the filename from which
-   they were derived (e.g. :VTM :VMP :AMP :LOOKUP etc)
+   they were derived (e.g. :VTM :VMP :AMP etc), except lookups are given their
+   own namespace representing that lookup (e.g. :BASIS_OF_NAME).
    - lookups are referenced by their code (e.g. :BASIS_OF_NAME/CD \"0003\") and
    the source entity has a property :VMP/BASIS based on the original reference
-   (e.g. :VMP/BASISCD)
-   - complex to-many relationships (e.g. ingredients of a product) are stored as
-   entities themselves, with a unique identifier generated to prevent
-   duplicates. Simpler to-one or to-many relationships are simply added to the
-   parent entity (e.g. drug forms). These are given a property in the singular
-   for to-one relationships, and in the plural for to-many relationships."
+   (e.g. :VMP/BASISCD)."
   {:PRODUCT/ID                           {:db/unique    :db.unique/identity
                                           :db/valueType :db.type/long}
    ;; VTM
@@ -30,18 +26,31 @@
 
    ;; VMP
    :VMP/VPID                             {:db/valueType :db.type/long}
+   :VMP/VPIDPREV                         {:db/valueType :db.type/long}
+   :VMP/VTMID                            {:db/valueType :db.type/long}
    :VMP/VTM                              {:db/valueType :db.type/ref}
    :VMP/INVALID                          {:db/valueType :db.type/boolean}
+   :VMP/NM                               {:db/valueType :db.type/string}
+   :VMP/ABBREVNM                         {:db/valueType :db.type/string}
    :VMP/BASIS                            {:db/valueType :db.type/ref}
+   :VMP/NMPREV                           {:db/valueType :db.type/string}
    :VMP/BASIS_PREV                       {:db/valueType :db.type/ref}
    :VMP/NMCHANGE                         {:db/valueType :db.type/ref}
    :VMP/COMBPROD                         {:db/valueType :db.type/ref}
    :VMP/PRES_STAT                        {:db/valueType :db.type/ref}
+   :VMP/SUG_F                            {:db/valueType :db.type/boolean}
+   :VMP/GLU_F                            {:db/valueType :db.type/boolean}
+   :VMP/PRES_F                           {:db/valueType :db.type/boolean}
+   :VMP/CFC_F                            {:db/valueType :db.type/boolean}
    :VMP/NON_AVAIL                        {:db/valueType :db.type/ref}
    :VMP/DF_IND                           {:db/valueType :db.type/ref}
    :VMP/UDFS                             {:db/valueType :db.type/double}
+   :VMP/UDFS_UOMCD                       {:db/valueType :db.type/long}
+   :VMP/UDFS_UOM                         {:db/valueType :db.type/ref}
+   :VMP/UNIT_DOSE_UOMCD                  {:db/valueType :db.type/long}
+   :VMP/UNIT_DOSE_UOM                    {:db/valueType :db.type/ref}
    :VMP/INGREDIENTS                      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
-   :VMP/ONT_FORMS                        {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+   :VMP/ONT_DRUG_FORMS                   {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
    :VMP/DRUG_FORMS                       {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
    :VMP/DRUG_ROUTES                      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
    :VMP/CONTROL_DRUG_INFO                {:db/valueType   :db.type/ref ;; TODO: need to check whether needs to be to-many cardinality?
@@ -55,6 +64,7 @@
    :VPI/BS_SUB                           {:db/valueType :db.type/ref}
    :VPI/STRNT_NMRTR_VAL                  {:db/valueType :db.type/double}
    :VPI/STRNT_NMRTR_UOMCD                {:db/valueType :db.type/long}
+   :VPI/STRNT_NMRTR_UOM                  {:db/valueType :db.type/ref}
 
    ;; AMP
    :AMP/APID                             {:db/valueType :db.type/long}
@@ -126,14 +136,16 @@
   A nested map of <file-type> <component-type> with a tuple representing
   - property    : name of property to contain the reference
   - foreign-key : the attribute representing the foreign key."
-  {:VMP {:VMP                        {:VTMID        [:VMP/VTM :PRODUCT/ID]
-                                      :BASISCD      [:VMP/BASIS :BASIS_OF_NAME/CD]
-                                      :BASIC_PREVCD [:VMP/BASIC_PREV :BASIS_OF_NAME/CD]
-                                      :NMCHANGECD   [:VMP/NMCHANGE :NAMECHANGE_REASON/CD]
-                                      :COMBPRODCD   [:VMP/COMBPROD :COMBINATION_PROD_IND/CD]
-                                      :PRES_STATCD  [:VMP/PRES_STAT :VIRTUAL_PRODUCT_PRES_STATUS/CD]
-                                      :NON_AVAILCD  [:VMP/NON_AVAIL :VIRTUAL_PRODUCT_NON_AVAIL/CD]
-                                      :DF_INDCD     [:VMP/DF_IND :DF_INDICATOR/CD]}
+  {:VMP {:VMP                        {:VTMID           [:VMP/VTM :PRODUCT/ID]
+                                      :BASISCD         [:VMP/BASIS :BASIS_OF_NAME/CD]
+                                      :BASIC_PREVCD    [:VMP/BASIC_PREV :BASIS_OF_NAME/CD]
+                                      :NMCHANGECD      [:VMP/NMCHANGE :NAMECHANGE_REASON/CD]
+                                      :COMBPRODCD      [:VMP/COMBPROD :COMBINATION_PROD_IND/CD]
+                                      :PRES_STATCD     [:VMP/PRES_STAT :VIRTUAL_PRODUCT_PRES_STATUS/CD]
+                                      :NON_AVAILCD     [:VMP/NON_AVAIL :VIRTUAL_PRODUCT_NON_AVAIL/CD]
+                                      :DF_INDCD        [:VMP/DF_IND :DF_INDICATOR/CD]
+                                      :UDFS_UOMCD      [:VMP/UDFS_UOM :UNIT_OF_MEASURE/CD]
+                                      :UNIT_DOSE_UOMCD [:VMP/UNIT_DOSE_UOM :UNIT_OF_MEASURE/CD]}
          :VIRTUAL_PRODUCT_INGREDIENT {:BASIS_STRNTCD [:VPI/BASIS_STRNT :BASIS_OF_STRNTH/CD]
                                       :ISID          [:VPI/IS :INGREDIENT/ISID]}
          :ONT_DRUG_FORM              {:FORMCD [:VMP/ONT_DRUG_FORMS :ONT_FORM_ROUTE/CD]}
@@ -357,21 +369,25 @@
        (d/db conn))
 
 
-  ;; generate an extended AMP
-  (d/q '[:find (pull ?e [* {:AMP/EXCIPIENTS [* {:AP_INGREDIENT/IS [*]}]}
+  ;; generate an extended AMP for all AMPs of co-amoxiclav VMP (7322211000001104)
+  (d/q '[:find (pull ?e [*
+                         {:AMP/EXCIPIENTS [* {:AP_INGREDIENT/IS [*]}]}
                          {:AMP/AVAIL_RESTRICT [*]}
                          {:AMP/LICENSED_ROUTES [*]}
                          {:AMP/SUPP [*]}
                          {:AMP/LIC_AUTH [*]}
                          {:AMP/VP [*
                                    {:VMP/INGREDIENTS [* {:VPI/IS [*]}]}
-                                   {:VMP/DRUG_ROUTES [*]}]}])
+                                   {:VMP/PRES_STAT [*]}
+                                   {:VMP/CONTROL_DRUG_INFO [*]}
+                                   {:VMP/DRUG_ROUTES [*]}
+                                   {:VMP/VTM [*]}]}])
          :where
          [?e :AMP/VP [:PRODUCT/ID 7322211000001104]]]
        (d/db conn))
 
   ;; find all VMPs containing amoxicillin trihydrate
-  (d/q '[:find (pull ?vmp [:VMP/NM])
+  (d/q '[:find (pull ?vmp [:PRODUCT/ID :VMP/NM])
          :where
          [?vmp :VMP/INGREDIENTS ?vpi]
          [?vpi :VPI/IS ?ingred]
