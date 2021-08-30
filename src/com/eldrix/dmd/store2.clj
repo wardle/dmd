@@ -282,18 +282,17 @@
   (def conn (d/create-conn "wibble.db" schema))
   (def dir "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
 
-  (parse lookup-example)
-  (d/transact! conn [(parse lookup-example)])
 
   (require '[com.eldrix.dmd.import :as dim]
            '[clojure.core.async :as a])
   (def ch (a/chan))
-  (def ch (a/chan 5 (partition-all 5000)))
+  (def ch (a/chan 5 (partition-all 1)))
   (def ch (a/chan 5 (comp (map #(parse %)) (partition-all 5000))))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP}))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:VMPP}))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:LOOKUP}))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:INGREDIENT}))
-  (a/<!! ch)
+  (map parse (a/<!! ch))
+  (take 2 (a/<!! ch))
   (def batch (a/<!! ch))
   (map parse batch)
   ;; this loop imports data assuming the channel includes parsing in the transducer
@@ -312,8 +311,9 @@
 
   (def lookups (dim/get-component dir :LOOKUP :COMBINATION_PACK_IND))
   (def lookups (dim/get-component dir :LOOKUP :ROUTE))
+  (def lookups (dim/get-component dir :LOOKUP :NAMECHANGE_REASON))
   (take 4 lookups)
-  (take 4 (map parse lookups))
+  (map parse lookups)
   (def ingreds (dim/get-component dir :INGREDIENT :INGREDIENT))
   (take 5 (map parse ingreds))
 
@@ -345,40 +345,30 @@
   (d/transact! conn [(parse x)])
   (d/transact! conn [(parse (a/<!! ch))])
 
-  ;; get all codes for a lookup
+  ;; get all codes for a given lookup
   (d/q '[:find ?code ?desc
          :where
          [?e :BASIS_OF_NAME/CD ?code]
          [?e :BASIS_OF_NAME/DESC ?desc]]
        (d/db conn))
 
-  (time (d/q '[:find (pull ?e [:PRODUCT/ID :PRODUCT/NM :PRODUCT/VTMID {:PRODUCT/VTM [*]} {:PRODUCT/BASIS [:BASIS_OF_NAME/DESC]}])
-               :where
-               [?e :PRODUCT/ID 39488411000001107]]
-             (d/db conn)))
-  (d/q '[:find (pull ?e [:PRODUCT/ID :PRODUCT/NM {:PRODUCT/NON_AVAIL [:VIRTUAL_PRODUCT_NON_AVAIL/DESC]}])
-         :where
-         [?e :PRODUCT/VTMID 108537001]]
-       (d/db conn))
   (d/touch (d/entity (d/db conn) (d/q '[:find ?e .
                                         :where
                                         [?e :PRODUCT/ID 319996000]]
                                       (d/db conn))))
-  (d/q '[:find (pull ?vpi [*])
-         :where
-         [?vpi :PRODUCT ?e]
-         [?e :PRODUCT/ID 319996000]]
-       (d/db conn))
-  (map d/touch (map #(d/entity (d/db conn) %) (d/q '[:find [?e ...]
+
+  (map :VMP/NM (map #(d/entity (d/db conn) %) (d/q '[:find [?e ...]
                                                      :where
-                                                     [?e :PRODUCT/VTMID 108537001]]
+                                                     [?e :VMP/VTMID 108537001]]
                                                    (d/db conn))))
   (d/q '[:find (pull ?e [*])
          :where
          [?e :INGREDIENT/ISID 391730008]]
        (d/db conn))
 
-  (d/q '[:find (pull ?e [* {:VMP/DRUG_ROUTES       [:ROUTE/CD :ROUTE/DESC]
+  (d/q '[:find (pull ?e [* {:VMP/UNIT_DOSE_UOM [*]
+                            :VMP/UDFS_UOM [*]
+                            :VMP/DRUG_ROUTES       [:ROUTE/CD :ROUTE/DESC]
                             :VMP/DRUG_FORMS        [:FORM/CD :FORM/DESC]
                             :VMP/DF_IND            [:DF_INDICATOR/CD :DF_INDICATOR/DESC]
                             :VMP/CONTROL_DRUG_INFO [:CONTROL_DRUG_CATEGORY/CD :CONTROL_DRUG_CATEGORY/DESC]
@@ -405,7 +395,6 @@
          :where
          [?e :AMP/VP [:PRODUCT/ID 7322211000001104]]]
        (d/db conn))
-
 
   (d/q '[:find (pull ?e [*
                          {:VMPP/QTY_UOM [*]}
