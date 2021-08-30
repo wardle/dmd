@@ -35,8 +35,9 @@
 
 ;; dm+d date format = CCYY-MM-DD
 (defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
-(defn- ^Long parse-long [^String s] (Long/parseLong s))
-(defn- ^Boolean parse-flag [^String s] (= "1" s))
+(defn- ^long parse-long [^String s] (Long/parseLong s))
+(defn- ^int parse-integer [^String s] (Integer/parseInt s))
+(defn- ^boolean parse-flag [^String s] (= "1" s))
 (defn- ^Double parse-double [^String s] (Double/parseDouble s))
 
 (def ^:private file-ordering
@@ -159,7 +160,9 @@
    :CHLDVPPID                           parse-long
    :PRNTAPPID                           parse-long
    :CHLDAPPID                           parse-long
-   :DDD_UOMCD                           parse-long})
+   :DDD_UOMCD                           parse-long
+   :PRICE                               parse-integer
+   :PREVPRICE                           parse-integer})
 
 (defn- parse-property [kind kw v]
   (if-let [parser (get property-parsers [kind kw])]
