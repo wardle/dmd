@@ -4,10 +4,9 @@
             [clojure.tools.logging.readable :as log]
             [com.eldrix.dmd.download :as dl]
             [com.eldrix.dmd.import :as dim]
-            [com.eldrix.dmd.store :as st]
+            [com.eldrix.dmd.store2 :as st2]
             [clojure.string :as str]
-            [com.eldrix.trud.zip :as zipfile]
-            [com.eldrix.dmd.store :as store])
+            [com.eldrix.trud.zip :as zipfile])
   (:import (java.time.format DateTimeFormatter)))
 
 (defn install-from-dirs
@@ -19,7 +18,7 @@
       (doseq [dir dirs]
         (dim/stream-dmd dir ch :close? false))
       (a/close! ch))
-    (st/create-store filename ch)))
+    (st2/create-store filename ch)))
 
 (defn print-available-releases
   [api-key]
@@ -46,7 +45,7 @@
   (install-release api-key-file cache-dir))
 
 (defn open-store [filename]
-  (st/open-dmd-store filename))
+  (st2/open-store filename))
 
 (comment
   (import-dmd "dmd.db" "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
@@ -54,7 +53,7 @@
 
   (def store (open-store "dmd-2021-07-05.db"))
   (.close store)
-  (def vtm (st/fetch-product store 108537001))
+  (def vtm (st2/fetch-product store 108537001))
   vtm
   (st/vmps store vtm)
   (st/make-extended-vmp store (st/fetch-product store 39828011000001104))
@@ -64,5 +63,11 @@
   (map :NM (map (partial st/fetch-product store) (st/ampps store vtm)))
 
   (dim/dmd-file-seq "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud16249114005046941653")
+
+  (def ch (a/chan))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch ))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:VTM}))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:VMP}))
+  (a/<!! ch)
   )
 

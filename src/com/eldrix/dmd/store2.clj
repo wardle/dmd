@@ -4,8 +4,14 @@
             [clojure.tools.logging.readable :as log]
             [datalevin.core :as d]
             [com.eldrix.dmd.import :as dim]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.core.async :as a])
+  (:import (java.io Closeable)))
 
+
+(deftype DmdStore [conn]
+  Closeable
+  (close [this] (d/close conn)))
 
 (def schema
   "The datalog-based schema is a close representation to the source dm+d data
@@ -19,6 +25,8 @@
    (e.g. :VMP/BASISCD)."
   {:PRODUCT/ID                           {:db/unique    :db.unique/identity
                                           :db/valueType :db.type/long}
+   :PRODUCT/TYPE                         {:db/valueType :db.type/keyword}
+
    ;; VTM
    :VTM/VTMID                            {:db/valueType :db.type/long}
    :VTM/INVALID                          {:db/valueType :db.type/boolean}
@@ -55,6 +63,7 @@
    :VMP/DRUG_ROUTES                      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
    :VMP/CONTROL_DRUG_INFO                {:db/valueType   :db.type/ref ;; TODO: need to check whether needs to be to-many cardinality?
                                           :db/cardinality :db.cardinality/one}
+   :VMP/BNF_DETAILS                      {:db/valueType :db.type/ref}
 
    ;; VMP - VPIs
    :VPI/PRODUCT                          {:db/valueType :db.type/ref}
@@ -90,6 +99,7 @@
    :AMP/EXCIPIENTS                       {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
    :AMP/LICENSED_ROUTES                  {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
    :AMP/COLOUR                           {:db/valueType :db.type/ref}
+   :AMP/BNF_DETAILS                      {:db/valueType :db.type/ref}
 
    ;; AMP - AP-INGREDIENT   (excipients)
    :AP_INGREDIENT/APID                   {:db/valueType :db.type/long}
@@ -142,7 +152,17 @@
    :LICENSING_AUTHORITY_CHANGE_REASON/CD {:db/unique :db.unique/identity}
 
    ;; ingredients
-   :INGREDIENT/ISID                      {:db/unique :db.unique/identity}})
+   :INGREDIENT/ISID                      {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :INGREDIENT/ISIDPREV                  {:db/valueType :db.type/long}
+   :INGREDIENT/INVALID                   {:db/valueType :db.type/boolean}
+   :INGREDIENT/NM                        {:db/valueType :db.type/string}
+
+   ;; BNF extra information (BNF codes, ATC codes etc
+   :BNF_DETAILS/BNF                      {:db/valueType :db.type/string}
+   :BNF_DETAILS/ATC                      {:db/valueType :db.type/string}
+   :BNF_DETAILS/DDD                      {:db/valueType :db.type/double}
+   :BNF_DETAILS/DDD_UOMCD                {:db/valueType :db.type/long}
+   :BNF_DETAILS/DDD_UOM                  {:db/valueType :db.type/ref}})
 
 (def lookup-references
   "Defines how individual properties can be supplemented by adding a datalog
@@ -182,7 +202,8 @@
                              :QTY_UOMCD  [:VMPP/QTY_UOM :UNIT_OF_MEASURE/CD]
                              :COMBPACKCD [:VMPP/COMBPACK :COMBINATION_PACK_IND/CD]}
           :DRUG_TARIFF_INFO {:PAY_CATCD [:DRUG_TARIFF_INFO/PAY_CAT :DT_PAYMENT_CATEGORY/CD]}
-          :COMB_CONTENT     {:CHLDVPPID [:VMPP/CHLDVPP :PRODUCT/ID]}}})
+          :COMB_CONTENT     {:CHLDVPPID [:VMPP/CHLDVPP :PRODUCT/ID]}}
+   :BNF  {:VMPS {:DDD_UOMCD [:BNF_DETAILS/DDD_UOM :UNIT_OF_MEASURE/CD]}}})
 
 (defn parse-entity [m nspace]
   (let [[file-type component-type] (:TYPE m)]
@@ -203,34 +224,37 @@
 (defn parse-lookup [m]
   (let [[file-type component-type] (:TYPE m)
         nspace (name component-type)
-        m' (dissoc m :TYPE :ID)]
-    (reduce-kv (fn [m k v] (assoc m (keyword nspace (name k)) (or v ""))) {} m')))
+        m' (dissoc m :ID :TYPE)]
+    (-> (reduce-kv (fn [m k v] (assoc m (keyword nspace (name k)) (or v ""))) {} m')
+        (assoc :LOOKUP/KIND component-type))))
 
-(defn parse-bnf [m]
-  )
-
-(defn parse-extended-property
+(defn parse-nested-property
   "Parse a product's set of properties (e.g. VPI) by creating a new entity.
-  This is most suitable for complex to-many relationships."
+  This is most suitable for complex to-many relationships.
+  For example,
+  {:TYPE [:VMP :VIRTUAL_PRODUCT_INGREDIENT],
+  :VPID 319996000, :ISID 387584000,
+  :BASIS_STRNTCD \"0001\", :STRNT_NMRTR_VAL 10.0, :STRNT_NMRTR_UOMCD 258684004}
+  will be parsed into:
+  {:PRODUCT/ID 319996000
+   :VMP/INGREDIENTS { ... }}
+  so that the values are nested under the property specified."
   [m entity-name property-name product-key]
   (let [entity-name' (name entity-name)]
     (hash-map property-name (parse-entity m entity-name')
               :PRODUCT/ID (product-key m))))
 
-(defn parse-simple-property
+(defn parse-flat-property
   "Parse a simple to-one or to-many property that is simply a reference type.
   For example,
     {:TYPE [:VMP :DRUG_ROUTE], :VPID 318248001, :ROUTECD 26643006}
   will be parsed into:
     {:VMP/DRUG_ROUTES [:ROUTE/CD 26643006], :PRODUCT/ID 318248001}."
   [m product-key]
-  (let [[file-type component-type] (:TYPE m)]
-    (-> (reduce-kv (fn [m k v]
-                     (when-let [[prop fk] (get-in lookup-references [file-type component-type k])] ;; turn any known reference properties into datalog references
-                       (assoc m prop [fk v])))
-                   {}
-                   (dissoc m :TYPE))
-        (assoc :PRODUCT/ID (product-key m)))))
+  (let [[file-type _] (:TYPE m)
+        pkey (product-key m)]
+    (-> (parse-entity m (name file-type))
+        (assoc :PRODUCT/ID pkey))))
 
 (defn parse
   "Parse a dm+d component into a map suitable for storing in the datalog store.
@@ -242,22 +266,134 @@
   (match [(:TYPE m)]
          [[:VTM :VTM]] (parse-product m :VTMID)
          [[:VMP :VMP]] (parse-product m :VPID)
-         [[:VMP :VIRTUAL_PRODUCT_INGREDIENT]] (parse-extended-property m :VPI :VMP/INGREDIENTS :VPID)
-         [[:VMP _]] (parse-simple-property m :VPID)
+         [[:VMP :VIRTUAL_PRODUCT_INGREDIENT]] (parse-nested-property m :VPI :VMP/INGREDIENTS :VPID)
+         [[:VMP _]] (parse-flat-property m :VPID)
          [[:AMP :AMP]] (parse-product m :APID)
-         [[:AMP :AP_INGREDIENT]] (parse-extended-property m :AP_INGREDIENT :AMP/EXCIPIENTS :APID)
-         [[:AMP _]] (parse-simple-property m :APID)
+         [[:AMP :AP_INGREDIENT]] (parse-nested-property m :AP_INGREDIENT :AMP/EXCIPIENTS :APID)
+         [[:AMP _]] (parse-flat-property m :APID)
          [[:VMPP :VMPP]] (parse-product m :VPPID)
-         [[:VMPP :DRUG_TARIFF_INFO]] (parse-extended-property m :DRUG_TARIFF_INFO :VMPP/DRUG_TARIFF_INFO :VPPID)
-         [[:VMPP :COMB_CONTENT]] (parse-simple-property m :PRNTVPPID) ;; note reference to parent is :PRNTVPPID not :VPPID
-         [[:VMPP _]] (parse-simple-property m :VPPID)       ;; for all other properties, the FK to the parent is VPPID
+         [[:VMPP :DRUG_TARIFF_INFO]] (parse-nested-property m :DRUG_TARIFF_INFO :VMPP/DRUG_TARIFF_INFO :VPPID)
+         [[:VMPP :COMB_CONTENT]] (parse-flat-property m :PRNTVPPID) ;; note reference to parent is :PRNTVPPID not :VPPID
+         [[:VMPP _]] (parse-flat-property m :VPPID)         ;; for all other properties, the FK to the parent is VPPID
          [[:AMPP :AMPP]] (parse-product m :APPID)
-         [[:AMPP :COMB_CONTENT]] (parse-simple-property m :PRNTAPPID) ;; for COMB_CONTENT, the parent is PRNTAPPID not :APPID
-         [[:AMPP _]] (parse-simple-property m :APPID)       ;; for all other properties, the FK to the parent is APPID
+         [[:AMPP :COMB_CONTENT]] (parse-flat-property m :PRNTAPPID) ;; for COMB_CONTENT, the parent is PRNTAPPID not :APPID
+         [[:AMPP _]] (parse-flat-property m :APPID)         ;; for all other properties, the FK to the parent is APPID
          [[:INGREDIENT :INGREDIENT]] (parse-lookup m)
          [[:LOOKUP _]] (parse-lookup m)
-         [[:BNF _]] (parse-bnf m)
-         :else (log/info "Unknown file type / component type tuple" m)))
+         [[:BNF :VMPS]] (parse-nested-property m :BNF_DETAILS :VMP/BNF_DETAILS :VPID)
+         [[:BNF :AMPS]] (parse-nested-property m :BNF_DETAILS :AMP/BNF_DETAILS :APID)
+         :else (log/warn "Unknown file type / component type tuple" m)))
+
+(defn ^DmdStore open-store [dir]
+  (->DmdStore (d/create-conn dir schema)))
+
+(defn create-store [dir ch]
+  (let [conn (d/create-conn dir schema)
+        cpu (.availableProcessors (Runtime/getRuntime))
+        ch' (a/chan 50 (partition-all 5000))]
+    (a/pipeline cpu ch' (map #(parse %)) ch)
+    (loop [batch (a/<!! ch')]
+      (when batch
+        (d/transact! conn batch)
+        (recur (a/<!! ch'))))
+    (->DmdStore conn)))
+
+(defn product-type [^DmdStore st id]
+  (:PRODUCT/TYPE (d/q '[:find (pull ?e [*]) . :in $ ?id :where [?e :PRODUCT/ID ?id]] (d/db (.-conn st)) id)))
+
+(defn ^:private fetch-product*
+  "Fetch a single product with the pull syntax pattern specified."
+  [^DmdStore st id pattern]
+  (-> (d/q '[:find (pull ?e pattern) .
+             :in $ ?id pattern
+             :where
+             [?e :PRODUCT/ID ?id]]
+           (d/db (.-conn st))
+           id
+           pattern)
+      (dissoc :db/id)))
+
+(defn fetch-vtm [^DmdStore st vtmid]
+  (fetch-product* st vtmid '[*]))
+
+(defn fetch-vmp [^DmdStore st vpid]
+  (fetch-product* st vpid '[* {:VMP/VTM               [*]
+                               :VMP/UNIT_DOSE_UOM     [*]
+                               :VMP/UDFS_UOM          [*]
+                               :VMP/DRUG_ROUTES       [:ROUTE/CD :ROUTE/DESC]
+                               :VMP/DRUG_FORMS        [:FORM/CD :FORM/DESC]
+                               :VMP/DF_IND            [:DF_INDICATOR/CD :DF_INDICATOR/DESC]
+                               :VMP/CONTROL_DRUG_INFO [:CONTROL_DRUG_CATEGORY/CD :CONTROL_DRUG_CATEGORY/DESC]
+                               :VMP/PRES_STAT         [:VIRTUAL_PRODUCT_PRES_STATUS/CD :VIRTUAL_PRODUCT_PRES_STATUS/DESC]
+                               :VMP/INGREDIENTS       [* {:VPI/IS [*]} {:VPI/BASIS_STRNT [*]}]
+                               :VMP/NMCHANGE          [*]
+                               :VMP/ONT_DRUG_FORMS    [*]
+                               :VMP/BNF_DETAILS       [*]}]))
+
+(defn fetch-amp [^DmdStore st apid]
+  (fetch-product* st apid '[* {:AMP/EXCIPIENTS      [* {:AP_INGREDIENT/IS [*]}]
+                               :AMP/AVAIL_RESTRICT  [*]
+                               :AMP/LICENSED_ROUTES [*]
+                               :AMP/SUPP            [*]
+                               :AMP/LIC_AUTH        [*]
+                               :AMP/VP              [:VMP/NM :VMP/VPID]}]))
+
+(defn fetch-vmpp [^DmdStore st vppid]
+  (fetch-product* st vppid '[*]))
+
+(defn fetch-ampp [^DmdStore st appid]
+  (fetch-product* st appid '[*]))
+
+(defn fetch-product [^DmdStore st id]
+  (let [kind (product-type st id)]
+    (case kind
+      :VTM (fetch-vtm st id)
+      :VMP (fetch-vmp st id)
+      :AMP (fetch-amp st id)
+      :VMPP (fetch-vmpp st id)
+      :AMPP (fetch-ampp st id)
+      nil)))
+
+(defn lookup
+  "Returns the lookup for the kind specified.
+  Parameters:
+  - st    : dm+d store
+  - kind  : kind, e.g. :BASIS_OF_NAME :FLAVOUR  :UNIT_OF_MEASURE"
+  [^DmdStore st nm]
+  (->> (d/q '[:find [(pull ?e [*]) ...]
+              :in $ ?kind
+              :where
+              [?e :LOOKUP/KIND ?kind]]
+            (d/db (.-conn st))
+            (keyword nm))
+       (map #(dissoc % :db/id :LOOKUP/KIND))))
+
+
+(defmulti vtms "Return the VTMs associated with this product."
+          (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
+
+(defmethod vtms :VTM [store vtm]
+  [(fetch-vtm store (:VTM/VTMID vtm))])
+
+(defmethod vtms :VMP [store vmp]
+  [(fetch-vtm store (:VMP/VTMID vmp))])
+
+(defmethod vtms :AMP [store amp])
+
+(defmulti vmps "Returns the VMPs associated with this product."
+          (fn [^DmdStore _store product] (:TYPE product)))
+
+(defmulti vmpps "Returns identifiers for the VMPPS associated with this product."
+          (fn [^DmdStore _store product] (:TYPE product)))
+
+(defmulti amps "Returns identifiers for the AMPs associated with this product."
+          (fn [^DmdStore _store product] (:TYPE product)))
+
+(defmulti ampps "Returns identifiers for the AMPPs associated with this product."
+          (fn [^DmdStore _store product] (:TYPE product)))
+
+(defmulti extended "Returns an extended denormalized product"
+          (fn [^DmdStore _store product] (:TYPE product)))
 
 
 (comment
@@ -280,26 +416,34 @@
 
   ;;
   (def conn (d/create-conn "wibble.db" schema))
+  (def conn (d/create-conn "dmd-2021-08-30.db" schema))
+  (def st (->DmdStore conn))
   (def dir "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
-
-
   (require '[com.eldrix.dmd.import :as dim]
            '[clojure.core.async :as a])
+  (def ch1 (a/chan 500))
+  (def ch2 (a/chan 50 (partition-all 5000)))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch1 :include #{:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP}))
+  (a/pipeline (.availableProcessors (Runtime/getRuntime)) ch2 (map #(parse %)) ch1)
+  (a/<!! ch2)
+
   (def ch (a/chan))
-  (def ch (a/chan 5 (partition-all 1)))
   (def ch (a/chan 5 (comp (map #(parse %)) (partition-all 5000))))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP}))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:LOOKUP}))
+
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch1 :include #{:LOOKUP}))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:INGREDIENT}))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/week272021-r2_3-BNF" ch1))
+  (def batch (a/<!! ch))
+  batch
   (map parse (a/<!! ch))
   (take 2 (a/<!! ch))
   (def batch (a/<!! ch))
   (map parse batch)
   ;; this loop imports data assuming the channel includes parsing in the transducer
-  (loop [batch (a/<!! ch)]
+  (loop [batch (a/<!! ch2)]
     (when batch
       (d/transact! conn batch)
-      (recur (a/<!! ch))))
+      (recur (a/<!! ch2))))
 
   ;; this loop imports data explicitly parsing before import - use with channel with no parse transducer
   (loop [batch (a/<!! ch)]
@@ -337,7 +481,7 @@
 
   (def x (dim/get-component dir :VMPP :DRUG_TARIFF_INFO))
   (take 5 x)
-  (take 5 (map #(parse-extended-property % "DRUG_TARIFF_INFO" :VMPP/DRUG_TARIFF_INFO :VPPID) x))
+  (take 5 (map #(parse-nested-property % "DRUG_TARIFF_INFO" :VMPP/DRUG_TARIFF_INFO :VPPID) x))
   (parse-product x :VPID)
   (parse x)
   (parse-property x :nspace :VPI :product-key :VPID :id-key (fn [m] (str (:VPID m) "-" (:ISID m))))
@@ -346,11 +490,11 @@
   (d/transact! conn [(parse (a/<!! ch))])
 
   ;; get all codes for a given lookup
-  (d/q '[:find ?code ?desc
-         :where
-         [?e :BASIS_OF_NAME/CD ?code]
-         [?e :BASIS_OF_NAME/DESC ?desc]]
-       (d/db conn))
+  (time (d/q '[:find ?code ?desc
+               :where
+               [?e :BASIS_OF_NAME/CD ?code]
+               [?e :BASIS_OF_NAME/DESC ?desc]]
+             (d/db conn)))
 
   (d/touch (d/entity (d/db conn) (d/q '[:find ?e .
                                         :where
@@ -366,17 +510,18 @@
          [?e :INGREDIENT/ISID 391730008]]
        (d/db conn))
 
-  (d/q '[:find (pull ?e [* {:VMP/UNIT_DOSE_UOM [*]
-                            :VMP/UDFS_UOM [*]
-                            :VMP/DRUG_ROUTES       [:ROUTE/CD :ROUTE/DESC]
-                            :VMP/DRUG_FORMS        [:FORM/CD :FORM/DESC]
-                            :VMP/DF_IND            [:DF_INDICATOR/CD :DF_INDICATOR/DESC]
-                            :VMP/CONTROL_DRUG_INFO [:CONTROL_DRUG_CATEGORY/CD :CONTROL_DRUG_CATEGORY/DESC]
-                            :VMP/PRES_STAT         [:VIRTUAL_PRODUCT_PRES_STATUS/CD :VIRTUAL_PRODUCT_PRES_STATUS/DESC]
-                            :VMP/INGREDIENTS       [* {:VPI/IS [*]} {:VPI/BASIS_STRNT [*]}]}])
-         :where
-         [?e :PRODUCT/ID 7322211000001104]]
-       (d/db conn))
+  (time (d/q '[:find (pull ?e [*
+                               {:VMP/UNIT_DOSE_UOM     [*]
+                                :VMP/UDFS_UOM          [*]
+                                :VMP/DRUG_ROUTES       [:ROUTE/CD :ROUTE/DESC]
+                                :VMP/DRUG_FORMS        [:FORM/CD :FORM/DESC]
+                                :VMP/DF_IND            [:DF_INDICATOR/CD :DF_INDICATOR/DESC]
+                                :VMP/CONTROL_DRUG_INFO [:CONTROL_DRUG_CATEGORY/CD :CONTROL_DRUG_CATEGORY/DESC]
+                                :VMP/PRES_STAT         [:VIRTUAL_PRODUCT_PRES_STATUS/CD :VIRTUAL_PRODUCT_PRES_STATUS/DESC]
+                                :VMP/INGREDIENTS       [* {:VPI/IS [*]} {:VPI/BASIS_STRNT [*]}]}]) .
+               :where
+               [?e :PRODUCT/ID 7322211000001104]]
+             (d/db conn)))
 
 
   ;; generate an extended AMP for all AMPs of co-amoxiclav VMP (7322211000001104)
@@ -391,6 +536,7 @@
                                    {:VMP/PRES_STAT [*]}
                                    {:VMP/CONTROL_DRUG_INFO [*]}
                                    {:VMP/DRUG_ROUTES [*]}
+                                   {:VMP/ONT_DRUG_FORMS [:ONT_FORM_ROUTE/DESC]}
                                    {:VMP/VTM [*]}]}])
          :where
          [?e :AMP/VP [:PRODUCT/ID 7322211000001104]]]
@@ -411,9 +557,46 @@
          [?ingred :INGREDIENT/NM "Amoxicillin trihydrate"]]
        (d/db conn))
 
+  ;; find all AMPs for a given VTM
+  (d/q '[:find (pull ?amp [*])
+         :where
+         [?amp :AMP/VP ?vmp]
+         [?vmp :VMP/VTM ?vtm]
+         [?vtm :VTM/NM "Amlodipine"]]
+       (d/db conn))
+
   (d/q '[:find ?code ?desc
          :where
          [?e :FORM/CD ?code]
          [?e :FORM/DESC ?desc]]
        (d/db conn))
+
+  ;; map ATC code to product identifiers (only VMPs are given an ATC map...
+  (d/q '[:find [?id ...]
+         :where
+         [?e :PRODUCT/ID ?id]
+         (or [?e :VMP/BNF_DETAILS ?bnf]
+             [?e :AMP/BNF_DETAILS ?bnf])
+         [?bnf :BNF_DETAILS/ATC ?atc]
+         [(re-matches #"L04AX.*" ?atc)]]
+       (d/db conn))
+
+  (time (d/q '[:find ?code ?desc
+               :where
+               [?e :BASIS_OF_NAME/CD ?code]
+               [?e :BASIS_OF_NAME/DESC ?desc]]
+             (d/db conn)))
+
+  (time (d/q '[:find (pull ?e [*])
+               :where
+               [?e :BASIS_OF_NAME/CD _]
+               [?e :BASIS_OF_NAME/DESC _]]
+             (d/db conn)))
+
+  (time (d/q '[:find (pull ?e [*])
+               :where
+               [?e :LOOKUP/KIND :BASIS_OF_NAME]]
+             (d/db conn)))
+  (def conn (d/create-conn "dmd-2021-08-30.db" schema))
+
   )

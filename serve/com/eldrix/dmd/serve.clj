@@ -8,7 +8,7 @@
             [io.pedestal.http.content-negotiation :as conneg]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
-            [com.eldrix.dmd.store]
+            [com.eldrix.dmd.store2]
             [ring.util.response :as ring-response])
   (:import (java.net URLDecoder)
            (com.fasterxml.jackson.core JsonGenerator)
@@ -78,7 +78,7 @@
            product-id (get-in context [:request :path-params :product-id])]
        (if-not product-id
          context
-         (assoc context :result (com.eldrix.dmd.store/extended store (com.eldrix.dmd.store/fetch-product store (Long/parseLong product-id)))))))})
+         (assoc context :result (com.eldrix.dmd.store2/fetch-product store (Long/parseLong product-id))))))})
 
 (def routes
   (route/expand-routes
@@ -126,7 +126,7 @@
   (if-not (= 2 (count args))
     (println "Usage: clj -M:serve <database> <port>\n    or java -jar dmd-server.jar <database> <port>")
     (let [[filename port] args
-          store (com.eldrix.dmd.store/open-dmd-store filename)
+          store (com.eldrix.dmd.store2/open-store filename)
           port' (Integer/parseInt port)]
       (log/info "starting NHS dm+d server" {:port port' :filename filename})
       (start-server store port'))))

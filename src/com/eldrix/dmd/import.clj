@@ -162,7 +162,8 @@
    :CHLDAPPID                           parse-long
    :DDD_UOMCD                           parse-long
    :PRICE                               parse-integer
-   :PREVPRICE                           parse-integer})
+   :PREVPRICE                           parse-integer
+   :DDD                                 parse-double})
 
 (defn- parse-property [kind kw v]
   (if-let [parser (get property-parsers [kind kw])]
@@ -224,12 +225,6 @@
         (recur (next lookups)))
       (when close? (a/close! ch)))))
 
-(defn stream-bnf
-  [root ch _file-type close?]
-  (let [entries (mapcat :content (:content root))]
-    (a/<!! (a/onto-chan!! ch (map (partial parse-dmd-component [:BNF nil]) entries) close?))
-    (when close? (a/close! ch))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; High-level dm+d processing functionality
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -242,7 +237,7 @@
    :AMPP       stream-nested-dmd
    :INGREDIENT stream-flat-dmd
    :LOOKUP     stream-lookup-xml
-   :BNF        stream-bnf})
+   :BNF        stream-nested-dmd})
 
 (defn- stream-dmd-file [ch close? {:keys [type file] :as dmd-file}]
   (log/info "Processing " dmd-file)
@@ -337,6 +332,8 @@
   (def rdr (io/reader file))
   (def root (xml/parse rdr :skip-whitespace true))
   (def ch (a/chan))
+  (a/thread (stream-nested-dmd root ch :BNF true))
   (a/thread (stream-bnf root ch nil true))
+  (dotimes [n 1000] (a/<!! ch))
   (a/<!! ch)
   )
