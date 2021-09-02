@@ -8,8 +8,7 @@
             [clojure.string :as str]
             [com.eldrix.trud.zip :as zipfile])
   (:import (java.time.format DateTimeFormatter)
-           (com.eldrix.dmd.store2 DmdStore)
-           (java.util.regex Pattern)))
+           (com.eldrix.dmd.store2 DmdStore)))
 
 (defn install-from-dirs
   "Creates a new dm+d filestore at `filename` from the directories specified."

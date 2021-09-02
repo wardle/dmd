@@ -10,9 +10,7 @@
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
             [io.pedestal.interceptor.error :as intc-err])
-  (:import (java.net URLDecoder)
-           (com.fasterxml.jackson.core JsonGenerator)
-           (java.time LocalDate)
+  (:import (java.time LocalDate)
            (java.time.format DateTimeFormatter)))
 
 (defn response [status body & {:as headers}]
