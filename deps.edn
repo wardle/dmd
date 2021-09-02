@@ -19,14 +19,20 @@
            org.mapdb/mapdb           {:mvn/version "3.0.8"}}
 
  :aliases {:run
-           {:main-opts ["-m" "com.eldrix.dmd.cli"]}
+           {:main-opts ["-m" "com.eldrix.dmd.cli"]
+            :jvm-opts ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
+                       "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
+                       "--illegal-access=permit"]}
 
            :serve
            {:extra-paths ["serve"]
             :extra-deps  {io.pedestal/pedestal.service   {:mvn/version "0.5.9"}
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.9"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.2.3"}}
-            :main-opts   ["-m" "com.eldrix.dmd.serve"]}
+                          ch.qos.logback/logback-classic {:mvn/version "1.2.5"}}
+            :main-opts   ["-m" "com.eldrix.dmd.serve"]
+            :jvm-opts ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
+                       "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
+                       "--illegal-access=permit"]}
 
            :socket
            {:jvm-opts ["-Dclojure.server.repl={:port,50505,:accept,clojure.core.server/repl}"]}
@@ -69,19 +75,19 @@
             :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
 
            :jar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.211"}}
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
             :exec-fn      hf.depstar/jar
             :exec-args    {:jar "target/dmd-lib.jar"}}
 
            :uberjar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.245"}}
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
             :exec-fn      hf.depstar/uberjar
             :exec-args    {:jar        "target/dmd.jar"
                            :aot        true
                            :main-class "com.eldrix.dmd.cli"}}
 
            :server-uberjar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.245"}}
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
             :exec-fn      hf.depstar/uberjar
             :exec-args    {:jar        "target/dmd-server.jar"
                            :aliases    [:serve]
