@@ -318,6 +318,7 @@
 
 (defn fetch-vmp [^DmdStore st vpid]
   (fetch-product* st vpid '[* {:VMP/VTM               [*]
+                               :VMP/BASIS             [*]
                                :VMP/UNIT_DOSE_UOM     [*]
                                :VMP/UDFS_UOM          [*]
                                :VMP/DRUG_ROUTES       [:ROUTE/CD :ROUTE/DESC]
