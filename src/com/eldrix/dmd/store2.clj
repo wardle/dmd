@@ -355,7 +355,7 @@
       :AMPP (fetch-ampp st id)
       nil)))
 
-(defn lookup
+(defn fetch-lookup
   "Returns the lookup for the kind specified.
   Parameters:
   - st    : dm+d store

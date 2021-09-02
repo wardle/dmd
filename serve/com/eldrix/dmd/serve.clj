@@ -2,14 +2,14 @@
   "Provides a web service for dm+d data."
   (:gen-class)
   (:require [clojure.data.json :as json]
+            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.dmd.core :as dmd]
             [io.pedestal.http :as http]
             [io.pedestal.http.content-negotiation :as conneg]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
-            [com.eldrix.dmd.store2]
-            [ring.util.response :as ring-response]
-            [clojure.string :as str])
+            [io.pedestal.interceptor.error :as intc-err])
   (:import (java.net URLDecoder)
            (com.fasterxml.jackson.core JsonGenerator)
            (java.time LocalDate)
@@ -28,6 +28,17 @@
 
 (def formatters
   {LocalDate #(.format (DateTimeFormatter/ISO_DATE) %)})
+
+
+(def service-error-handler
+  (intc-err/error-dispatch
+    [context err]
+    [{:exception-type :java.lang.NumberFormatException :interceptor ::fetch-product}]
+    (assoc context :response {:status 400
+                              :body   (str "Invalid parameters; invalid number: " (ex-message (:exception (ex-data err))))})
+
+    :else
+    (assoc context :io.pedestal.interceptor.chain/error err)))
 
 (defn transform-content
   [body content-type]
@@ -69,14 +80,28 @@
              (assoc context :response (ok item))
              context))})
 
-(def common-interceptors [coerce-body content-neg-intc entity-render])
+(def hidden-properties
+  "A set of properties to be removed from the external API."
+  #{:db/id
+    :LOOKUP/KIND})
 
+(defn ^:private hide-internals* [x]
+  (cond
+    (map? x) (reduce-kv (fn [result k v]
+                          (if (hidden-properties k)
+                            result
+                            (assoc result k (hide-internals* v)))) {} x)
+    (coll? x) (map hide-internals* x)
+    :else x))
 
-(defn prepare-result [m]
-  (reduce-kv (fn [result k v]
-               (if (or (= :db/id k) (= :LOOKUP/KIND k))
-                 result
-                 (assoc result k (if (map? v) (prepare-result v) v)))) {} m))
+(def hide-internals
+  "Interceptor to filter an entity of internal properties, such as :db/id
+  and :LOOKUP/KIND."
+  {:name  :filter-internals
+   :leave (fn [context]
+            (if-let [result (:result context)]
+              (assoc context :result (hide-internals* result))
+              context))})
 
 (def fetch-product
   {:name
@@ -87,7 +112,7 @@
            product-id (get-in context [:request :path-params :product-id])]
        (if-not product-id
          context
-         (assoc context :result (prepare-result (com.eldrix.dmd.store2/fetch-product store (Long/parseLong product-id)))))))})
+         (assoc context :result (dmd/fetch-product store (Long/parseLong product-id))))))})
 
 (def fetch-lookup
   {:name
@@ -95,11 +120,13 @@
    :enter
    (fn [context]
      (let [store (get-in context [:request ::store])
-           lookup-kind (str/upper-case  (get-in context [:request :path-params :lookup-kind]))]
+           lookup-kind (str/upper-case (get-in context [:request :path-params :lookup-kind]))]
        (if-not lookup-kind
          context
-         (assoc context :result (map prepare-result (com.eldrix.dmd.store2/lookup store lookup-kind))))))})
+         (assoc context :result (dmd/fetch-lookup store lookup-kind)))))})
 
+
+(def common-interceptors [service-error-handler coerce-body content-neg-intc entity-render hide-internals])
 
 (def routes
   (route/expand-routes

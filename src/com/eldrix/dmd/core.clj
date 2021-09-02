@@ -7,7 +7,8 @@
             [com.eldrix.dmd.store2 :as st2]
             [clojure.string :as str]
             [com.eldrix.trud.zip :as zipfile])
-  (:import (java.time.format DateTimeFormatter)))
+  (:import (java.time.format DateTimeFormatter)
+           (com.eldrix.dmd.store2 DmdStore)))
 
 (defn install-from-dirs
   "Creates a new dm+d filestore at `filename` from the directories specified."
@@ -47,20 +48,24 @@
 (defn open-store [filename]
   (st2/open-store filename))
 
+
+(defn fetch-product [^DmdStore store product-id]
+  (st2/fetch-product store product-id))
+
+(defn fetch-lookup [^DmdStore store lookup-kind]
+  (st2/fetch-lookup store lookup-kind))
+
+
+
 (comment
   (import-dmd "dmd.db" "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
   (install-latest "/Users/mark/Dev/trud/api-key.txt" "/var/tmp/trud")
 
   (def store (open-store "dmd-2021-07-05.db"))
   (.close store)
-  (def vtm (st2/fetch-product store 108537001))
+  (def vtm (fetch-product store 108537001))
   vtm
-  (st/vmps store vtm)
-  (st/make-extended-vmp store (st/fetch-product store 39828011000001104))
-  (st/bnf-for-product store 39828011000001104)
-  (st/vmpps store vtm)
-  (st/amps store vtm)
-  (map :NM (map (partial st/fetch-product store) (st/ampps store vtm)))
+
 
   (dim/dmd-file-seq "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud16249114005046941653")
 
