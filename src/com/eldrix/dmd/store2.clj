@@ -395,13 +395,13 @@
        (d/db (.-conn st))
        re-atc))
 
-(defn products-from-atc [^DmdStore st re-atc]
-  (d/q '[:find [(pull ?e [*]) ...]
+(defn vmps-from-atc
+  [^DmdStore st re-atc]
+  (d/q '[:find [(pull ?e [:VMP/VPID :VMP/NM]) ...]
          :in $ ?atc-regexp
          :where
          [?e :PRODUCT/ID ?id]
-         (or [?e :VMP/BNF_DETAILS ?bnf]
-             [?e :AMP/BNF_DETAILS ?bnf])
+         [?e :VMP/BNF_DETAILS ?bnf]
          [?bnf :BNF_DETAILS/ATC ?atc]
          [(re-matches ?atc-regexp ?atc)]]
        (d/db (.-conn st))
@@ -675,6 +675,8 @@
                :where
                [?e :LOOKUP/KIND :BASIS_OF_NAME]]
              (d/db conn)))
+
+
   (def conn (d/create-conn "dmd-2021-08-30.db" schema))
   (def st (->DmdStore conn))
 

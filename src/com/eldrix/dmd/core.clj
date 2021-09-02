@@ -8,7 +8,8 @@
             [clojure.string :as str]
             [com.eldrix.trud.zip :as zipfile])
   (:import (java.time.format DateTimeFormatter)
-           (com.eldrix.dmd.store2 DmdStore)))
+           (com.eldrix.dmd.store2 DmdStore)
+           (java.util.regex Pattern)))
 
 (defn install-from-dirs
   "Creates a new dm+d filestore at `filename` from the directories specified."
@@ -55,7 +56,9 @@
 (defn fetch-lookup [^DmdStore store lookup-kind]
   (st2/fetch-lookup store lookup-kind))
 
-
+(defn vmps-from-atc [^DmdStore store atc]
+  (let [atc' (if (string? atc) (re-pattern atc) atc)]
+    (st2/vmps-from-atc store atc')))
 
 (comment
   (import-dmd "dmd.db" "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
@@ -70,7 +73,7 @@
   (dim/dmd-file-seq "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud16249114005046941653")
 
   (def ch (a/chan))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch ))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:VTM}))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:VMP}))
   (a/<!! ch)

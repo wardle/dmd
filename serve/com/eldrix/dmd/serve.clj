@@ -120,10 +120,19 @@
    :enter
    (fn [context]
      (let [store (get-in context [:request ::store])
-           lookup-kind (str/upper-case (get-in context [:request :path-params :lookup-kind]))]
+           lookup-kind (get-in context [:request :path-params :lookup-kind])]
        (if-not lookup-kind
          context
-         (assoc context :result (dmd/fetch-lookup store lookup-kind)))))})
+         (assoc context :result (dmd/fetch-lookup store (str/upper-case lookup-kind))))))})
+
+(def atc->vmps
+  {:name ::atc->vmps
+   :enter (fn [context]
+            (let [store (get-in context [:request ::store])
+                  atc  (get-in context [:request :path-params :atc])]
+              (if-not atc
+                context
+                (assoc context :result (dmd/vmps-from-atc store atc)))))})
 
 
 (def common-interceptors [service-error-handler coerce-body content-neg-intc entity-render hide-internals])
@@ -131,7 +140,8 @@
 (def routes
   (route/expand-routes
     #{["/dmd/v1/product/:product-id" :get (conj common-interceptors fetch-product)]
-      ["/dmd/v1/lookup/:lookup-kind" :get (conj common-interceptors fetch-lookup)]}))
+      ["/dmd/v1/lookup/:lookup-kind" :get (conj common-interceptors fetch-lookup)]
+      ["/dmd/v1/atc/:atc/vmps" :get (conj common-interceptors atc->vmps)]}))
 
 (defn inject-store
   "A simple interceptor to inject dm+d store 'store' into the context."
