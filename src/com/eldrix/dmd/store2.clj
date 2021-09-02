@@ -368,6 +368,80 @@
             (keyword nm))
        (map #(dissoc % :db/id :LOOKUP/KIND))))
 
+(defn identifiers-from-atc
+  "Get a sequence of product identifiers that match the ATC code.
+  Parameters:
+   - st     : dm+d store
+   - re-atc : a regexp matching the ATC code e.g. #\"L04AX.*\".
+
+  It is usual to use a prefix match match for the ATC given its code structure.
+
+  The Anatomical Therapeutic Chemical (ATC) code: a unique code assigned to a
+  medicine according to the organ or system it works on and how it works. The
+  classification system is maintained by the World Health Organization (WHO).
+
+  The dm+d ATC mapping only includes VMPs, so depending on usage, extending the
+  codeset to include the appropriate other dm+d structures might be required."
+  [^DmdStore st re-atc]
+  (d/q '[:find [?id ...]
+         :in $ ?atc-regexp
+         :where
+         [?e :PRODUCT/ID ?id]
+         (or [?e :VMP/BNF_DETAILS ?bnf]
+             [?e :AMP/BNF_DETAILS ?bnf])
+         [?bnf :BNF_DETAILS/ATC ?atc]
+         [(re-matches ?atc-regexp ?atc)]]
+       (d/db (.-conn st))
+       re-atc))
+
+(defn products-from-atc [^DmdStore st re-atc]
+  (d/q '[:find [(pull ?e [*]) ...]
+         :in $ ?atc-regexp
+         :where
+         [?e :PRODUCT/ID ?id]
+         (or [?e :VMP/BNF_DETAILS ?bnf]
+             [?e :AMP/BNF_DETAILS ?bnf])
+         [?bnf :BNF_DETAILS/ATC ?atc]
+         [(re-matches ?atc-regexp ?atc)]]
+       (d/db (.-conn st))
+       re-atc))
+
+(defn vmps-for-vtmid [^DmdStore st vtmid]
+  (d/q '[:find [?id ...]
+         :in $ ?vtmid
+         :where
+         [?e :VMP/VTMID ?vtmid]
+         [?e :VMP/VPID ?id]]
+       (d/db (.-conn st))
+       vtmid))
+
+(defn amps-for-vtmid [^DmdStore st vtmid]
+  (d/q '[:find [?apid ...]
+         :in $ ?vtmid
+         :where
+         [?vtm :VTM/VTMID ?vtmid]
+         [?vmp :VMP/VTM ?vtm]
+         [?amp :AMP/VP ?vmp]
+         [?amp :AMP/APID ?apid]]
+       (d/db (.-conn st))
+       vtmid))
+
+(defn product-by-name
+  "Simple search by name; this is not designed for operational use as text
+  search is slow - it will take ~500ms. It is intended for testing and
+  exploration purposes only."
+  [st re-nm]
+  (d/q '[:find ?id ?nm
+         :in $ ?s
+         :where
+         [?e :PRODUCT/ID ?id]
+         (or
+           [?e :VTM/NM ?nm]
+           [?e :VMP/NM ?nm]
+           [?e :AMP/NM ?nm])
+         [(re-matches ?s ?nm)]]
+       (d/db (.-conn st))
+       re-nm))
 
 (defmulti vtms "Return the VTMs associated with this product."
           (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
@@ -378,7 +452,8 @@
 (defmethod vtms :VMP [store vmp]
   [(fetch-vtm store (:VMP/VTMID vmp))])
 
-(defmethod vtms :AMP [store amp])
+(defmethod vtms :AMP [store amp]
+  ())
 
 (defmulti vmps "Returns the VMPs associated with this product."
           (fn [^DmdStore _store product] (:TYPE product)))
@@ -581,6 +656,8 @@
          [(re-matches #"L04AX.*" ?atc)]]
        (d/db conn))
 
+  (time (map-from-atc st #"N02BA01.*"))
+
   (time (d/q '[:find ?code ?desc
                :where
                [?e :BASIS_OF_NAME/CD ?code]
@@ -598,5 +675,6 @@
                [?e :LOOKUP/KIND :BASIS_OF_NAME]]
              (d/db conn)))
   (def conn (d/create-conn "dmd-2021-08-30.db" schema))
+  (def st (->DmdStore conn))
 
   )
