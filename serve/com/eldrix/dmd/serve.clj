@@ -1,15 +1,15 @@
 (ns com.eldrix.dmd.serve
   "Provides a web service for dm+d data."
   (:gen-class)
-  (:require [cheshire.core :as json]
-            [cheshire.generate :as json-gen]
+  (:require [clojure.data.json :as json]
             [clojure.tools.logging.readable :as log]
             [io.pedestal.http :as http]
             [io.pedestal.http.content-negotiation :as conneg]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
             [com.eldrix.dmd.store2]
-            [ring.util.response :as ring-response])
+            [ring.util.response :as ring-response]
+            [clojure.string :as str])
   (:import (java.net URLDecoder)
            (com.fasterxml.jackson.core JsonGenerator)
            (java.time LocalDate)
@@ -23,13 +23,11 @@
 (def ok (partial response 200))
 (def not-found (partial response 404))
 
-(json-gen/add-encoder LocalDate
-                      (fn [^LocalDate o ^JsonGenerator out]
-                        (.writeString out (.format (DateTimeFormatter/ISO_DATE) o))))
-
-
 (def supported-types ["text/html" "application/edn" "application/json" "text/plain"])
 (def content-neg-intc (conneg/negotiate-content supported-types))
+
+(def formatters
+  {LocalDate #(.format (DateTimeFormatter/ISO_DATE) %)})
 
 (defn transform-content
   [body content-type]
@@ -38,7 +36,11 @@
       "text/html" body
       "text/plain" body
       "application/edn" (pr-str body)
-      "application/json" (json/generate-string body))))
+      "application/json" (json/write-str body
+                                         :value-fn (fn [k v]
+                                                     (if-let [formatter (get formatters (type v))]
+                                                       (formatter v)
+                                                       v))))))
 
 (defn accepted-type
   [context]
@@ -69,6 +71,13 @@
 
 (def common-interceptors [coerce-body content-neg-intc entity-render])
 
+
+(defn prepare-result [m]
+  (reduce-kv (fn [result k v]
+               (if (or (= :db/id k) (= :LOOKUP/KIND k))
+                 result
+                 (assoc result k (if (map? v) (prepare-result v) v)))) {} m))
+
 (def fetch-product
   {:name
    ::fetch-product
@@ -78,11 +87,25 @@
            product-id (get-in context [:request :path-params :product-id])]
        (if-not product-id
          context
-         (assoc context :result (com.eldrix.dmd.store2/fetch-product store (Long/parseLong product-id))))))})
+         (assoc context :result (prepare-result (com.eldrix.dmd.store2/fetch-product store (Long/parseLong product-id)))))))})
+
+(def fetch-lookup
+  {:name
+   ::fetch-lookup
+   :enter
+   (fn [context]
+     (let [store (get-in context [:request ::store])
+           lookup-kind (str/upper-case  (get-in context [:request :path-params :lookup-kind]))]
+       (if-not lookup-kind
+         context
+         (assoc context :result (map prepare-result (com.eldrix.dmd.store2/lookup store lookup-kind))))))})
+
 
 (def routes
   (route/expand-routes
-    #{["/dmd/v1/product/:product-id" :get (conj common-interceptors fetch-product)]}))
+    #{["/dmd/v1/product/:product-id" :get (conj common-interceptors fetch-product)]
+      ["/dmd/v1/product/:product-id/vtms" :get (conj common-interceptors fetch-vtms)]
+      ["/dmd/v1/lookup/:lookup-kind" :get (conj common-interceptors fetch-lookup)]}))
 
 (defn inject-store
   "A simple interceptor to inject dm+d store 'store' into the context."

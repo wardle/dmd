@@ -301,17 +301,17 @@
 (defn product-type [^DmdStore st id]
   (:PRODUCT/TYPE (d/q '[:find (pull ?e [*]) . :in $ ?id :where [?e :PRODUCT/ID ?id]] (d/db (.-conn st)) id)))
 
+
 (defn ^:private fetch-product*
   "Fetch a single product with the pull syntax pattern specified."
   [^DmdStore st id pattern]
-  (-> (d/q '[:find (pull ?e pattern) .
-             :in $ ?id pattern
-             :where
-             [?e :PRODUCT/ID ?id]]
-           (d/db (.-conn st))
-           id
-           pattern)
-      (dissoc :db/id)))
+  (d/q '[:find (pull ?e pattern) .
+         :in $ ?id pattern
+         :where
+         [?e :PRODUCT/ID ?id]]
+       (d/db (.-conn st))
+       id
+       pattern))
 
 (defn fetch-vtm [^DmdStore st vtmid]
   (fetch-product* st vtmid '[*]))

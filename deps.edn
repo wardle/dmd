@@ -4,6 +4,7 @@
            org.clojure/core.async    {:mvn/version "1.3.618"}
            org.clojure/core.match    {:mvn/version "1.0.0"}
            org.clojure/data.csv      {:mvn/version "1.0.0"}
+           org.clojure/data.json     {:mvn/version "2.4.0"}
            org.clojure/data.xml      {:mvn/version "0.2.0-alpha6"}
            org.clojure/data.zip      {:mvn/version "1.0.0"}
            org.clojure/tools.cli     {:mvn/version "1.0.206"}
@@ -20,9 +21,9 @@
 
  :aliases {:run
            {:main-opts ["-m" "com.eldrix.dmd.cli"]
-            :jvm-opts ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
-                       "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
-                       "--illegal-access=permit"]}
+            :jvm-opts  ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
+                        "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
+                        "--illegal-access=permit"]}
 
            :serve
            {:extra-paths ["serve"]
@@ -30,9 +31,9 @@
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.9"}
                           ch.qos.logback/logback-classic {:mvn/version "1.2.5"}}
             :main-opts   ["-m" "com.eldrix.dmd.serve"]
-            :jvm-opts ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
-                       "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
-                       "--illegal-access=permit"]}
+            :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
+                          "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
+                          "--illegal-access=permit"]}
 
            :socket
            {:jvm-opts ["-Dclojure.server.repl={:port,50505,:accept,clojure.core.server/repl}"]}
