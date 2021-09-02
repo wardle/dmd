@@ -104,7 +104,6 @@
 (def routes
   (route/expand-routes
     #{["/dmd/v1/product/:product-id" :get (conj common-interceptors fetch-product)]
-      ["/dmd/v1/product/:product-id/vtms" :get (conj common-interceptors fetch-vtms)]
       ["/dmd/v1/lookup/:lookup-kind" :get (conj common-interceptors fetch-lookup)]}))
 
 (defn inject-store
