@@ -123,6 +123,25 @@
    :VMPP/DRUG_TARIFF_INFO                {:db/valueType :db.type/ref}
    :VMPP/CHLDVPP                         {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
 
+   ;; AMPP
+   :AMPP/APPID                           {:db/valueType :db.type/long}
+   :AMPP/INVALID                         {:db/valueType :db.type/boolean}
+   :AMPP/NM                              {:db/valueType :db.type/string}
+   :AMPP/ABBREVNM                        {:db/valueType :db.type/string}
+   :AMPP/VPPID                           {:db/valueType :db.type/long}
+   :AMPP/APID                            {:db/valueType :db.type/long}
+   :AMPP/COMBPACK                        {:db/valueType :db.type/ref}
+   :AMPP/LEGAL_CAT                       {:db/valueType :db.type/ref}
+   :AMPP/SUBP                            {:db/valueType :db.type/string}
+   :AMPP/DISC                            {:db/valueType :db.type/ref}
+   :AMPP/GTIN_DETAILS                    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+   :APPLIANCE_PACK_INFO/REIMB_STAT       {:db/valueType :db.type/ref}
+   :APPLIANCE_PACK_INFO/REIMB_STATPREV   {:db/valueType :db.type/ref}
+   :APPLIANCE_PACK_INFO/PACK_ORDER_NO    {:db/valueType :db.type/string}
+   :MEDICINAL_PRODUCT_PRICE/PRICE        {:db/valueType :db.type/double}
+   :MEDICINAL_PRODUCT_PRICE/PRICE_BASIS  {:db/valueType :db.type/ref}
+   :REIMBURSEMENT_INFO/SPEC_CONT         {:db/valueType :db.type/ref}
+
    ;; lookups
    :COMBINATION_PACK_IND/CD              {:db/unique :db.unique/identity}
    :COMBINATION_PROD_IND/CD              {:db/unique :db.unique/identity}
@@ -203,6 +222,14 @@
                              :COMBPACKCD [:VMPP/COMBPACK :COMBINATION_PACK_IND/CD]}
           :DRUG_TARIFF_INFO {:PAY_CATCD [:DRUG_TARIFF_INFO/PAY_CAT :DT_PAYMENT_CATEGORY/CD]}
           :COMB_CONTENT     {:CHLDVPPID [:VMPP/CHLDVPP :PRODUCT/ID]}}
+   :AMPP {:AMPP                    {:COMBPACKCD  [:AMPP/COMBPACK :COMBINATION_PACK_IND/CD]
+                                    :LEGAL_CATCD [:AMPP/LEGAL_CAT :LEGAL_CATEGORY/CD]
+                                    :DISCCD      [:AMPP/DISC :DISCONTINUED_IND/CD]}
+          :APPLIANCE_PACK_INFO     {:REIMB_STATCD     [:APPLIANCE_PACK_INFO/REIMB_STAT :REIMBURSEMENT_STATUS/CD]
+                                    :REIMB_STATPREVCD [:APPLIANCE_PACK_INFO/REIMB_STATPREV :REIMBURSEMENT_STATUS/CD]}
+          :MEDICINAL_PRODUCT_PRICE {:PRICE_BASISCD [:MEDICINAL_PRODUCT_PRICE/PRICE_BASIS :PRICE_BASIS/CD]}
+          :REIMBURSEMENT_INFO      {:SPEC_CONTCD [:REIMBURSEMENT_INFO/SPEC_CONT :SPEC_CONT/CD]}
+          :COMB_CONTENT            {:CHLDAPPID [:AMPP/CHLDAPP :PRODUCT/ID]}}
    :BNF  {:VMPS {:DDD_UOMCD [:BNF_DETAILS/DDD_UOM :UNIT_OF_MEASURE/CD]}}})
 
 (defn parse-entity
@@ -291,6 +318,7 @@
          [[:AMPP _]] (parse-flat-property m :APPID)         ;; for all other properties, the FK to the parent is APPID
          [[:INGREDIENT :INGREDIENT]] (parse-lookup m)
          [[:LOOKUP _]] (parse-lookup m)
+         [[:GTIN :AMPPS]] (parse-nested-property m :GTIN_DETAILS :AMPP/GTIN_DETAILS :AMPPID)
          [[:BNF :VMPS]] (parse-nested-property m :BNF_DETAILS :VMP/BNF_DETAILS :VPID)
          [[:BNF :AMPS]] (parse-nested-property m :BNF_DETAILS :AMP/BNF_DETAILS :APID)
          :else (log/warn "Unknown file type / component type tuple" m)))
@@ -506,7 +534,8 @@
   (def st (->DmdStore conn))
   (def dir "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
   (def result (cardinalities dir))
-  (clojure.pprint/print-table result)
+  (map clojure.pprint/print-table result)
+
   (require '[com.eldrix.dmd.import :as dim]
            '[clojure.core.async :as a])
   (def ch1 (a/chan 500))
@@ -516,11 +545,14 @@
   (a/<!! ch2)
 
   (def ch (a/chan))
-  (def ch (a/chan 5 (comp (map #(parse %)) (partition-all 5000))))
+  (def ch (a/chan 5 (comp (map #(parse %)) (partition-all 5))))
 
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch1 :include #{:LOOKUP}))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:INGREDIENT}))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:GTIN}))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/week272021-r2_3-BNF" ch1))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:AMPP}))
+  (a/<!! ch)
   (def batch (a/<!! ch))
   batch
   (map parse (a/<!! ch))
@@ -696,7 +728,7 @@
 
   (def conn (d/create-conn "dmd-2021-08-30.db" schema))
   (def st (->DmdStore conn))
-  (count (:VMP/INGREDIENTS (fetch-product st 15098511000001109)))
+  (fetch-product st 1328311000001107)
 
   (def counts (d/q '[:find ?vpid (count ?forms)
                      :where

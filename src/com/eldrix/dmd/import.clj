@@ -42,7 +42,7 @@
 
 (def ^:private file-ordering
   "Order of file import for relational integrity, if needed."
-  [:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP :BNF])
+  [:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP :GTIN :BNF])
 
 (def ^DateTimeFormatter df
   (DateTimeFormatter/ofPattern "ddMMyy"))
@@ -163,7 +163,9 @@
    :DDD_UOMCD                           parse-long
    :PRICE                               parse-integer
    :PREVPRICE                           parse-integer
-   :DDD                                 parse-double})
+   :DDD                                 parse-double
+   :STARTDT                             parse-date
+   :ENDDT                               parse-date})
 
 (defn- parse-property [kind kw v]
   (if-let [parser (get property-parsers [kind kw])]
@@ -237,6 +239,7 @@
    :AMPP       stream-nested-dmd
    :INGREDIENT stream-flat-dmd
    :LOOKUP     stream-lookup-xml
+   :GTIN       stream-nested-dmd
    :BNF        stream-nested-dmd})
 
 (defn- stream-dmd-file [ch close? {:keys [type file] :as dmd-file}]
@@ -285,7 +288,7 @@
 
 (defn ^:private cardinalities-for-product [dir product-kind product-identifier]
   (let [ch (a/chan 1 (filter #(not= (:TYPE %) [product-kind product-kind])))]
-    (a/thread (dim/stream-dmd dir ch :include #{product-kind}))
+    (a/thread (stream-dmd dir ch :include #{product-kind}))
     (let [counts (loop [result {}]
                    (let [item (a/<!! ch)]
                      (if-not item
@@ -304,8 +307,11 @@
        [[:VMP :VPID]
         [:AMP :APID]
         [:VMPP :VPPID]
-        [:AMPP :APPID]]))
+        [:AMPP :APPID]
+        [:GTIN :AMPPID]]))
 
+(comment
+  (map clojure.pprint/print-table (cardinalities "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")))
 
 (defn- ch->seq*
   [ch]

@@ -365,7 +365,7 @@ The latest documentation is from 2017 from the NHSBSA -
 The cardinalities of the different components are shown on page 5 of that document.
 
 Here is some data confirming the cardinalities as shown, based on the 2021-08-30 release.
-You can run this code easily at a clojure REPL to confirm.
+You can run this code easily at a clojure REPL to confirm, but here are the results:
 ```
 
 |                              :TYPE | :MAX-CARDINALITY | :CARDINALITY |
@@ -394,6 +394,10 @@ You can run this code easily at a clojure REPL to confirm.
 |    [:AMPP :MEDICINAL_PRODUCT_PRICE] |                1 |      :TO-ONE |
 |         [:AMPP :REIMBURSEMENT_INFO] |                1 |      :TO-ONE |
 |               [:AMPP :COMB_CONTENT] |             1085 |     :TO-MANY |
+
+|          :TYPE | :MAX-CARDINALITY | :CARDINALITY |
+|----------------+------------------+--------------|
+| [:GTIN :AMPPS] |                1 |      :TO-ONE |
 ```
 
 # Developer information
