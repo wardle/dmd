@@ -59,7 +59,7 @@
    :VMP/UNIT_DOSE_UOM                    {:db/valueType :db.type/ref}
    :VMP/INGREDIENTS                      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
    :VMP/ONT_DRUG_FORMS                   {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
-   :VMP/DRUG_FORMS                       {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many} ;; confirmed: each VMP has ONE drug form, but hold as a to-many
+   :VMP/DRUG_FORM                        {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
    :VMP/DRUG_ROUTES                      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
    :VMP/CONTROL_DRUG_INFO                {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
    :VMP/BNF_DETAILS                      {:db/valueType :db.type/ref}
@@ -96,6 +96,7 @@
    :AMP/PARALLEL_IMPORT                  {:db/valueType :db.type/boolean}
    :AMP/AVAIL_RESTRICT                   {:db/valueType :db.type/ref}
    :AMP/EXCIPIENTS                       {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+   :AMP/AP_INFORMATION                   {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
    :AMP/LICENSED_ROUTES                  {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
    :AMP/COLOUR                           {:db/valueType :db.type/ref}
    :AMP/BNF_DETAILS                      {:db/valueType :db.type/ref}
@@ -182,7 +183,7 @@
           :VIRTUAL_PRODUCT_INGREDIENT {:BASIS_STRNTCD [:VPI/BASIS_STRNT :BASIS_OF_STRNTH/CD]
                                        :ISID          [:VPI/IS :INGREDIENT/ISID]}
           :ONT_DRUG_FORM              {:FORMCD [:VMP/ONT_DRUG_FORMS :ONT_FORM_ROUTE/CD]}
-          :DRUG_FORM                  {:FORMCD [:VMP/DRUG_FORMS :FORM/CD]}
+          :DRUG_FORM                  {:FORMCD [:VMP/DRUG_FORM :FORM/CD]}
           :DRUG_ROUTE                 {:ROUTECD [:VMP/DRUG_ROUTES :ROUTE/CD]}
           :CONTROL_DRUG_INFO          {:CATCD [:VMP/CONTROL_DRUG_INFO :CONTROL_DRUG_CATEGORY/CD]}}
    :AMP  {:AMP            {:VPID             [:AMP/VP :PRODUCT/ID]
@@ -482,9 +483,7 @@
 (defmulti extended "Returns an extended denormalized product"
           (fn [^DmdStore _store product] (:TYPE product)))
 
-
 (comment
-
   (def lookup-example {:TYPE [:LOOKUP :NAMECHANGE_REASON], :CD "0003", :DESC "Basis of name changed", :ID :NAMECHANGE_REASON-0003})
   (parse lookup-example)
   (parse {:TYPE [:VTM :VTM], :VTMID 68088000, :NM "Acebutolol"})
@@ -506,6 +505,8 @@
   (def conn (d/create-conn "dmd-2021-08-30.db" schema))
   (def st (->DmdStore conn))
   (def dir "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
+  (def result (cardinalities dir))
+  (clojure.pprint/print-table result)
   (require '[com.eldrix.dmd.import :as dim]
            '[clojure.core.async :as a])
   (def ch1 (a/chan 500))
@@ -695,7 +696,7 @@
 
   (def conn (d/create-conn "dmd-2021-08-30.db" schema))
   (def st (->DmdStore conn))
-  (fetch-product st 12797611000001109)
+  (count (:VMP/INGREDIENTS (fetch-product st 15098511000001109)))
 
   (def counts (d/q '[:find ?vpid (count ?forms)
                      :where

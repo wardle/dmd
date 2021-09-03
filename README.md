@@ -20,8 +20,9 @@ the reasons I decided to create `dmd` as a separate service.
 
 # Getting started
 
-`dmd` creates an immutable file-based database. That database can then be used 
-by `dmd` whether operating as a library or a microservice.
+`dmd` creates what you should regard as an  immutable file-based database. 
+That database can then be used by `dmd` whether operating as a library or a 
+microservice.
 
 #### 1. Install clojure, if not already available
 
@@ -61,7 +62,7 @@ You can also specify multiple directories from which to import.
 
 ##### Download automatically
 
-`dmd` has automatic functionality to download and install the latest distribution. The process takes less than ten
+`dmd` has automatic functionality to download and install the latest distribution. The process takes a few
 minutes.
 
 Automatic downloads need a cache directory. This stops automated tools like this from overloading NHS Digital's
@@ -355,6 +356,45 @@ I don't think it is accurate, at all, but when you look at open-source software
 it is important to recognise that open-source work is not free. There is a cost
 and it is sensible to remind people of that.
 
+### What is the structure of dm+d?
+
+There is good information available online. 
+The latest documentation is from 2017 from the NHSBSA - 
+[https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf](https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf).
+
+The cardinalities of the different components are shown on page 5 of that document.
+
+Here is some data confirming the cardinalities as shown, based on the 2021-08-30 release.
+You can run this code easily at a clojure REPL to confirm.
+```
+
+|                              :TYPE | :MAX-CARDINALITY | :CARDINALITY |
+|------------------------------------+------------------+--------------|
+| [:VMP :VIRTUAL_PRODUCT_INGREDIENT] |               29 |     :TO-MANY |
+|              [:VMP :ONT_DRUG_FORM] |                9 |     :TO-MANY |
+|                  [:VMP :DRUG_FORM] |                1 |      :TO-ONE |
+|                 [:VMP :DRUG_ROUTE] |                7 |     :TO-MANY |
+|          [:VMP :CONTROL_DRUG_INFO] |                1 |      :TO-ONE |
+
+|                  :TYPE | :MAX-CARDINALITY | :CARDINALITY |
+|------------------------+------------------+--------------|
+|  [:AMP :AP_INGREDIENT] |               16 |     :TO-MANY |
+| [:AMP :LICENSED_ROUTE] |                6 |     :TO-MANY |
+| [:AMP :AP_INFORMATION] |                1 |      :TO-ONE |
+
+|                     :TYPE | :MAX-CARDINALITY | :CARDINALITY |
+|---------------------------+------------------+--------------|
+| [:VMPP :DRUG_TARIFF_INFO] |                1 |      :TO-ONE |
+|     [:VMPP :COMB_CONTENT] |              875 |     :TO-MANY |
+
+|                               :TYPE | :MAX-CARDINALITY | :CARDINALITY |
+|-------------------------------------+------------------+--------------|
+|        [:AMPP :APPLIANCE_PACK_INFO] |                1 |      :TO-ONE |
+| [:AMPP :DRUG_PRODUCT_PRESCRIB_INFO] |                1 |      :TO-ONE |
+|    [:AMPP :MEDICINAL_PRODUCT_PRICE] |                1 |      :TO-ONE |
+|         [:AMPP :REIMBURSEMENT_INFO] |                1 |      :TO-ONE |
+|               [:AMPP :COMB_CONTENT] |             1085 |     :TO-MANY |
+```
 
 # Developer information
 

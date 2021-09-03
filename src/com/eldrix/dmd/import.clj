@@ -282,6 +282,31 @@
         (recur (a/<!! ch)
                (update counts (:TYPE item) (fnil inc 0)))))))
 
+
+(defn ^:private cardinalities-for-product [dir product-kind product-identifier]
+  (let [ch (a/chan 1 (filter #(not= (:TYPE %) [product-kind product-kind])))]
+    (a/thread (dim/stream-dmd dir ch :include #{product-kind}))
+    (let [counts (loop [result {}]
+                   (let [item (a/<!! ch)]
+                     (if-not item
+                       result
+                       (recur (update-in result [(:TYPE item) (get item product-identifier)] (fnil inc 0))))))]
+      (reduce-kv (fn [result k v]
+                   (let [max-cardinality (apply max (vals v))]
+                     (conj result {:TYPE            k
+                                   :MAX-CARDINALITY max-cardinality
+                                   :CARDINALITY     (if (> max-cardinality 1) :TO-MANY :TO-ONE)}))) [] counts))))
+
+(defn cardinalities
+  "Determines the cardinalities for the different product components."
+  [dir]
+  (map (fn [[kind id]] (cardinalities-for-product dir kind id))
+       [[:VMP :VPID]
+        [:AMP :APID]
+        [:VMPP :VPPID]
+        [:AMPP :APPID]]))
+
+
 (defn- ch->seq*
   [ch]
   (when-let [item (a/<!! ch)]
