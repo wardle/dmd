@@ -59,10 +59,9 @@
    :VMP/UNIT_DOSE_UOM                    {:db/valueType :db.type/ref}
    :VMP/INGREDIENTS                      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
    :VMP/ONT_DRUG_FORMS                   {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
-   :VMP/DRUG_FORMS                       {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+   :VMP/DRUG_FORMS                       {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many} ;; confirmed: each VMP has ONE drug form, but hold as a to-many
    :VMP/DRUG_ROUTES                      {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
-   :VMP/CONTROL_DRUG_INFO                {:db/valueType   :db.type/ref ;; TODO: need to check whether needs to be to-many cardinality?
-                                          :db/cardinality :db.cardinality/one}
+   :VMP/CONTROL_DRUG_INFO                {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
    :VMP/BNF_DETAILS                      {:db/valueType :db.type/ref}
 
    ;; VMP - VPIs
@@ -205,15 +204,26 @@
           :COMB_CONTENT     {:CHLDVPPID [:VMPP/CHLDVPP :PRODUCT/ID]}}
    :BNF  {:VMPS {:DDD_UOMCD [:BNF_DETAILS/DDD_UOM :UNIT_OF_MEASURE/CD]}}})
 
-(defn parse-entity [m nspace]
+(defn parse-entity
+  [m nspace]
+  (let [[file-type component-type] (:TYPE m)]
+    (reduce-kv (fn [m k v]
+                 (let [k' (keyword nspace (name k))]
+                   (if-let [[prop fk] (get-in lookup-references [file-type component-type k])]
+                     (assoc m prop [fk v] k' v)             ;; turn any known reference properties into datalog references
+                     (assoc m k' v))))
+               {}
+               (dissoc m :TYPE))))
+
+(defn parse-reference
+  [m nspace]
   (let [[file-type component-type] (:TYPE m)]
     (reduce-kv (fn [m k v]
                  (let [k' (keyword nspace (name k))]
                    (if-let [[prop fk] (get-in lookup-references [file-type component-type k])] ;; turn any known reference properties into datalog references
-                     (assoc m prop [fk v] k' v)             ;; a datalog reference is a tuple of the foreign key and the value e.g [:PRODUCT/ID 123]
-                     (assoc m k' v))))
-               {}
-               (dissoc m :TYPE))))
+                     (assoc m prop [fk v])                  ;; a datalog reference is a tuple of the foreign key and the value e.g [:PRODUCT/ID 123]
+                     m)))
+               {} (dissoc m :TYPE))))
 
 (defn parse-product [m id-key]
   (let [[file-type component-type] (:TYPE m)]
@@ -253,7 +263,7 @@
   [m product-key]
   (let [[file-type _] (:TYPE m)
         pkey (product-key m)]
-    (-> (parse-entity m (name file-type))
+    (-> (parse-reference m (name file-type))
         (assoc :PRODUCT/ID pkey))))
 
 (defn parse
@@ -323,6 +333,7 @@
                                :VMP/UDFS_UOM          [*]
                                :VMP/DRUG_ROUTES       [:ROUTE/CD :ROUTE/DESC]
                                :VMP/DRUG_FORMS        [:FORM/CD :FORM/DESC]
+                               :VMP/NON_AVAIL         [:VIRTUAL_PRODUCT_NON_AVAIL/CD :VIRTUAL_PRODUCT_NON_AVAIL/DESC]
                                :VMP/DF_IND            [:DF_INDICATOR/CD :DF_INDICATOR/DESC]
                                :VMP/CONTROL_DRUG_INFO [:CONTROL_DRUG_CATEGORY/CD :CONTROL_DRUG_CATEGORY/DESC]
                                :VMP/PRES_STAT         [:VIRTUAL_PRODUCT_PRES_STATUS/CD :VIRTUAL_PRODUCT_PRES_STATUS/DESC]
@@ -428,9 +439,9 @@
        vtmid))
 
 (defn product-by-name
-  "Simple search by name; this is not designed for operational use as text
-  search is slow - it will take ~500ms. It is intended for testing and
-  exploration purposes only."
+  "Simple search by name.
+  Warning: this is not designed for operational use as text search is slow - it
+  will take ~500ms. It is intended for testing and exploration purposes only."
   [st re-nm]
   (d/q '[:find ?id ?nm
          :in $ ?s
@@ -542,6 +553,12 @@
 
   (def vmps (dim/get-component dir :VMP :VMP))
   (take 5 (map parse vmps))
+
+  ;; prove that no VMP has more than one control drug info record...
+  (def controlled (dim/get-component dir :VMP :CONTROL_DRUG_INFO))
+  (take 5 controlled)
+  (filter (fn [[vpid n]] (> n 0)) (frequencies (map :VPID controlled))) ;; true
+
 
   (def vpis (dim/get-component dir :VMP :VIRTUAL_PRODUCT_INGREDIENT))
   (take 2 vpis)
@@ -676,8 +693,14 @@
                [?e :LOOKUP/KIND :BASIS_OF_NAME]]
              (d/db conn)))
 
-
   (def conn (d/create-conn "dmd-2021-08-30.db" schema))
   (def st (->DmdStore conn))
+  (fetch-product st 12797611000001109)
 
+  (def counts (d/q '[:find ?vpid (count ?forms)
+                     :where
+                     [?e :VMP/VPID ?vpid]
+                     [?e :VMP/DRUG_FORMS ?forms]]
+                   (d/db conn)))
+  (filter (fn [[vpid n]] (> n 1)) counts)
   )
