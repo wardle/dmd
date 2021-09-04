@@ -460,6 +460,10 @@
        re-atc))
 
 (defn vmps-from-atc
+  "Returns VMPs for the ATC code regular expression.
+  Parameters:
+   - st   : dm+d store
+   - re-atc : regular expression (e.g. #\"L04AX.*\")."
   [^DmdStore st re-atc]
   (d/q '[:find [(pull ?e [:VMP/VPID :VMP/NM]) ...]
          :in $ ?atc-regexp
