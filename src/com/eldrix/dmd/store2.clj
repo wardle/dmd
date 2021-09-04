@@ -384,11 +384,18 @@
        :AMP/LIC_AUTH        '[*]
        :AMP/VP              vmp-properties}])
 
+(def vmpp-properties
+  ['*
+   {:VMPP/QTY_UOM ['*]
+    :VMPP/DRUG_TARIFF_INFO ['*]
+    :VMPP/VP vmp-properties}])
+
 (def ampp-properties
   ['* {:AMPP/LEGAL_CAT    '[*]
        :AMPP/GTIN_DETAILS '[*]
-       :AMPP/VPP          '[*]
+       :AMPP/VPP          vmpp-properties
        :AMPP/AP           amp-properties}])
+
 
 (defn fetch-vmp [^DmdStore st vpid]
   (fetch-product* st vpid vmp-properties))
@@ -397,7 +404,7 @@
   (fetch-product* st apid amp-properties))
 
 (defn fetch-vmpp [^DmdStore st vppid]
-  (fetch-product* st vppid '[*]))
+  (fetch-product* st vppid vmpp-properties))
 
 (defn fetch-ampp [^DmdStore st appid]
   (fetch-product* st appid ampp-properties))
@@ -742,7 +749,7 @@
 
   (def conn (d/create-conn "dmd-2021-08-30.db" schema))
   (def st (->DmdStore conn))
-  (fetch-product st 1328311000001107)
+  (fetch-product st 1196311000001106)
 
   (def counts (d/q '[:find ?vpid (count ?forms)
                      :where
