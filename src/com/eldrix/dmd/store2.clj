@@ -224,7 +224,9 @@
           :COMB_CONTENT     {:CHLDVPPID [:VMPP/CHLDVPP :PRODUCT/ID]}}
    :AMPP {:AMPP                    {:COMBPACKCD  [:AMPP/COMBPACK :COMBINATION_PACK_IND/CD]
                                     :LEGAL_CATCD [:AMPP/LEGAL_CAT :LEGAL_CATEGORY/CD]
-                                    :DISCCD      [:AMPP/DISC :DISCONTINUED_IND/CD]}
+                                    :DISCCD      [:AMPP/DISC :DISCONTINUED_IND/CD]
+                                    :VPPID       [:AMPP/VPP :PRODUCT/ID]
+                                    :APID        [:AMPP/AP :PRODUCT/ID]}
           :APPLIANCE_PACK_INFO     {:REIMB_STATCD     [:APPLIANCE_PACK_INFO/REIMB_STAT :REIMBURSEMENT_STATUS/CD]
                                     :REIMB_STATPREVCD [:APPLIANCE_PACK_INFO/REIMB_STATPREV :REIMBURSEMENT_STATUS/CD]}
           :MEDICINAL_PRODUCT_PRICE {:PRICE_BASISCD [:MEDICINAL_PRODUCT_PRICE/PRICE_BASIS :PRICE_BASIS/CD]}
@@ -314,11 +316,14 @@
          [[:VMPP :COMB_CONTENT]] (parse-flat-property m :PRNTVPPID) ;; note reference to parent is :PRNTVPPID not :VPPID
          [[:VMPP _]] (parse-flat-property m :VPPID)         ;; for all other properties, the FK to the parent is VPPID
          [[:AMPP :AMPP]] (parse-product m :APPID)
+         [[:AMPP :APPLIANCE_PACK_INFO]] (parse-nested-property m :APPLIANCE_PACK_INFO :AMPP/APPLIANCE_PACK_INFO :APPID)
+         [[:AMPP :DRUG_PRODUCT_PRESCRIB_INFO]] (parse-nested-property m :DRUG_PRODUCT_PRESCRIB_INFO :AMPP/DRUG_PRODUCT_PRESCRIB_INFO :APPID)
+         [[:AMPP :MEDICINAL_PRODUCT_PRICE]] (parse-nested-property m :MEDICINAL_PRODUCT_PRICE :AMPP/MEDICINAL_PRODUCT_PRICE :APPID)
+         [[:AMPP :REIMBURSEMENT_INFO]] (parse-nested-property m :REIMBURSEMENT_INFO :AMPP/REIMBURSEMENT_INFO :APPID)
          [[:AMPP :COMB_CONTENT]] (parse-flat-property m :PRNTAPPID) ;; for COMB_CONTENT, the parent is PRNTAPPID not :APPID
-         [[:AMPP _]] (parse-flat-property m :APPID)         ;; for all other properties, the FK to the parent is APPID
          [[:INGREDIENT :INGREDIENT]] (parse-lookup m)
          [[:LOOKUP _]] (parse-lookup m)
-         [[:GTIN :AMPPS]] (parse-nested-property m :GTIN_DETAILS :AMPP/GTIN_DETAILS :AMPPID)
+         [[:GTIN :AMPP]] (parse-nested-property m :GTIN_DETAILS :AMPP/GTIN_DETAILS :AMPPID)
          [[:BNF :VMPS]] (parse-nested-property m :BNF_DETAILS :VMP/BNF_DETAILS :VPID)
          [[:BNF :AMPS]] (parse-nested-property m :BNF_DETAILS :AMP/BNF_DETAILS :APID)
          :else (log/warn "Unknown file type / component type tuple" m)))
@@ -383,7 +388,11 @@
   (fetch-product* st vppid '[*]))
 
 (defn fetch-ampp [^DmdStore st appid]
-  (fetch-product* st appid '[*]))
+  (fetch-product* st appid '[*
+                             {:AMPP/LEGAL_CAT    [*]
+                              :AMPP/GTIN_DETAILS [*]
+                              :AMPP/VPP          [* {:VMP/VTM [*]}]
+                              :AMPP/AP           [*]}]))
 
 (defn fetch-product [^DmdStore st id]
   (let [kind (product-type st id)]
@@ -540,18 +549,20 @@
            '[clojure.core.async :as a])
   (def ch1 (a/chan 500))
   (def ch2 (a/chan 50 (partition-all 5000)))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch1 :include #{:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP}))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch1 :include #{:AMPP}))
   (a/pipeline (.availableProcessors (Runtime/getRuntime)) ch2 (map #(parse %)) ch1)
   (a/<!! ch2)
 
   (def ch (a/chan))
-  (def ch (a/chan 5 (comp (map #(parse %)) (partition-all 5))))
+  (def ch (a/chan 5 (comp (map #(parse %)) (partition-all 1))))
 
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch1 :include #{:LOOKUP}))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:INGREDIENT}))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:GTIN}))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/week272021-r2_3-BNF" ch1))
+  (a/thread (dim/stream-dmd "/Users/mark/Downloads/week272021-r2_3-BNF" ch))
+  (a/thread (dim/stream-dmd "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud15801406225560397483/week352021-r2_3-GTIN-zip/" ch))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:AMPP}))
+  (d/transact! conn (a/<!! ch))
   (a/<!! ch)
   (def batch (a/<!! ch))
   batch
@@ -560,10 +571,11 @@
   (def batch (a/<!! ch))
   (map parse batch)
   ;; this loop imports data assuming the channel includes parsing in the transducer
-  (loop [batch (a/<!! ch2)]
+  (loop [batch (a/<!! ch)]
     (when batch
+      (println batch)
       (d/transact! conn batch)
-      (recur (a/<!! ch2))))
+      (recur (a/<!! ch))))
 
   ;; this loop imports data explicitly parsing before import - use with channel with no parse transducer
   (loop [batch (a/<!! ch)]
@@ -586,12 +598,6 @@
 
   (def vmps (dim/get-component dir :VMP :VMP))
   (take 5 (map parse vmps))
-
-  ;; prove that no VMP has more than one control drug info record...
-  (def controlled (dim/get-component dir :VMP :CONTROL_DRUG_INFO))
-  (take 5 controlled)
-  (filter (fn [[vpid n]] (> n 0)) (frequencies (map :VPID controlled))) ;; true
-
 
   (def vpis (dim/get-component dir :VMP :VIRTUAL_PRODUCT_INGREDIENT))
   (take 2 vpis)

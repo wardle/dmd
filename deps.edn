@@ -35,6 +35,9 @@
                           "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                           "--illegal-access=permit"]}
 
+           :cardinalities
+           {:exec-fn com.eldrix.dmd.import/print-cardinalities}
+
            :socket
            {:jvm-opts ["-Dclojure.server.repl={:port,50505,:accept,clojure.core.server/repl}"]}
 

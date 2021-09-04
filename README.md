@@ -364,8 +364,8 @@ The latest documentation is from 2017 from the NHSBSA -
 
 The cardinalities of the different components are shown on page 5 of that document.
 
-Here is some data confirming the cardinalities as shown, based on the 2021-08-30 release.
-You can run this code easily at a clojure REPL to confirm, but here are the results:
+Here is some data confirming the cardinalities.
+
 ```
 
 |                              :TYPE | :MAX-CARDINALITY | :CARDINALITY |
@@ -395,10 +395,19 @@ You can run this code easily at a clojure REPL to confirm, but here are the resu
 |         [:AMPP :REIMBURSEMENT_INFO] |                1 |      :TO-ONE |
 |               [:AMPP :COMB_CONTENT] |             1085 |     :TO-MANY |
 
-|          :TYPE | :MAX-CARDINALITY | :CARDINALITY |
-|----------------+------------------+--------------|
-| [:GTIN :AMPPS] |                1 |      :TO-ONE |
+|         :TYPE | :MAX-CARDINALITY | :CARDINALITY |
+|---------------+------------------+--------------|
+| [:GTIN :AMPP] |                1 |      :TO-ONE |
 ```
+
+It's easy to run this from a clojure REPL in order to test another release, 
+or you can run it from the command line:
+
+```shell
+clj -X:cardinalities :dir '"/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001/"'
+```
+
+
 
 # Developer information
 
