@@ -26,6 +26,7 @@
             [clojure.data.zip.xml :as zx]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.pprint]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [clojure.zip :as zip]
@@ -165,7 +166,19 @@
    :PREVPRICE                           parse-integer
    :DDD                                 parse-double
    :STARTDT                             parse-date
-   :ENDDT                               parse-date})
+   :ENDDT                               parse-date
+   :SCHED_2                             parse-flag
+   :ACBS                                parse-flag
+   :PADM                                parse-flag
+   :FP10_MDA                            parse-flag
+   :SCHED_1                             parse-flag
+   :HOSP                                parse-flag
+   :NURSE_F                             parse-flag
+   :ENURSE_F                            parse-flag
+   :DENT_F                              parse-flag
+   :BB                                  parse-flag
+   :CAL_PACK                            parse-flag
+   :FP34D                               parse-flag})
 
 (defn- parse-property [kind kw v]
   (if-let [parser (get property-parsers [kind kw])]
@@ -227,6 +240,25 @@
         (recur (next lookups)))
       (when close? (a/close! ch)))))
 
+(defn parse-gtin [loc]
+  (let [gtin (zx/xml1-> loc :GTINDATA :GTIN zx/text)
+        startdt (zx/xml1-> loc :GTINDATA :STARTDT zx/text)
+        enddt (zx/xml1-> loc :GTINDATA :ENDDT zx/text)]
+    (cond-> {:TYPE   [:GTIN :AMPP]
+             :AMPPID (Long/parseLong (zx/xml1-> loc :AMPPID zx/text))}
+            gtin
+            (assoc :GTIN (Long/parseLong gtin))
+            startdt
+            (assoc :STARTDT (parse-date startdt))
+            enddt
+            (assoc :ENDDT (parse-date enddt)))))
+
+(defn stream-gtin
+  [root ch _ close?]
+  (let [gtins (zx/xml-> (clojure.zip/xml-zip root) :GTIN_DETAILS :AMPPS :AMPP parse-gtin)]
+    (a/<!! (a/onto-chan!! ch gtins))
+    (when close? (a/close! ch))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; High-level dm+d processing functionality
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -239,7 +271,7 @@
    :AMPP       stream-nested-dmd
    :INGREDIENT stream-flat-dmd
    :LOOKUP     stream-lookup-xml
-   :GTIN       stream-nested-dmd
+   :GTIN       stream-gtin
    :BNF        stream-nested-dmd})
 
 (defn- stream-dmd-file [ch close? {:keys [type file] :as dmd-file}]
@@ -310,6 +342,10 @@
         [:AMPP :APPID]
         [:GTIN :AMPPID]]))
 
+(defn print-cardinalities [{:keys [dir]}]
+  (println "Processing " dir)
+  (dorun (map clojure.pprint/print-table (cardinalities (str dir)))))
+
 (comment
   (map clojure.pprint/print-table (cardinalities "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")))
 
@@ -347,6 +383,7 @@
   (dmd-file-seq "/Users/mark/Downloads/week272021-r2_3-BNF")
   (get-release-metadata "/Users/mark/Downloads/week272021-r2_3-BNF")
   (get-component "/Users/mark/Downloads/week272021-r2_3-BNF" :BNF :BNF)
+  (get-component "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud15801406225560397483/week352021-r2_3-GTIN-zip" :GTIN :AMPP)
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :include #{:VTM :VMP} :exclude #{:VMP})
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :include #{:VTM})
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :exclude #{:VTM})
@@ -367,4 +404,12 @@
   (a/thread (stream-bnf root ch nil true))
   (dotimes [n 1000] (a/<!! ch))
   (a/<!! ch)
+
+  (def file "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud15801406225560397483/week352021-r2_3-GTIN-zip/f_gtin2_0260821.xml")
+  (def rdr (io/reader file))
+  (def root (xml/parse rdr :skip-whitespace true))
+  (def ch (a/chan))
+  (a/thread (stream-gtin root ch true))
+  (a/<!! ch)
+  (map clojure.pprint/print-table (cardinalities "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud2465267306253668332/"))
   )

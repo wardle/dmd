@@ -360,39 +360,47 @@
 (defn fetch-vtm [^DmdStore st vtmid]
   (fetch-product* st vtmid '[*]))
 
+(def vmp-properties
+  ['* {:VMP/VTM               '[*]
+       :VMP/BASIS             '[*]
+       :VMP/UNIT_DOSE_UOM     '[*]
+       :VMP/UDFS_UOM          '[*]
+       :VMP/DRUG_ROUTES       [:ROUTE/CD :ROUTE/DESC]
+       :VMP/DRUG_FORMS        [:FORM/CD :FORM/DESC]
+       :VMP/NON_AVAIL         [:VIRTUAL_PRODUCT_NON_AVAIL/CD :VIRTUAL_PRODUCT_NON_AVAIL/DESC]
+       :VMP/DF_IND            [:DF_INDICATOR/CD :DF_INDICATOR/DESC]
+       :VMP/CONTROL_DRUG_INFO [:CONTROL_DRUG_CATEGORY/CD :CONTROL_DRUG_CATEGORY/DESC]
+       :VMP/PRES_STAT         [:VIRTUAL_PRODUCT_PRES_STATUS/CD :VIRTUAL_PRODUCT_PRES_STATUS/DESC]
+       :VMP/INGREDIENTS       ['* {:VPI/IS '[*]} {:VPI/BASIS_STRNT '[*]}]
+       :VMP/NMCHANGE          '[*]
+       :VMP/ONT_DRUG_FORMS    '[*]
+       :VMP/BNF_DETAILS       '[*]}])
+
+(def amp-properties
+  ['* {:AMP/EXCIPIENTS      ['* {:AP_INGREDIENT/IS '[*]}]
+       :AMP/AVAIL_RESTRICT  '[*]
+       :AMP/LICENSED_ROUTES '[*]
+       :AMP/SUPP            '[*]
+       :AMP/LIC_AUTH        '[*]
+       :AMP/VP              vmp-properties}])
+
+(def ampp-properties
+  ['* {:AMPP/LEGAL_CAT    '[*]
+       :AMPP/GTIN_DETAILS '[*]
+       :AMPP/VPP          '[*]
+       :AMPP/AP           amp-properties}])
+
 (defn fetch-vmp [^DmdStore st vpid]
-  (fetch-product* st vpid '[* {:VMP/VTM               [*]
-                               :VMP/BASIS             [*]
-                               :VMP/UNIT_DOSE_UOM     [*]
-                               :VMP/UDFS_UOM          [*]
-                               :VMP/DRUG_ROUTES       [:ROUTE/CD :ROUTE/DESC]
-                               :VMP/DRUG_FORMS        [:FORM/CD :FORM/DESC]
-                               :VMP/NON_AVAIL         [:VIRTUAL_PRODUCT_NON_AVAIL/CD :VIRTUAL_PRODUCT_NON_AVAIL/DESC]
-                               :VMP/DF_IND            [:DF_INDICATOR/CD :DF_INDICATOR/DESC]
-                               :VMP/CONTROL_DRUG_INFO [:CONTROL_DRUG_CATEGORY/CD :CONTROL_DRUG_CATEGORY/DESC]
-                               :VMP/PRES_STAT         [:VIRTUAL_PRODUCT_PRES_STATUS/CD :VIRTUAL_PRODUCT_PRES_STATUS/DESC]
-                               :VMP/INGREDIENTS       [* {:VPI/IS [*]} {:VPI/BASIS_STRNT [*]}]
-                               :VMP/NMCHANGE          [*]
-                               :VMP/ONT_DRUG_FORMS    [*]
-                               :VMP/BNF_DETAILS       [*]}]))
+  (fetch-product* st vpid vmp-properties))
 
 (defn fetch-amp [^DmdStore st apid]
-  (fetch-product* st apid '[* {:AMP/EXCIPIENTS      [* {:AP_INGREDIENT/IS [*]}]
-                               :AMP/AVAIL_RESTRICT  [*]
-                               :AMP/LICENSED_ROUTES [*]
-                               :AMP/SUPP            [*]
-                               :AMP/LIC_AUTH        [*]
-                               :AMP/VP              [:VMP/NM :VMP/VPID]}]))
+  (fetch-product* st apid amp-properties))
 
 (defn fetch-vmpp [^DmdStore st vppid]
   (fetch-product* st vppid '[*]))
 
 (defn fetch-ampp [^DmdStore st appid]
-  (fetch-product* st appid '[*
-                             {:AMPP/LEGAL_CAT    [*]
-                              :AMPP/GTIN_DETAILS [*]
-                              :AMPP/VPP          [* {:VMP/VTM [*]}]
-                              :AMPP/AP           [*]}]))
+  (fetch-product* st appid ampp-properties))
 
 (defn fetch-product [^DmdStore st id]
   (let [kind (product-type st id)]
