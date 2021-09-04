@@ -38,7 +38,7 @@
 (defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
 (defn- ^long parse-long [^String s] (Long/parseLong s))
 (defn- ^int parse-integer [^String s] (Integer/parseInt s))
-(defn- ^boolean parse-flag [^String s] (= "1" s))
+(defn- ^boolean parse-flag [^String s] (#{"1" "0001"} s))       ;; just for fun, they sometimes use "1" or "0001" for flags...
 (defn- ^Double parse-double [^String s] (Double/parseDouble s))
 
 (def ^:private file-ordering
