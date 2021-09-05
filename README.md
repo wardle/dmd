@@ -12,7 +12,8 @@ fast key value backing store functionality.
 
 The test harness contains an extract of dm+d data that represents public sector information licensed under the 
 [Open Government Licence v3.0](http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/). These data
-are reproduced in order to support automated software code tests.
+are reproduced in order to support automated software code tests. 
+The results of these automated tests are shown above.
 
 `dmd` is designed to be composable with other services, including [hermes](https://github.com/wardle/hermes). Fortunately,
 dm+d codes are actually SNOMED identifiers, which means that as long as you run a terminology service that includes the
