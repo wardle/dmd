@@ -30,7 +30,9 @@
   (let [st (create-and-open-store)
         co-amilofruse-vtm (dmd/fetch-product st 34186711000001102)
         co-amilofruse-vmp-1 (dmd/fetch-product st 318135008)
-        co-amilofruse-vmp-2 (dmd/fetch-product st 318136009)]
+        co-amilofruse-vmp-2 (dmd/fetch-product st 318136009)
+        bases-of-name (let [bases (st2/fetch-lookup st :BASIS_OF_NAME)]
+                        (zipmap (map :BASIS_OF_NAME/CD bases) (map :BASIS_OF_NAME/DESC bases)))]
     (is (= "Co-amilofruse" (:VTM/NM co-amilofruse-vtm)))
     (is (not (:VMP/SUG_F co-amilofruse-vmp-1)))
     (is (:VMP/SUG_F co-amilofruse-vmp-2))
@@ -39,6 +41,7 @@
     (is (= "Discrete" (get-in co-amilofruse-vmp-2 [:VMP/DF_IND :DF_INDICATOR/DESC])))
     (is (= "Tablet" (get-in co-amilofruse-vmp-2 [:VMP/DRUG_FORM :FORM/DESC])))
     (is (= (:VMP/BASISCD co-amilofruse-vmp-2) (get-in co-amilofruse-vmp-2 [:VMP/BASIS :BASIS_OF_NAME/CD])))
+    (is (= (get-in co-amilofruse-vmp-2 [:VMP/BASIS :BASIS_OF_NAME/DESC]) (get bases-of-name "0002")))
     (is (= #{387516008 387475002} (set (map :VPI/ISID (:VMP/INGREDIENTS co-amilofruse-vmp-2)))))
     (is (= 2 (count (:VMP/INGREDIENTS co-amilofruse-vmp-2))))
     ;; are we getting linked relationships right?
@@ -53,6 +56,7 @@
   (run-tests)
   (import-validation)
   (def st (create-and-open-store))
-  (dmd/fetch-product st 37365811000001102)
+  (dmd/fetch-product st 318136009)
+
 
   )
