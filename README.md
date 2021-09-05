@@ -2,6 +2,7 @@
 
 [![Scc Count Badge](https://sloc.xyz/github/wardle/dmd)](https://github.com/wardle/dmd/)
 [![Scc Cocomo Badge](https://sloc.xyz/github/wardle/dmd?category=cocomo&avg-wage=100000)](https://github.com/wardle/dmd/)
+[![CircleCI](https://circleci.com/gh/wardle/dmd.svg?style=svg)](https://circleci.com/gh/wardle/dmd)
 
 
 Implementation of the UK NHS dictionary of medicines and devices (dm+d).
