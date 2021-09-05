@@ -3,10 +3,9 @@
   (:require [clojure.core.async :as a]
             [clojure.core.match :refer [match]]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.dmd.import :as dim]
             [datalevin.core :as d])
-  (:import (java.io Closeable)))
-
+  (:import (java.io Closeable)
+           (java.util.regex Pattern)))
 
 (deftype DmdStore [conn]
   Closeable
@@ -46,7 +45,7 @@
    :VMP/COMBPROD                         {:db/valueType :db.type/ref}
    :VMP/PRES_STAT                        {:db/valueType :db.type/ref}
    :VMP/SUG_F                            {:db/valueType :db.type/boolean}
-   :VMP/GLU_F                            {:db/valueType :db.type/boolean}
+   :VMP/GLU_F                            `{:db/valueType :db.type/boolean}
    :VMP/PRES_F                           {:db/valueType :db.type/boolean}
    :VMP/CFC_F                            {:db/valueType :db.type/boolean}
    :VMP/NON_AVAIL                        {:db/valueType :db.type/ref}
@@ -134,12 +133,15 @@
    :AMPP/SUBP                            {:db/valueType :db.type/string}
    :AMPP/DISC                            {:db/valueType :db.type/ref}
    :AMPP/GTIN_DETAILS                    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+   :AMPP/APPLIANCE_PACK_INFO             {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+   :AMPP/REIMBURSEMENT_INFO              {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+   :AMPP/MEDICINAL_PRODUCT_PRICE         {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
    :APPLIANCE_PACK_INFO/REIMB_STAT       {:db/valueType :db.type/ref}
    :APPLIANCE_PACK_INFO/REIMB_STATPREV   {:db/valueType :db.type/ref}
    :APPLIANCE_PACK_INFO/PACK_ORDER_NO    {:db/valueType :db.type/string}
+   :REIMBURSEMENT_INFO/SPEC_CONT         {:db/valueType :db.type/ref}
    :MEDICINAL_PRODUCT_PRICE/PRICE        {:db/valueType :db.type/double}
    :MEDICINAL_PRODUCT_PRICE/PRICE_BASIS  {:db/valueType :db.type/ref}
-   :REIMBURSEMENT_INFO/SPEC_CONT         {:db/valueType :db.type/ref}
 
    ;; lookups
    :COMBINATION_PACK_IND/CD              {:db/unique :db.unique/identity}
@@ -245,7 +247,7 @@
                (dissoc m :TYPE))))
 
 (defn parse-reference
-  [m nspace]
+  [m]
   (let [[file-type component-type] (:TYPE m)]
     (reduce-kv (fn [m k v]
                  (if-let [[prop fk] (get-in lookup-references [file-type component-type k])] ;; turn any known reference properties into datalog references
@@ -254,13 +256,13 @@
                {} (dissoc m :TYPE))))
 
 (defn parse-product [m id-key]
-  (let [[file-type component-type] (:TYPE m)]
+  (let [[_file-type component-type] (:TYPE m)]
     (-> (parse-entity m (name component-type))
         (assoc :PRODUCT/TYPE component-type
                :PRODUCT/ID (get m id-key)))))
 
 (defn parse-lookup [m]
-  (let [[file-type component-type] (:TYPE m)
+  (let [[_file-type component-type] (:TYPE m)
         nspace (name component-type)
         m' (dissoc m :ID :TYPE)]
     (-> (reduce-kv (fn [m k v] (assoc m (keyword nspace (name k)) (or v ""))) {} m')
@@ -291,7 +293,7 @@
   [m product-key]
   (let [[file-type _] (:TYPE m)
         pkey (product-key m)]
-    (-> (parse-reference m (name file-type))
+    (-> (parse-reference m)
         (assoc :PRODUCT/ID pkey))))
 
 (defn parse
@@ -319,9 +321,10 @@
          [[:AMPP :MEDICINAL_PRODUCT_PRICE]] (parse-nested-property m :MEDICINAL_PRODUCT_PRICE :AMPP/MEDICINAL_PRODUCT_PRICE :APPID)
          [[:AMPP :REIMBURSEMENT_INFO]] (parse-nested-property m :REIMBURSEMENT_INFO :AMPP/REIMBURSEMENT_INFO :APPID)
          [[:AMPP :COMB_CONTENT]] (parse-flat-property m :PRNTAPPID) ;; for COMB_CONTENT, the parent is PRNTAPPID not :APPID
+         [[:AMPP _]] (parse-flat-property m :APPID)
          [[:INGREDIENT :INGREDIENT]] (parse-lookup m)
          [[:LOOKUP _]] (parse-lookup m)
-         [[:GTIN :AMPP]] (parse-nested-property m :GTIN_DETAILS :AMPP/GTIN_DETAILS :AMPPID)
+         [[:GTIN :AMPP]] (parse-nested-property m :GTIN_DETAILS :AMPP/GTIN_DETAILS :APPID)
          [[:BNF :VMPS]] (parse-nested-property m :BNF_DETAILS :VMP/BNF_DETAILS :VPID)
          [[:BNF :AMPS]] (parse-nested-property m :BNF_DETAILS :AMP/BNF_DETAILS :APID)
          :else (log/warn "Unknown file type / component type tuple" m)))
@@ -389,10 +392,11 @@
     :VMPP/VP               vmp-properties}])
 
 (def ampp-properties
-  ['* {:AMPP/LEGAL_CAT    '[*]
-       :AMPP/GTIN_DETAILS '[*]
-       :AMPP/VPP          vmpp-properties
-       :AMPP/AP           amp-properties}])
+  ['* {:AMPP/LEGAL_CAT               '[*]
+       :AMPP/GTIN_DETAILS            '[*]
+       :AMPP/MEDICINAL_PRODUCT_PRICE ['*]
+       :AMPP/VPP                     vmpp-properties
+       :AMPP/AP                      amp-properties}])
 
 
 (defn fetch-vmp [^DmdStore st vpid]
@@ -462,7 +466,7 @@
   Parameters:
    - st   : dm+d store
    - re-atc : regular expression (e.g. #\"L04AX.*\")."
-  [^DmdStore st re-atc]
+  [^DmdStore st ^Pattern re-atc]
   (d/q '[:find [(pull ?e [:VMP/VPID :VMP/NM]) ...]
          :in $ ?atc-regexp
          :where
@@ -555,26 +559,24 @@
 
 
   ;;
+  (def dir "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
   (def conn (d/create-conn "wibble.db" schema))
   (def conn (d/create-conn "dmd-2021-08-30.db" schema))
   (def st (->DmdStore conn))
-  (def dir "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
-  (dim/print-cardinalities {:dir dir})
 
-  (require '[com.eldrix.dmd.import :as dim]
-           '[clojure.core.async :as a])
+  (require '[com.eldrix.dmd.import :as dim])
   (def ch1 (a/chan 500))
   (def ch2 (a/chan 50 (partition-all 5000)))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch1 :include #{:AMPP}))
+  (a/thread (dim/stream-dmd dir ch1 :include #{:AMPP}))
   (a/pipeline (.availableProcessors (Runtime/getRuntime)) ch2 (map #(parse %)) ch1)
   (a/<!! ch2)
 
   (def ch (a/chan))
   (def ch (a/chan 5 (comp (map #(parse %)) (partition-all 1))))
 
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch1 :include #{:LOOKUP}))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:INGREDIENT}))
-  (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:GTIN}))
+  (a/thread (dim/stream-dmd dir ch1 :include #{:LOOKUP}))
+  (a/thread (dim/stream-dmd dir ch :include #{:INGREDIENT}))
+  (a/thread (dim/stream-dmd dir ch :include #{:GTIN}))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/week272021-r2_3-BNF" ch))
   (a/thread (dim/stream-dmd "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud15801406225560397483/week352021-r2_3-GTIN-zip/" ch))
   (a/thread (dim/stream-dmd "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001" ch :include #{:AMPP}))
@@ -635,6 +637,10 @@
   (parse (a/<!! ch))
   (d/transact! conn [(parse x)])
   (d/transact! conn [(parse (a/<!! ch))])
+
+
+  (def mpp (dim/get-component "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud2465267306253668332" :AMPP :MEDICINAL_PRODUCT_PRICE))
+  (take 5 (map parse mpp))
 
   ;; get all codes for a given lookup
   (time (d/q '[:find ?code ?desc
