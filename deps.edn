@@ -46,7 +46,10 @@
             :extra-deps  {io.github.cognitect-labs/test-runner {:git/sha "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}
                           ch.qos.logback/logback-classic       {:mvn/version "1.2.5"}}
             :main-opts   ["-m" "cognitect.test-runner"]
-            :exec-fn     cognitect.test-runner.api/test}
+            :exec-fn     cognitect.test-runner.api/test
+            :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
+                          "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
+                          "--illegal-access=permit"]}
 
            :outdated
            {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
@@ -66,7 +69,10 @@
                           "--test-ns-path" "test/src"]
             :exec-fn     cloverage.coverage/run-project
             :exec-args   {:src-ns-path  ["src"]
-                          :test-ns-path ["test"]}}
+                          :test-ns-path ["test"]}
+            :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
+                          "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
+                          "--illegal-access=permit"]}
 
            :lint/kondo
            {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}

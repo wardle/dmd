@@ -12,7 +12,10 @@
   (let [db-dir (.getAbsolutePath (.toFile (Files/createTempDirectory "dmd-test" (into-array FileAttribute []))))
         _ (dmd/install-from-dirs db-dir [(io/resource dir)])
         st (dmd/open-store db-dir)]
-    (is (= "Co-amilofruse" (:VTM/NM (dmd/fetch-product st 34186711000001102))))))
+    (is (= "Co-amilofruse" (:VTM/NM (dmd/fetch-product st 34186711000001102))))
+    (is (not (:VMP/SUG_F (dmd/fetch-product st 318135008))))
+    (is  (:VMP/SUG_F (dmd/fetch-product st 318136009)))
+    (is (= (:VMP/VTM (dmd/fetch-product st 318135008)) (dmd/fetch-product st 34186711000001102)))))
 
 (comment
   (run-tests))
