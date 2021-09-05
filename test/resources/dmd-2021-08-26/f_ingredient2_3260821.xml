@@ -14,5 +14,14 @@
         <ISIDPREV>3536911000001101</ISIDPREV>
         <NM>Furosemide</NM>
     </ING>
+    <ING>
+        <ISID>13668001</ISID>
+        <NM>Propylene glycol</NM>
+    </ING>
+    <ING>
+        <ISID>228104004</ISID>
+        <NM>Butylated hydroxyanisole</NM>
+    </ING>
+
 
 </INGREDIENT_SUBSTANCES>
