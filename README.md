@@ -462,6 +462,12 @@ clj -M:outdated
 clj -M:check
 ```
 
+#### Run unit tests
+
+```shell
+clj -X:test
+```
+
 #### Run linting
 
 ```shell

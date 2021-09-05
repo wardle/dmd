@@ -19,7 +19,10 @@
            datalevin/datalevin       {:mvn/version "0.4.40"}
            org.mapdb/mapdb           {:mvn/version "3.0.8"}}
 
- :aliases {:run
+ :aliases {:dev
+           {:extra-paths ["serve" "test/src" "test/resources"]}
+
+           :run
            {:main-opts ["-m" "com.eldrix.dmd.cli"]
             :jvm-opts  ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                         "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
@@ -43,11 +46,10 @@
 
            :test
            {:extra-paths ["test/src" "test/resources"]
-            :extra-deps  {com.cognitect/test-runner
-                          {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                           :sha     "f597341b6ca7bb4cf027e0a34a6710ca9cb969da"}}
-            :main-opts   ["-m" "cognitect.test-runner"
-                          "-d" "test"]}
+            :extra-deps {io.github.cognitect-labs/test-runner
+                         {:git/sha "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
+            :main-opts ["-m" "cognitect.test-runner"]
+            :exec-fn cognitect.test-runner.api/test}
 
            :outdated
            {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
@@ -60,11 +62,11 @@
             :main-opts  ["-m" "clj-check.check"]}
 
            :test/cloverage
-           {:extra-paths ["test"]
+           {:extra-paths ["test/src" "test/resources"]
             :extra-deps  {cloverage/cloverage {:mvn/version "RELEASE"}}
             :main-opts   ["-m" "cloverage.coverage"
                           "--src-ns-path" "src"
-                          "--test-ns-path" "test"]
+                          "--test-ns-path" "test/src"]
             :exec-fn     cloverage.coverage/run-project
             :exec-args   {:src-ns-path  ["src"]
                           :test-ns-path ["test"]}}
