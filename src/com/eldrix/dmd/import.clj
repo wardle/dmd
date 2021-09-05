@@ -21,24 +21,23 @@
   For more information see
   https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf"
   (:require [clojure.core.async :as a]
-            [clojure.core.match :refer [match]]
             [clojure.data.xml :as xml]
             [clojure.data.zip.xml :as zx]
-            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
-            [clojure.zip :as zip]
-            [clojure.core.async :as async])
+            [clojure.zip])
   (:import [java.time LocalDate]
            (java.time.format DateTimeFormatter DateTimeParseException)))
 
+(set! *warn-on-reflection* true)
+
 ;; dm+d date format = CCYY-MM-DD
 (defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
-(defn- ^long parse-long [^String s] (Long/parseLong s))
-(defn- ^int parse-integer [^String s] (Integer/parseInt s))
-(defn- ^boolean parse-flag [^String s] (#{"1" "0001"} s))       ;; just for fun, they sometimes use "1" or "0001" for flags...
+(defn- ^Long parse-long [^String s] (Long/parseLong s))
+(defn- ^Integer parse-integer [^String s] (Integer/parseInt s))
+(defn- ^Boolean parse-flag [^String s] (#{"1" "0001"} s))       ;; just for fun, they sometimes use "1" or "0001" for flags...
 (defn- ^Double parse-double [^String s] (Double/parseDouble s))
 
 (def ^:private file-ordering
@@ -66,7 +65,7 @@
 
 (defn should-include?
   [include exclude file-type]
-  (if (or (nil? include) (contains? include file-type))
+  (when (or (nil? include) (contains? include file-type))
     (not (contains? exclude file-type))))
 
 (defn dmd-file-seq
@@ -401,15 +400,14 @@
   (def root (xml/parse rdr :skip-whitespace true))
   (def ch (a/chan))
   (a/thread (stream-nested-dmd root ch :BNF true))
-  (a/thread (stream-bnf root ch nil true))
-  (dotimes [n 1000] (a/<!! ch))
+  (dotimes [_ 1000] (a/<!! ch))
   (a/<!! ch)
 
   (def file "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud15801406225560397483/week352021-r2_3-GTIN-zip/f_gtin2_0260821.xml")
   (def rdr (io/reader file))
   (def root (xml/parse rdr :skip-whitespace true))
   (def ch (a/chan))
-  (a/thread (stream-gtin root ch true))
+  (a/thread (stream-gtin root ch nil true))
   (a/<!! ch)
   (map clojure.pprint/print-table (cardinalities "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud2465267306253668332/"))
   )

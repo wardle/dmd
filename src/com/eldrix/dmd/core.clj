@@ -1,6 +1,5 @@
 (ns com.eldrix.dmd.core
   (:require [clojure.core.async :as a]
-            [clojure.tools.cli :as cli]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.dmd.download :as dl]
             [com.eldrix.dmd.import :as dim]
@@ -60,7 +59,6 @@
     (st2/vmps-from-atc store atc')))
 
 (comment
-  (import-dmd "dmd.db" "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
   (install-latest "/Users/mark/Dev/trud/api-key.txt" "/var/tmp/trud")
 
   (def store (open-store "dmd-2021-07-05.db"))

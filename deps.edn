@@ -14,10 +14,7 @@
                                       :sha     "c73e7dcb4f7420b5e22e528f74c58d884bd6907e"}
            com.wsscode/pathom        {:git/url "https://github.com/wilkerlucio/pathom3"
                                       :sha     "ee459b2330bff93ed70abef572000fa204f3b7f1"}
-
-           com.taoensso/nippy        {:mvn/version "3.1.1"}
-           datalevin/datalevin       {:mvn/version "0.4.40"}
-           org.mapdb/mapdb           {:mvn/version "3.0.8"}}
+           datalevin/datalevin       {:mvn/version "0.4.40"}}
 
  :aliases {:dev
            {:extra-paths ["serve" "test/src" "test/resources"]}
@@ -46,10 +43,10 @@
 
            :test
            {:extra-paths ["test/src" "test/resources"]
-            :extra-deps {io.github.cognitect-labs/test-runner
-                         {:git/sha "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
-            :main-opts ["-m" "cognitect.test-runner"]
-            :exec-fn cognitect.test-runner.api/test}
+            :extra-deps  {io.github.cognitect-labs/test-runner {:git/sha "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}
+                          ch.qos.logback/logback-classic       {:mvn/version "1.2.5"}}
+            :main-opts   ["-m" "cognitect.test-runner"]
+            :exec-fn     cognitect.test-runner.api/test}
 
            :outdated
            {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}

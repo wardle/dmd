@@ -1,17 +1,16 @@
 (ns com.eldrix.dmd.store2
   "A datalog store for dm+d"
-  (:require [clojure.core.match :refer [match]]
+  (:require [clojure.core.async :as a]
+            [clojure.core.match :refer [match]]
             [clojure.tools.logging.readable :as log]
-            [datalevin.core :as d]
             [com.eldrix.dmd.import :as dim]
-            [clojure.string :as str]
-            [clojure.core.async :as a])
+            [datalevin.core :as d])
   (:import (java.io Closeable)))
 
 
 (deftype DmdStore [conn]
   Closeable
-  (close [this] (d/close conn)))
+  (close [_] (d/close conn)))
 
 (def schema
   "The datalog-based schema is a close representation to the source dm+d data
@@ -249,10 +248,9 @@
   [m nspace]
   (let [[file-type component-type] (:TYPE m)]
     (reduce-kv (fn [m k v]
-                 (let [k' (keyword nspace (name k))]
-                   (if-let [[prop fk] (get-in lookup-references [file-type component-type k])] ;; turn any known reference properties into datalog references
-                     (assoc m prop [fk v])                  ;; a datalog reference is a tuple of the foreign key and the value e.g [:PRODUCT/ID 123]
-                     m)))
+                 (if-let [[prop fk] (get-in lookup-references [file-type component-type k])] ;; turn any known reference properties into datalog references
+                   (assoc m prop [fk v])                    ;; a datalog reference is a tuple of the foreign key and the value e.g [:PRODUCT/ID 123]
+                   m))
                {} (dissoc m :TYPE))))
 
 (defn parse-product [m id-key]
@@ -386,9 +384,9 @@
 
 (def vmpp-properties
   ['*
-   {:VMPP/QTY_UOM ['*]
+   {:VMPP/QTY_UOM          ['*]
     :VMPP/DRUG_TARIFF_INFO ['*]
-    :VMPP/VP vmp-properties}])
+    :VMPP/VP               vmp-properties}])
 
 (def ampp-properties
   ['* {:AMPP/LEGAL_CAT    '[*]
@@ -561,8 +559,7 @@
   (def conn (d/create-conn "dmd-2021-08-30.db" schema))
   (def st (->DmdStore conn))
   (def dir "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
-  (def result (cardinalities dir))
-  (map clojure.pprint/print-table result)
+  (dim/print-cardinalities {:dir dir})
 
   (require '[com.eldrix.dmd.import :as dim]
            '[clojure.core.async :as a])
@@ -635,7 +632,6 @@
   (take 5 (map #(parse-nested-property % "DRUG_TARIFF_INFO" :VMPP/DRUG_TARIFF_INFO :VPPID) x))
   (parse-product x :VPID)
   (parse x)
-  (parse-property x :nspace :VPI :product-key :VPID :id-key (fn [m] (str (:VPID m) "-" (:ISID m))))
   (parse (a/<!! ch))
   (d/transact! conn [(parse x)])
   (d/transact! conn [(parse (a/<!! ch))])
@@ -732,7 +728,7 @@
          [(re-matches #"L04AX.*" ?atc)]]
        (d/db conn))
 
-  (time (map-from-atc st #"N02BA01.*"))
+  (time (vmps-from-atc st #"N02BA01.*"))
 
   (time (d/q '[:find ?code ?desc
                :where

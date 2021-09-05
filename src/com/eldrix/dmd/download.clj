@@ -1,9 +1,7 @@
 (ns com.eldrix.dmd.download
   (:require [clojure.pprint :as pprint]
             [clojure.string :as str]
-            [com.eldrix.trud.core :as trud]
-            [com.eldrix.trud.zip :as zipfile]
-            [com.eldrix.dmd.import :as dim])
+            [com.eldrix.trud.core :as trud])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)))
 
