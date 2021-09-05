@@ -46,10 +46,7 @@
             :extra-deps  {io.github.cognitect-labs/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                                                 :sha     "b6b3193fcc42659d7e46ecd1884a228993441182"}
                           ch.qos.logback/logback-classic       {:mvn/version "1.2.5"}}
-            :main-opts   ["-m" "cognitect.test-runner"]
-            :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
-                          "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
-                          "--illegal-access=permit"]}
+            :main-opts   ["-m" "cognitect.test-runner"]}
 
            :outdated
            {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
