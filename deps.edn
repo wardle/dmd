@@ -42,12 +42,11 @@
            {:jvm-opts ["-Dclojure.server.repl={:port,50505,:accept,clojure.core.server/repl}"]}
 
            :test
-           {:extra-paths ["test" "test/resources"]
+           {:extra-paths ["test/src" "test/resources"]
             :extra-deps  {com.cognitect/test-runner
                           {:git/url "https://github.com/cognitect-labs/test-runner.git"
                            :sha     "f597341b6ca7bb4cf027e0a34a6710ca9cb969da"}}
-            :main-opts   ["-e" "(compile,'com.eldrix.hermes.snomed)"
-                          "-m" "cognitect.test-runner"
+            :main-opts   ["-m" "cognitect.test-runner"
                           "-d" "test"]}
 
            :outdated

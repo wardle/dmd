@@ -9,7 +9,11 @@ Implementation of the UK NHS dictionary of medicines and devices (dm+d).
 This is a lightweight library and microservice for UK dm+d data. It is a thin wrapper around the dm+d data; providing a
 fast key value backing store functionality.
 
-It is designed to be composable with other services, including [hermes](https://github.com/wardle/hermes). Fortunately,
+The test harness contains an extract of dm+d data that represents public sector information licensed under the 
+[Open Government Licence v3.0](http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/). These data
+are reproduced in order to support automated software code tests.
+
+`dmd` is designed to be composable with other services, including [hermes](https://github.com/wardle/hermes). Fortunately,
 dm+d codes are actually SNOMED identifiers, which means that as long as you run a terminology service that includes the
 UK drug extension, you will be able to seamlessly process data across both `hermes` and `dmd`. They are naturally
 composable and yet can be developed in parallel.
@@ -26,14 +30,17 @@ microservice.
 
 #### 1. Install clojure, if not already available
 
-You can either install clojure and run from source code, or download a runnable jar file. I
-suggest [installing clojure](https://clojure.org/guides/getting_started) for the easiest experience.
-I will make pre-built runnable jars available once development is as complete as
-I should like.
+You can either install clojure and run from source code, or download a runnable jar file. 
+
+I suggest [installing clojure](https://clojure.org/guides/getting_started) for the easiest experience.
+If you prefer, download a runnable jar file from the [published releases](https://github.com/wardle/dmd/releases).
 
 #### 2. Register for a TRUD account and (optionally) download an api key
 
 You will need to get a dm+d distribution via [TRUD](https://isd.digital.nhs.uk), which requires registration. 
+The dm+d data is published by the NHS Business Services Authority under an Open Government Licence, but you will need
+an NHS digital TRUD account in order to download a distribution.
+
 If you want to use automatic downloads, you will also need to download an API key
 from the service.  Copy and paste that key into a file on your local filesystem, if required.
 
@@ -44,7 +51,7 @@ echo >/var/local/trud/api-key.txt XXXXXXXXX
 
 #### 3. Download and install the latest dm+d distribution
 
-You can choose to download manually, or automatically.
+You can choose to download manually, or automatically. I'd recommend automatic downloading.
 
 ##### Download manually
 
@@ -131,9 +138,9 @@ clj -M:run --api-key /var/local/trud/api-key.txt download 2021-04-05
 ```
 
 
-#### 4. Run a REST server  
+#### 4. Run a HTTP server  
 
-Once you have downloaded a distribution, you can use it to run a very fast REST server.
+Once you have downloaded a distribution, you can use it to run a very fast HTTP server.
 
 ```shell
 clj -M:serve dmd-2021-04-12.db 8080
@@ -151,12 +158,26 @@ older instances running to provide access to data from a particular time point
 should that be necessary. Clients can then choose to use a specific version
 or simply the latest dataset.  
 
-The REST server is under active development. At the moment, there is a single
-endpoint, mainly for demonstration purposes:
+The HTTP server is under active development. There are a number of endpoints available that simplify obtaining and
+making sense of dm+d data.
+
+These endpoints are complete:
+
+* Get denormalized information for a given product. 
+* Map between BNF or ATC codes and dm+d products. 
+
+These endpoints are currently under development and will be released shortly:
+
+* Get associated products for any given product.
+* Convert between product-based prescribing models to dose-based models and back.
+
+Further documentation will be forthcoming.
+
+##### Get denormalized information about a product.
 
 Example usage:
 ```shell
-➜  dmd git:(main) ✗ http -j http://localhost:8080/dmd/v1/product/12797611000001109 
+$ http -j http://localhost:8080/dmd/v1/product/12797611000001109 
 ```
 
 Result will be the denormalized product:
@@ -362,12 +383,21 @@ There is good information available online.
 The latest documentation is from 2017 from the NHSBSA - 
 [https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf](https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf).
 
-The cardinalities of the different components are shown on page 5 of that document.
+There are five main dm+d classes:
 
-Here is some data confirming the cardinalities.
+* VTM
+* VMP
+* AMP
+* VMPP
+* AMPP
+
+Each class has associated properties.
+The cardinalities of the different classes and properties are shown on page 5 of that document.
+
+In order to be safe, I have automated reports that process dm+d data to confirm assumptions. 
+For example, here is an automated report on dm+d data confirming the cardinalities:
 
 ```
-
 |                              :TYPE | :MAX-CARDINALITY | :CARDINALITY |
 |------------------------------------+------------------+--------------|
 | [:VMP :VIRTUAL_PRODUCT_INGREDIENT] |               29 |     :TO-MANY |
@@ -399,6 +429,9 @@ Here is some data confirming the cardinalities.
 |---------------+------------------+--------------|
 | [:GTIN :AMPP] |                1 |      :TO-ONE |
 ```
+
+From the documentation, it is not clear that would only be a 1:1 map from AMPP to GTIN, as it looks as if GTINs can
+expire. This data quality report confirms the to-one relationship.
 
 It's easy to run this from a clojure REPL in order to test another release, 
 or you can run it from the command line:
