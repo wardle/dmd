@@ -6,7 +6,8 @@
             [com.eldrix.dmd.import :as dim]
             [clojure.string :as str]
             [clojure.core.async :as a])
-  (:import (java.io Closeable)))
+  (:import (java.io Closeable)
+           (java.util.regex Pattern)))
 
 
 (deftype DmdStore [conn]
@@ -135,12 +136,15 @@
    :AMPP/SUBP                            {:db/valueType :db.type/string}
    :AMPP/DISC                            {:db/valueType :db.type/ref}
    :AMPP/GTIN_DETAILS                    {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+   :AMPP/APPLIANCE_PACK_INFO             {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+   :AMPP/REIMBURSEMENT_INFO              {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+   :AMPP/MEDICINAL_PRODUCT_PRICE         {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
    :APPLIANCE_PACK_INFO/REIMB_STAT       {:db/valueType :db.type/ref}
    :APPLIANCE_PACK_INFO/REIMB_STATPREV   {:db/valueType :db.type/ref}
    :APPLIANCE_PACK_INFO/PACK_ORDER_NO    {:db/valueType :db.type/string}
+   :REIMBURSEMENT_INFO/SPEC_CONT         {:db/valueType :db.type/ref}
    :MEDICINAL_PRODUCT_PRICE/PRICE        {:db/valueType :db.type/double}
    :MEDICINAL_PRODUCT_PRICE/PRICE_BASIS  {:db/valueType :db.type/ref}
-   :REIMBURSEMENT_INFO/SPEC_CONT         {:db/valueType :db.type/ref}
 
    ;; lookups
    :COMBINATION_PACK_IND/CD              {:db/unique :db.unique/identity}
@@ -321,9 +325,10 @@
          [[:AMPP :MEDICINAL_PRODUCT_PRICE]] (parse-nested-property m :MEDICINAL_PRODUCT_PRICE :AMPP/MEDICINAL_PRODUCT_PRICE :APPID)
          [[:AMPP :REIMBURSEMENT_INFO]] (parse-nested-property m :REIMBURSEMENT_INFO :AMPP/REIMBURSEMENT_INFO :APPID)
          [[:AMPP :COMB_CONTENT]] (parse-flat-property m :PRNTAPPID) ;; for COMB_CONTENT, the parent is PRNTAPPID not :APPID
+         [[:AMPP _]] (parse-flat-property m :APPID)
          [[:INGREDIENT :INGREDIENT]] (parse-lookup m)
          [[:LOOKUP _]] (parse-lookup m)
-         [[:GTIN :AMPP]] (parse-nested-property m :GTIN_DETAILS :AMPP/GTIN_DETAILS :AMPPID)
+         [[:GTIN :AMPP]] (parse-nested-property m :GTIN_DETAILS :AMPP/GTIN_DETAILS :APPID)
          [[:BNF :VMPS]] (parse-nested-property m :BNF_DETAILS :VMP/BNF_DETAILS :VPID)
          [[:BNF :AMPS]] (parse-nested-property m :BNF_DETAILS :AMP/BNF_DETAILS :APID)
          :else (log/warn "Unknown file type / component type tuple" m)))
@@ -386,15 +391,16 @@
 
 (def vmpp-properties
   ['*
-   {:VMPP/QTY_UOM ['*]
+   {:VMPP/QTY_UOM          ['*]
     :VMPP/DRUG_TARIFF_INFO ['*]
-    :VMPP/VP vmp-properties}])
+    :VMPP/VP               vmp-properties}])
 
 (def ampp-properties
-  ['* {:AMPP/LEGAL_CAT    '[*]
-       :AMPP/GTIN_DETAILS '[*]
-       :AMPP/VPP          vmpp-properties
-       :AMPP/AP           amp-properties}])
+  ['* {:AMPP/LEGAL_CAT               '[*]
+       :AMPP/GTIN_DETAILS            '[*]
+       :AMPP/MEDICINAL_PRODUCT_PRICE ['*]
+       :AMPP/VPP                     vmpp-properties
+       :AMPP/AP                      amp-properties}])
 
 
 (defn fetch-vmp [^DmdStore st vpid]
@@ -464,7 +470,7 @@
   Parameters:
    - st   : dm+d store
    - re-atc : regular expression (e.g. #\"L04AX.*\")."
-  [^DmdStore st re-atc]
+  [^DmdStore st ^Pattern re-atc]
   (d/q '[:find [(pull ?e [:VMP/VPID :VMP/NM]) ...]
          :in $ ?atc-regexp
          :where
@@ -639,6 +645,10 @@
   (parse (a/<!! ch))
   (d/transact! conn [(parse x)])
   (d/transact! conn [(parse (a/<!! ch))])
+
+
+  (def mpp (dim/get-component "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud2465267306253668332" :AMPP :MEDICINAL_PRODUCT_PRICE))
+  (take 5 (map parse mpp))
 
   ;; get all codes for a given lookup
   (time (d/q '[:find ?code ?desc
