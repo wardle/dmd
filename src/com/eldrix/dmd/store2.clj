@@ -3,7 +3,8 @@
   (:require [clojure.core.async :as a]
             [clojure.core.match :refer [match]]
             [clojure.tools.logging.readable :as log]
-            [datalevin.core :as d])
+            [datalevin.core :as d]
+            [com.eldrix.dmd.import :as dim])
   (:import (java.io Closeable)
            (java.util.regex Pattern)))
 
@@ -127,7 +128,9 @@
    :AMPP/NM                              {:db/valueType :db.type/string}
    :AMPP/ABBREVNM                        {:db/valueType :db.type/string}
    :AMPP/VPPID                           {:db/valueType :db.type/long}
+   :AMPP/VPP                             {:db/valueType :db.type/ref}
    :AMPP/APID                            {:db/valueType :db.type/long}
+   :AMPP/AP                              {:db/valueType :db.type/ref}
    :AMPP/COMBPACK                        {:db/valueType :db.type/ref}
    :AMPP/LEGAL_CAT                       {:db/valueType :db.type/ref}
    :AMPP/SUBP                            {:db/valueType :db.type/string}
@@ -324,7 +327,7 @@
          [[:AMPP _]] (parse-flat-property m :APPID)
          [[:INGREDIENT :INGREDIENT]] (parse-lookup m)
          [[:LOOKUP _]] (parse-lookup m)
-         [[:GTIN :AMPP]] (parse-nested-property m :GTIN_DETAILS :AMPP/GTIN_DETAILS :APPID)
+         [[:GTIN :AMPP]] (parse-nested-property m :GTIN_DETAILS :AMPP/GTIN_DETAILS :AMPPID)   ;;NB: they use :AMPPID not APPID in the GTIN file, just to be inconsistent
          [[:BNF :VMPS]] (parse-nested-property m :BNF_DETAILS :VMP/BNF_DETAILS :VPID)
          [[:BNF :AMPS]] (parse-nested-property m :BNF_DETAILS :AMP/BNF_DETAILS :APID)
          :else (log/warn "Unknown file type / component type tuple" m)))
@@ -335,17 +338,19 @@
 (defn create-store [dir ch]
   (let [conn (d/create-conn dir schema)
         cpu (.availableProcessors (Runtime/getRuntime))
-        ch' (a/chan 50 (partition-all 5000))]
+        ch' (a/chan 50 (partition-all 500))]
     (a/pipeline cpu ch' (map #(parse %)) ch)
     (loop [batch (a/<!! ch')]
       (when batch
-        (d/transact! conn batch)
+        (try
+          (d/transact! conn batch)
+          (catch Exception e
+            (throw (ex-info "error during import" {:batch batch} e))))
         (recur (a/<!! ch'))))
     (->DmdStore conn)))
 
 (defn product-type [^DmdStore st id]
   (:PRODUCT/TYPE (d/q '[:find (pull ?e [*]) . :in $ ?id :where [?e :PRODUCT/ID ?id]] (d/db (.-conn st)) id)))
-
 
 (defn ^:private fetch-product*
   "Fetch a single product with the pull syntax pattern specified."
@@ -392,9 +397,11 @@
     :VMPP/VP               vmp-properties}])
 
 (def ampp-properties
-  ['* {:AMPP/LEGAL_CAT               '[*]
-       :AMPP/GTIN_DETAILS            '[*]
-       :AMPP/MEDICINAL_PRODUCT_PRICE ['*]
+  ['* {:AMPP/LEGAL_CAT               ['*]
+       :AMPP/GTIN_DETAILS            ['*]
+       :AMPP/DISC                    ['*]
+       :AMPP/MEDICINAL_PRODUCT_PRICE ['* {:MEDICINAL_PRODUCT_PRICE/PRICE_BASIS '[*]}]
+       :AMPP/REIMBURSEMENT_INFO      ['*]
        :AMPP/VPP                     vmpp-properties
        :AMPP/AP                      amp-properties}])
 
@@ -755,12 +762,7 @@
 
   (def conn (d/create-conn "dmd-2021-08-30.db" schema))
   (def st (->DmdStore conn))
-  (fetch-product st 1196311000001106)
+  (fetch-product st 1337011000001106)
+  (fetch-lookup st :PRICE_BASIS)
 
-  (def counts (d/q '[:find ?vpid (count ?forms)
-                     :where
-                     [?e :VMP/VPID ?vpid]
-                     [?e :VMP/DRUG_FORMS ?forms]]
-                   (d/db conn)))
-  (filter (fn [[vpid n]] (> n 1)) counts)
   )

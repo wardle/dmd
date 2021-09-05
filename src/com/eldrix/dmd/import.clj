@@ -37,7 +37,7 @@
 (defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
 (defn- ^Long parse-long [^String s] (Long/parseLong s))
 (defn- ^Integer parse-integer [^String s] (Integer/parseInt s))
-(defn- ^Boolean parse-flag [^String s] (#{"1" "0001"} s))       ;; just for fun, they sometimes use "1" or "0001" for flags...
+(defn- ^Boolean parse-flag [^String s] (boolean (= 1 (Integer/parseInt s))))   ;; just for fun, they sometimes use "1" or "0001" for flags...
 (defn- ^Double parse-double [^String s] (Double/parseDouble s))
 
 (def ^:private file-ordering
@@ -177,7 +177,10 @@
    :DENT_F                              parse-flag
    :BB                                  parse-flag
    :CAL_PACK                            parse-flag
-   :FP34D                               parse-flag})
+   :FP34D                               parse-flag
+   :PX_CHRGS                            parse-flag
+   :DISP_FEES                           parse-flag  ;; unlike the documentation, this is actually a flag (1 or omitted).
+   })
 
 (defn- parse-property [kind kw v]
   (if-let [parser (get property-parsers [kind kw])]
@@ -239,7 +242,9 @@
         (recur (next lookups)))
       (when close? (a/close! ch)))))
 
-(defn parse-gtin [loc]
+(defn parse-gtin
+  "Note: unlike other AMPP related components, this uses :AMPPID as the key!"
+  [loc]
   (let [gtin (zx/xml1-> loc :GTINDATA :GTIN zx/text)
         startdt (zx/xml1-> loc :GTINDATA :STARTDT zx/text)
         enddt (zx/xml1-> loc :GTINDATA :ENDDT zx/text)]
@@ -393,9 +398,12 @@
   (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :LOOKUP :LEGAL_CATEGORY)
   (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :VTM :VTM)
   (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :VMP :VMP)
-  (get-component "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" :AMP :AP_INGREDIENT)
+  (def ri (get-component "/tmp/trud6772717631287944974" :AMPP :REIMBURSEMENT_INFO))
+  (frequencies (map :DISP_FEES ri))
+  (take 20 ri)
+  (filter #(nil? (:DISP_FEES %)) ri)
+  (get-component (io/resource "dmd-2021-08-26") :AMP :AP_INGREDIENT)
 
-  (def file "/Users/mark/Downloads/week272021-r2_3-BNF/f_bnf1_0010721.xml")
   (def rdr (io/reader file))
   (def root (xml/parse rdr :skip-whitespace true))
   (def ch (a/chan))

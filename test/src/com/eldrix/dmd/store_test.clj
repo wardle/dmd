@@ -31,7 +31,7 @@
         co-amilofruse-vtm (dmd/fetch-product st 34186711000001102)
         co-amilofruse-vmp-1 (dmd/fetch-product st 318135008)
         co-amilofruse-vmp-2 (dmd/fetch-product st 318136009)
-        bases-of-name (let [bases (st2/fetch-lookup st :BASIS_OF_NAME)]
+        bases-of-name (let [bases (dmd/fetch-lookup st :BASIS_OF_NAME)]
                         (zipmap (map :BASIS_OF_NAME/CD bases) (map :BASIS_OF_NAME/DESC bases)))]
     (is (= "Co-amilofruse" (:VTM/NM co-amilofruse-vtm)))
     (is (not (:VMP/SUG_F co-amilofruse-vmp-1)))
@@ -56,7 +56,10 @@
   (run-tests)
   (import-validation)
   (def st (create-and-open-store))
-  (dmd/fetch-product st 318136009)
+  (dmd/fetch-product st 37365911000001107)
+  (d/q '[:find (pull ?e [*])
+         :where
+         [?e :PRODUCT/TYPE :AMPP]] (d/db (.-conn st)))
 
 
   )
