@@ -380,7 +380,7 @@
        :VMP/INGREDIENTS       ['* {:VPI/IS '[*]} {:VPI/BASIS_STRNT '[*]}]
        :VMP/NMCHANGE          '[*]
        :VMP/ONT_DRUG_FORMS    '[*]
-       :VMP/BNF_DETAILS       '[*]}])
+       :VMP/BNF_DETAILS       ['* {:BNF_DETAILS/DDD_UOM '[*]}]}])
 
 (def amp-properties
   ['* {:AMP/EXCIPIENTS      ['* {:AP_INGREDIENT/IS '[*]}]
