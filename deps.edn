@@ -7,7 +7,6 @@
            org.clojure/data.json     {:mvn/version "2.4.0"}
            org.clojure/data.xml      {:mvn/version "0.2.0-alpha6"}
            org.clojure/data.zip      {:mvn/version "1.0.0"}
-           org.clojure/tools.cli     {:mvn/version "1.0.206"}
            org.clojure/tools.logging {:mvn/version "1.1.0"}
 
            com.eldrix/trud           {:git/url "https://github.com/wardle/trud.git"
@@ -17,20 +16,15 @@
            datalevin/datalevin       {:mvn/version "0.4.40"}}
 
  :aliases {:dev
-           {:extra-paths ["serve" "test/src" "test/resources"]}
+           {:extra-paths ["cmd" "test/src" "test/resources"]}
 
            :run
-           {:main-opts ["-m" "com.eldrix.dmd.cli"]
-            :jvm-opts  ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
-                        "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
-                        "--illegal-access=permit"]}
-
-           :serve
-           {:extra-paths ["serve"]
-            :extra-deps  {io.pedestal/pedestal.service   {:mvn/version "0.5.9"}
+           {:extra-paths ["cmd"]
+            :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.206"}
+                          io.pedestal/pedestal.service   {:mvn/version "0.5.9"}
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.9"}
                           ch.qos.logback/logback-classic {:mvn/version "1.2.5"}}
-            :main-opts   ["-m" "com.eldrix.dmd.serve"]
+            :main-opts   ["-m" "com.eldrix.dmd.cli"]
             :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                           "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                           "--illegal-access=permit"]}
@@ -83,22 +77,14 @@
             :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
 
            :jar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.297"}}
             :exec-fn      hf.depstar/jar
             :exec-args    {:jar "target/dmd-lib.jar"}}
 
            :uberjar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.297"}}
             :exec-fn      hf.depstar/uberjar
             :exec-args    {:jar        "target/dmd.jar"
                            :aot        true
-                           :main-class "com.eldrix.dmd.cli"}}
-
-           :server-uberjar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
-            :exec-fn      hf.depstar/uberjar
-            :exec-args    {:jar        "target/dmd-server.jar"
-                           :aliases    [:serve]
-                           :aot        true
-                           :main-class com.eldrix.dmd.serve}}
-           }}
+                           :aliases    [:run]
+                           :main-class "com.eldrix.dmd.cli"}}}}

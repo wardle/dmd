@@ -62,7 +62,11 @@ Download the main dm+d distribution; you can optionally also download the 'extra
 ATC BNF codes. Once downloaded, unzip one or both into a common directory and run: 
 
 ```shell
-clj -M:install --db dmd-2021-07-01.db ~/Downloads/dmd-2021-07-01 
+clj -M:run install --db dmd-2021-07-01.db ~/Downloads/dmd-2021-07-01 
+```
+or
+```shell
+java -jar dmd.jar --db dmd-2021-07-01.db ~/Downloads/dmd-2021-07-01 
 ```
 
 This will look for files in the directory specified and create a new file-based
@@ -109,13 +113,16 @@ or running:
 
 ```shell
 clj -M:run list --api-key /var/local/trud/api-key.txt
-# or java -jar dmd.jar list --api-key /var/local/trud/api-key.txt
+```
+or
+```shell
+java -jar dmd.jar list --api-key /var/local/trud/api-key.txt
 ```
 
 
 Result:
 ```shell
-➜  dmd git:(main) ✗  clj -M:run --api-key /var/local/trud/api-key.txt list
+➜  dmd git:(main) ✗  clj -M:run list --api-key /var/local/trud/api-key.txt
 
 |                                  :id | :releaseDate |          :name |
 |--------------------------------------+--------------+----------------|
@@ -129,7 +136,7 @@ To download a specific edition, you can download manually, unzip and then
 directly import from that distribution.
 
 ```shell
-clj -M:run --db dmd.db install /tmp/downloads/trud
+clj -M:run install --db dmd.db  /tmp/downloads/trud
 ```
 
 Or you can specify the version and let `dmd` download for you.
@@ -139,17 +146,16 @@ Specify which release you want by date according to ISO-8601 standard:
 clj -M:run --api-key /var/local/trud/api-key.txt download 2021-04-05
 ```
 
-
 #### 4. Run a HTTP server  
 
 Once you have downloaded a distribution, you can use it to run a very fast HTTP server.
 
 ```shell
-clj -M:serve dmd-2021-04-12.db 8080
+clj -M:run serve --db dmd-2021-04-12.db --port 8080
 ```
 or
 ```shell
-java -jar dmd-server.jar dmd-2021-04-12.db 8080
+java -jar dmd.jar --db dmd-2021-04-12.db --port 8080
 ```
 
 As it is very likely that the complete dm+d dataset will fit into the memory
@@ -526,16 +532,9 @@ clj -M:lint/kondo
 clj -X:jar
 ```
 
-#### Build and run command-line utility uberjar
+#### Build and run an uberjar
 
 ```shell
 clj -X:uberjar
 java -jar target/dmd.jar --help
-```
-
-#### Build and run server uberjar
-
-```shell
-clj -X:server-uberjar
-java -jar target/dmd-server.jar dmd-2021-04-12.db 8080
 ```

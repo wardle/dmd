@@ -1,13 +1,16 @@
 (ns com.eldrix.dmd.cli
   (:gen-class)
-  (:require [clojure.tools.cli :as cli]
+  (:require [clojure.string :as str]
+            [clojure.tools.cli :as cli]
             [com.eldrix.dmd.core :as dmd]
-            [clojure.string :as str]))
+            [com.eldrix.dmd.serve :as serve]
+            [clojure.tools.logging.readable :as log]))
 
 (def cli-options
   [[nil "--api-key PATH" "Path to file containing TRUD API key"]
    [nil "--cache-dir PATH" "Path to cache directory for TRUD downloads"]
    [nil "--db FILENAME" "Name of database; usually optional. A default will be chosen if omitted"]
+   ["-p" "--port PORT" "Port to use"]
    ["-h" "--help"]])
 
 (defn usage [options-summary]
@@ -18,6 +21,7 @@
         "  - list     : list available distributions from TRUD"
         "  - download : download and install a specific dm+d release (e.g. 2021-04-05)"
         "  - install  : install from a manually downloaded/unzipped distribution"
+        "  - serve    : run a HTTP server"
         "Options:"
         options-summary]
        (str/join \newline)))
@@ -52,6 +56,15 @@
     :else
     (dmd/install-from-dirs db params)))
 
+(defn run-server [{:keys [db port] :or {port "8080"}}]
+  (if db
+    (let [st (dmd/open-store db)]
+      (log/info "starting server using " db " on port" port)
+      (try (serve/start-server st (Integer/parseInt port))
+           (catch NumberFormatException e
+             (log/error "invalid port:" port))))
+    (log/error "You must specify a database using --db")))
+
 (defn -main [& args]
   (let [{:keys [options arguments summary errors]} (cli/parse-opts args cli-options)]
     (cond
@@ -72,7 +85,8 @@
           (= "latest" command) (download options nil)
           (= "list" command) (list-available options)
           (= "download" command) (download options params)
-          (= "install" command) (install options params))))))
+          (= "install" command) (install options params)
+          (= "serve" command) (run-server options))))))
 
 (comment
   )

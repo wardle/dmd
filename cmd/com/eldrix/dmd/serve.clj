@@ -179,15 +179,6 @@
   (stop-dev)
   (start-dev svc port))
 
-(defn -main [& args]
-  (if-not (= 2 (count args))
-    (println "Usage: clj -M:serve <database> <port>\n    or java -jar dmd-server.jar <database> <port>")
-    (let [[filename port] args
-          store (com.eldrix.dmd.store2/open-store filename)
-          port' (Integer/parseInt port)]
-      (log/info "starting NHS dm+d server" {:port port' :filename filename})
-      (start-server store port'))))
-
 (comment
   (do
     (require '[io.pedestal.test])
