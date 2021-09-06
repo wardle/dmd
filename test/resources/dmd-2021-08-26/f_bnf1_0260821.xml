@@ -7,6 +7,8 @@
             <VPID>318136009</VPID>
             <BNF>02020400</BNF>
             <ATC>C03EB01</ATC>
+            <DDD>240</DDD>
+            <DDD_UOMCD>258684004</DDD_UOMCD>
         </VMP>
     </VMPS>
 </BNF_DETAILS>

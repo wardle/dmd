@@ -57,10 +57,11 @@
   (run-tests)
   (import-validation)
   (def st (create-and-open-store))
-  (dmd/fetch-product st 37365911000001107)
+  (dmd/fetch-product st 318136009)
   (d/q '[:find (pull ?e [*])
          :where
          [?e :PRODUCT/TYPE :AMPP]] (d/db (.-conn st)))
 
+  (st2/parse (first (dim/get-component (io/resource dir) :BNF :VMPS)))
 
   )
