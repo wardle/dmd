@@ -51,6 +51,7 @@
     ;; fetch the AMP and is the linked VMP the same as we know?
     (is (= (:AMP/VP (dmd/fetch-product st 37365811000001102)) co-amilofruse-vmp-2))
     (is (= "C03EB01" (get-in co-amilofruse-vmp-2 [:VMP/BNF_DETAILS :BNF_DETAILS/ATC])))
+    (is (= "mg" (get-in co-amilofruse-vmp-2 [:VMP/BNF_DETAILS :BNF_DETAILS/DDD_UOM :UNIT_OF_MEASURE/DESC])))
     (.close st)))
 
 (comment
