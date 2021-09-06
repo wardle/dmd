@@ -182,99 +182,142 @@ Example usage:
 $ http -j http://localhost:8080/dmd/v1/product/12797611000001109 
 ```
 
-Result will be the denormalized product:
+Result will be the denormalized product. Each product will include
+important references such as ingredients, excipients and the associated
+products. A VMP will include its VTM. An AMP or VMPP will include its VMP, and
+the VTM, and an AMPP will include all of the others!
 
 ```json
-
 {
-    "BASIS": {
+  "BASIS": {
+    "CD": "0001",
+    "DESC": "rINN - Recommended International Non-proprietary"
+  },
+  "BASISCD": "0001",
+  "BASIS_PREVCD": "0001",
+  "BNF_DETAILS": {
+    "ATC": "C08CA01",
+    "DDD": 5.0,
+    "DDD_UOM": {
+      "CD": 258684004,
+      "DESC": "mg"
+    },
+    "DDD_UOMCD": 258684004,
+    "VPID": 12797611000001109
+  },
+  "CONTROL_DRUG_INFO": {
+    "CD": "0000",
+    "DESC": "No Controlled Drug Status"
+  },
+  "DF_IND": {
+    "CD": "2",
+    "DESC": "Continuous"
+  },
+  "DF_INDCD": "2",
+  "DRUG_FORM": {
+    "CD": 385023001,
+    "DESC": "Oral solution"
+  },
+  "DRUG_ROUTES": [
+    {
+      "CD": 26643006,
+      "DESC": "Oral"
+    }
+  ],
+  "ID": 12797611000001109,
+  "INGREDIENTS": [
+    {
+      "BASIS_STRNT": {
         "CD": "0001",
-        "DESC": "rINN - Recommended International Non-proprietary"
-    },
-    "BASISCD": "0001",
-    "BASIS_PREVCD": "0001",
-    "CONTROL_DRUG_INFO": [
-        {
-            "CD": "0000",
-            "DESC": "No Controlled Drug Status"
-        }
-    ],
-    "DF_IND": {
-        "CD": "2",
-        "DESC": "Continuous"
-    },
-    "DF_INDCD": "2",
-    "DRUG_FORM": [
-        {
-            "CD": "385023001",
-            "CDDT": "2008-01-11",
-            "CDPREV": "3094611000001106",
-            "DESC": "Oral solution"
-        }
-    ],
-    "DRUG_ROUTE": [
-        {
-            "CD": "26643006",
-            "DESC": "Oral"
-        }
-    ],
-    "INVALID": true,
-    "NM": "Amlodipine 5mg/5ml oral solution sugar-free",
-    "NMDT": "2015-06-08",
-    "NMPREV": "Amlodipine 5mg/5ml oral solution sugar free",
-    "NON_AVAIL": {
-        "CD": "0001",
-        "DESC": "Actual Products not Available"
-    },
-    "NON_AVAILCD": "0001",
-    "NON_AVAILDT": "2016-12-06",
-    "ONT_DRUG_FORM": [
-        {
-            "CD": "0005",
-            "DESC": "solution.oral"
-        }
-    ],
-    "PRES_STAT": {
-        "CD": "0001",
-        "DESC": "Valid as a prescribable product"
-    },
-    "PRES_STATCD": "0001",
-    "SUG_F": false,
-    "TYPE": "uk.nhs.dmd/VMP",
-    "VIRTUAL_PRODUCT_INGREDIENT": [
-        {
-            "BASIS_STRNT": {
-                "CD": "0001",
-                "DESC": "Based on Ingredient Substance"
-            },
-            "BASIS_STRNTCD": "0001",
-            "ISID": 386864001,
-            "ISIDDT": "2005-07-27",
-            "ISIDPREV": 3512211000001104,
-            "NM": "Amlodipine",
-            "STRNT_DNMTR_UOM": {
-                "CD": 258773002,
-                "DESC": "ml"
-            },
-            "STRNT_DNMTR_UOMCD": 258773002,
-            "STRNT_DNMTR_VAL": 1,
-            "STRNT_NMRTR_UOM": {
-                "CD": 258684004,
-                "DESC": "mg"
-            },
-            "STRNT_NMRTR_UOMCD": 258684004,
-            "STRNT_NMRTR_VAL": 1
-        }
-    ],
-    "VPID": 12797611000001109,
-    "VTM": {
-        "NM": "Amlodipine",
-        "TYPE": "uk.nhs.dmd/VTM",
-        "VTMID": 108537001
-    },
+        "DESC": "Based on Ingredient Substance"
+      },
+      "BASIS_STRNTCD": "0001",
+      "IS": {
+        "ISID": 386864001,
+        "ISIDDT": "2005-07-27",
+        "ISIDPREV": 3512211000001104,
+        "NM": "Amlodipine"
+      },
+      "ISID": 386864001,
+      "STRNT_DNMTR_UOMCD": 258773002,
+      "STRNT_DNMTR_VAL": 1.0,
+      "STRNT_NMRTR_UOMCD": 258684004,
+      "STRNT_NMRTR_VAL": 1.0,
+      "VPID": 12797611000001109
+    }
+  ],
+  "INVALID": true,
+  "NM": "Amlodipine 5mg/5ml oral solution sugar-free",
+  "NMDT": "2015-06-08",
+  "NMPREV": "Amlodipine 5mg/5ml oral solution sugar free",
+  "NON_AVAIL": {
+    "CD": "0001",
+    "DESC": "Actual Products not Available"
+  },
+  "NON_AVAILCD": "0001",
+  "NON_AVAILDT": "2016-12-06",
+  "ONT_DRUG_FORMS": [
+    {
+      "CD": "0005",
+      "DESC": "solution.oral"
+    }
+  ],
+  "PRES_STAT": {
+    "CD": "0001",
+    "DESC": "Valid as a prescribable product"
+  },
+  "PRES_STATCD": "0001",
+  "SUG_F": true,
+  "TYPE": "VMP",
+  "VPID": 12797611000001109,
+  "VTM": {
+    "ID": 108537001,
+    "NM": "Amlodipine",
+    "TYPE": "VTM",
     "VTMID": 108537001
+  },
+  "VTMID": 108537001
 }
 
+```
+
+##### Map from BNF or ATC codes to VMPs
+
+Here I look for ATC codes beginning with L04AX.
+Anatomical Therapeutic Chemical (ATC) codes are a useful way of categorising drugs,
+and so you can use `dmd` to generate codelists for operational, realtime or 
+offline analytics.
+
+You can use a regular expression here - so L04AX.* asks for ATC codes that start with L04AX
+
+```shell
+http -j localhost:8080/dmd/v1/atc/L04AX.*/vmps
+```
+
+Result:
+```json
+[
+    {
+        "NM": "Thalidomide 100mg tablets",
+        "VPID": 10194111000001109
+    },
+    {
+        "NM": "Azathioprine 30mg/5ml oral suspension",
+        "VPID": 8308811000001100
+    },
+    {
+        "NM": "Azathioprine 15mg/5ml oral suspension",
+        "VPID": 8283211000001104
+    },
+    {
+        "NM": "Methotrexate 750micrograms/5ml oral suspension",
+        "VPID": 12815511000001103
+    },
+    {
+        "NM": "Azathioprine 30mg capsules",
+        "VPID": 8791411000001107
+    },
+  ...
 ```
 
 #### 5. Embed as a library into a larger application
