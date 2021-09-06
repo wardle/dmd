@@ -29,7 +29,8 @@
             [clojure.tools.logging.readable :as log]
             [clojure.zip])
   (:import [java.time LocalDate]
-           (java.time.format DateTimeFormatter DateTimeParseException)))
+           (java.time.format DateTimeFormatter DateTimeParseException)
+           (java.util List)))
 
 (set! *warn-on-reflection* true)
 
@@ -60,7 +61,7 @@
       (let [kw (keyword (str/upper-case nm))]
         {:type  kw
          :date  (LocalDate/parse date df)
-         :order (.indexOf file-ordering kw)
+         :order (.indexOf ^List file-ordering kw)
          :file  f2}))))
 
 (defn should-include?
