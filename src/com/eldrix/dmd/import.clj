@@ -260,7 +260,7 @@
 (defn stream-gtin
   [root ch _ close?]
   (let [gtins (zx/xml-> (clojure.zip/xml-zip root) :GTIN_DETAILS :AMPPS :AMPP parse-gtin)]
-    (a/<!! (a/onto-chan!! ch gtins))
+    (a/<!! (a/onto-chan!! ch gtins false))
     (when close? (a/close! ch))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
