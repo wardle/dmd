@@ -10,10 +10,9 @@
   (is (= '(:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP :GTIN :BNF) (map :type (dim/dmd-file-seq (io/resource dir))))))
 
 (deftest import-lookups
-  (is (= {:TYPE [:LOOKUP :BASIS_OF_NAME],
-          :CD   "0001",
-          :DESC "rINN - Recommended International Non-proprietary",
-          :ID   :BASIS_OF_NAME-0001}
+  (is (= {:TYPE [:LOOKUP :BASIS_OF_NAME]
+          :CD   1
+          :DESC "rINN - Recommended International Non-proprietary"}
          (first (dim/get-component (io/resource dir) :LOOKUP :BASIS_OF_NAME)))))
 
 (deftest metadata

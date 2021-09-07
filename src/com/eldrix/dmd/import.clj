@@ -38,7 +38,7 @@
 (defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
 (defn- ^Long parse-long [^String s] (Long/parseLong s))
 (defn- ^Integer parse-integer [^String s] (Integer/parseInt s))
-(defn- ^Boolean parse-flag [^String s] (boolean (= 1 (Integer/parseInt s))))   ;; just for fun, they sometimes use "1" or "0001" for flags...
+(defn- ^Boolean parse-flag [^String s] (boolean (= 1 (Integer/parseInt s)))) ;; just for fun, they sometimes use "1" or "0001" for flags...
 (defn- ^Double parse-double [^String s] (Double/parseDouble s))
 
 (def ^:private file-ordering
@@ -109,86 +109,122 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def ^:private property-parsers
-  {[[:LOOKUP :UNIT_OF_MEASURE] :CD]     parse-long
-   [[:LOOKUP :UNIT_OF_MEASURE] :CDPREV] parse-long
-   [[:VMP :FORM] :CD]                   parse-long
-   [[:VMP :FORM] :CDPREV]               parse-long
-   [[:VMP :ROUTE] :CD]                  parse-long
-   [[:VMP :ROUTE] :CDPREV]              parse-long
-   [[:VMP :DRUG_FORM] :FORMCD]          parse-long
-   [[:LOOKUP :SUPPLIER] :CD]            parse-long
-   [[:LOOKUP :SUPPLIER] :CDPREV]        parse-long
-   [[:LOOKUP :ROUTE] :CD]               parse-long
-   [[:LOOKUP :ROUTE] :CDPREV]           parse-long
-   [[:LOOKUP :FORM] :CD]                parse-long
-   [[:LOOKUP :FORM] :CDPREV]            parse-long
-   :CDDT                                parse-date
-   :VTMID                               parse-long
-   :VTMIDPREV                           parse-long
-   :INVALID                             parse-flag
-   :SUG_F                               parse-flag
-   :GLU_F                               parse-flag
-   :PRES_F                              parse-flag
-   :CFC_F                               parse-flag
-   :VTMIDDT                             parse-date
-   :VPID                                parse-long
-   :VPIDPREV                            parse-long
-   :UDFS                                parse-double
-   :UDFS_UOMCD                          parse-long
-   :UNIT_DOSE_UOMCD                     parse-long
-   :ISID                                parse-long
-   :ISIDPREV                            parse-long
-   :ISIDDT                              parse-date
-   :BS_SUBID                            parse-long
-   :STRNT_NMRTR_VAL                     parse-double
-   :STRNT_NMRTR_UOMCD                   parse-long
-   :STRNT_DNMTR_VAL                     parse-double
-   :STRNT_DNMTR_UOMCD                   parse-long
-   :ROUTECD                             parse-long
-   :CATDT                               parse-date
-   :NMDT                                parse-date
-   :SUPPCD                              parse-long
-   :APID                                parse-long
-   :LIC_AUTHCHANGEDT                    parse-date
-   :VPPID                               parse-long
-   :QTYVAL                              parse-double
-   :QTY_UOMCD                           parse-long
-   :APPID                               parse-long
-   :REIMB_STATDT                        parse-date
-   :DISCDT                              parse-date
-   :VPIDDT                              parse-date
-   :PRNTVPPID                           parse-long
-   :CHLDVPPID                           parse-long
-   :PRNTAPPID                           parse-long
-   :CHLDAPPID                           parse-long
-   :DDD_UOMCD                           parse-long
-   :PRICE                               parse-integer
-   :PREVPRICE                           parse-integer
-   :DDD                                 parse-double
-   :STARTDT                             parse-date
-   :ENDDT                               parse-date
-   :SCHED_2                             parse-flag
-   :ACBS                                parse-flag
-   :PADM                                parse-flag
-   :FP10_MDA                            parse-flag
-   :SCHED_1                             parse-flag
-   :HOSP                                parse-flag
-   :NURSE_F                             parse-flag
-   :ENURSE_F                            parse-flag
-   :DENT_F                              parse-flag
-   :BB                                  parse-flag
-   :CAL_PACK                            parse-flag
-   :FP34D                               parse-flag
-   :PX_CHRGS                            parse-flag
-   :DISP_FEES                           parse-flag  ;; unlike the documentation, this is actually a flag (1 or omitted).
+  {
+   ;; VTM properties
+   :VTMID             parse-long
+   :INVALID           parse-flag
+   :VTMIDPREV         parse-long
+   :VTMIDDT           parse-date
+
+   ;; VMP properties
+   :VPID              parse-long
+   :VPIDDT            parse-date
+   :VPIDPREV          parse-long
+   :BASISCD           parse-long
+   :NMDT              parse-date
+   :BASIS_PREVCD      parse-long
+   :NMCHANGECD        parse-long
+   :COMBPRODCD        parse-long
+   :PRES_STATCD       parse-long
+   :SUG_F             parse-flag
+   :GLU_F             parse-flag
+   :PRES_F            parse-flag
+   :CFC_F             parse-flag
+   :NON_AVAILCD       parse-long
+   :NON_AVAILDT       parse-date
+   :DF_INDCD          parse-long
+   :UDFS              parse-double
+   :UDFS_UOMCD        parse-long
+   :UNIT_DOSE_UOMCD   parse-long
+   :ISID              parse-long
+   :BASIS_STRNTCD     parse-long
+   :BS_SUBID          parse-long
+   :STRNT_NMRTR_VAL   parse-double
+   :STRNT_NMRTR_UOMCD parse-long
+   :STRNT_DNMTR_VAL   parse-double
+   :STRNT_DNMTR_UOMCD parse-long
+   :FORMCD            parse-long
+   :ROUTECD           parse-long
+   :CATCD             parse-long
+   :CATDT             parse-date
+   :CAT_PREVCD        parse-long
+
+   ;; AMP properties
+   :APID              parse-long
+   :SUPPCD            parse-long
+   :LIC_AUTHCD        parse-long
+   :LIC_AUTH_PREVCD   parse-long
+   :LIC_AUTHCHANGECD  parse-long
+   :LIC_AUTHCHANGEDT  parse-date
+   :FLAVOURCD         parse-long
+   :EMA               parse-flag
+   :PARALLEL_IMPORT   parse-flag
+   :AVAIL_RESTRICTCD  parse-long
+   :STRNTH            parse-double
+   :UOMCD             parse-long
+   :COLOURCD          parse-long
+
+   ;; VMPP properties
+   :VPPID             parse-long
+   :QTYVAL            parse-double
+   :QTY_UOMCD         parse-long
+   :COMBPACKCD        parse-long
+   :PAY_CATCD         parse-long
+   :PRICE             parse-integer
+   :DT                parse-date
+   :PREVPRICE         parse-integer
+   :PRNTVPPID         parse-long
+   :CHLDVPPID         parse-long
+
+   ;; AMPP properties
+   :APPID             parse-long
+   :LEGAL_CATCD       parse-long
+   :DISCCD            parse-long
+   :DISCDT            parse-date
+   :REIMB_STATCD      parse-long
+   :REIMB_STATDT      parse-date
+   :REIMB_STATPREVCD  parse-long
+   :SCHED_2           parse-flag
+   :ACBS              parse-flag
+   :PADM              parse-flag
+   :FP10_MDA          parse-flag
+   :SCHED_1           parse-flag
+   :HOSP              parse-flag
+   :NURSE_F           parse-flag
+   :ENURSE_F          parse-flag
+   :DENT_F            parse-flag
+   :PRICEDT           parse-date
+   :PRICE_BASISCD     parse-long
+   :PX_CHRGS          parse-flag
+   :DISP_FEES         parse-flag                            ;; unlike the documentation, this is actually a flag (1 or omitted).
+   :BB                parse-flag
+   :CAL_PACK          parse-flag
+   :SPEC_CONTCD       parse-long
+   :FP34D             parse-flag
+   :PRNTAPPID         parse-long
+   :CHLDAPPID         parse-long
+
+   ;; ingredients
+   :ISIDPREV          parse-long
+   :ISIDDT            parse-date
+
+   ;; lookups
+   :CD                parse-long
+   :CDPREV            parse-long
+   :CDDT              parse-date
+
+   ;; BNF / extras
+   :DDD_UOMCD         parse-long
+   :DDD               parse-double
+   :STARTDT           parse-date
+   :ENDDT             parse-date
+
    })
 
-(defn- parse-property [kind kw v]
-  (if-let [parser (get property-parsers [kind kw])]
-    {kw (parser v)}
-    (if-let [fallback (get property-parsers kw)]
-      {kw (fallback v)}
-      {kw v})))
+(defn- parse-property [k v]
+  (if-let [parser (get property-parsers k)]
+    {k (parser v)}
+    {k v}))
 
 (defn- parse-dmd-component
   "Parse a fragment of XML.
@@ -196,7 +232,7 @@
   ([node] (parse-dmd-component nil node))
   ([kind node]
    (reduce into (if kind {:TYPE kind} {})
-           (map #(parse-property kind (:tag %) (first (:content %))) (:content node)))))
+           (map #(parse-property (:tag %) (first (:content %))) (:content node)))))
 
 (defn- stream-flat-dmd
   "Streams dm+d components from a flat XML file; blocking.
@@ -237,8 +273,7 @@
     (if-let [lookup (first lookups)]
       (let [tag (:tag lookup)
             result (->> (:content lookup)
-                        (map (partial parse-dmd-component [file-type tag]))
-                        (map #(assoc % :ID (keyword (str (name tag) "-" (:CD %))))))]
+                        (map (partial parse-dmd-component [file-type tag])))]
         (a/<!! (a/onto-chan!! ch result false))
         (recur (next lookups)))
       (when close? (a/close! ch)))))

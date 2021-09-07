@@ -14,7 +14,7 @@
 
 (defn create-and-open-store []
   (let [db-dir (.getAbsolutePath (.toFile (Files/createTempDirectory "dmd-test" (into-array FileAttribute []))))]
-    (dmd/install-from-dirs db-dir [(io/resource dir)])
+    (dmd/install-from-dirs db-dir [(io/resource dir)] :batch-size 1)
     (dmd/open-store db-dir)))
 
 ;; ensure that importing an unknown ingredient throws an exception
@@ -41,11 +41,11 @@
     (is (= "Discrete" (get-in co-amilofruse-vmp-2 [:VMP/DF_IND :DF_INDICATOR/DESC])))
     (is (= "Tablet" (get-in co-amilofruse-vmp-2 [:VMP/DRUG_FORM :FORM/DESC])))
     (is (= (:VMP/BASISCD co-amilofruse-vmp-2) (get-in co-amilofruse-vmp-2 [:VMP/BASIS :BASIS_OF_NAME/CD])))
-    (is (= (get-in co-amilofruse-vmp-2 [:VMP/BASIS :BASIS_OF_NAME/DESC]) (get bases-of-name "0002")))
+    (is (= (get-in co-amilofruse-vmp-2 [:VMP/BASIS :BASIS_OF_NAME/DESC]) (get bases-of-name 2)))
     (is (= #{387516008 387475002} (set (map :VPI/ISID (:VMP/INGREDIENTS co-amilofruse-vmp-2)))))
     (is (= 2 (count (:VMP/INGREDIENTS co-amilofruse-vmp-2))))
     ;; are we getting linked relationships right?
-    (is (= "0001"
+    (is (= 1
            (:VMP/PRES_STATCD co-amilofruse-vmp-2)
            (get-in co-amilofruse-vmp-2 [:VMP/PRES_STAT :VIRTUAL_PRODUCT_PRES_STATUS/CD])))
     ;; fetch the AMP and is the linked VMP the same as we know?

@@ -11,14 +11,14 @@
 
 (defn install-from-dirs
   "Creates a new dm+d filestore at `filename` from the directories specified."
-  [filename dirs]
+  [filename dirs & {:keys [_batch-size] :as opts}]
   (when (= 0 (count dirs)) (throw (ex-info "no directories specified" {:filename filename :dirs dirs})))
   (let [ch (a/chan)]
     (a/thread
       (doseq [dir dirs]
         (dim/stream-dmd dir ch :close? false))
       (a/close! ch))
-    (st2/create-store filename ch)))
+    (st2/create-store filename ch opts)))
 
 (defn print-available-releases
   [api-key]

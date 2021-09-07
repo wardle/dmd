@@ -84,13 +84,14 @@
    :AMP/NM_PREV                          {:db/valueType :db.type/string}
    :AMP/SUPPCD                           {:db/valueType :db.type/long}
    :AMP/SUPP                             {:db/valueType :db.type/ref}
-   :AMP/LIC_AUTHCD                       {:db/valueType :db.type/string}
+   :AMP/LIC_AUTHCD                       {:db/valueType :db.type/long}
    :AMP/LIC_AUTH                         {:db/valueType :db.type/ref}
-   :AMP/LIC_AUTH_PREVCD                  {:db/valueType :db.type/string}
+   :AMP/LIC_AUTH_PREVCD                  {:db/valueType :db.type/long}
    :AMP/LIC_AUTH_PREV                    {:db/valueType :db.type/ref}
    :AMP/LIC_AUTHCHANGE                   {:db/valueType :db.type/ref}
    :AMP/COMBPROD                         {:db/valueType :db.type/ref}
-   :AMP/FLAVOURCD                        {:db/valueType :db.type/ref}
+   :AMP/FLAVOUR                          {:db/valueType :db.type/ref}
+   :AMP/FLAVOURCD                        {:db/valueType :db.type/long}
    :AMP/EMA                              {:db/valueType :db.type/boolean}
    :AMP/PARALLEL_IMPORT                  {:db/valueType :db.type/boolean}
    :AMP/AVAIL_RESTRICT                   {:db/valueType :db.type/ref}
@@ -117,7 +118,7 @@
    :VMPP/QTYVAL                          {:db/valueType :db.type/double}
    :VMPP/QTY_UOMCD                       {:db/valueType :db.type/long}
    :VMPP/QTY_UOM                         {:db/valueType :db.type/ref}
-   :VMPP/COMBPACKCD                      {:db/valueType :db.type/string}
+   :VMPP/COMBPACKCD                      {:db/valueType :db.type/long}
    :VMPP/COMBPACK                        {:db/valueType :db.type/ref}
    :VMPP/DRUG_TARIFF_INFO                {:db/valueType :db.type/ref}
    :VMPP/CHLDVPP                         {:db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
@@ -147,32 +148,31 @@
    :MEDICINAL_PRODUCT_PRICE/PRICE_BASIS  {:db/valueType :db.type/ref}
 
    ;; lookups
-   :COMBINATION_PACK_IND/CD              {:db/unique :db.unique/identity}
-   :COMBINATION_PROD_IND/CD              {:db/unique :db.unique/identity}
-   :BASIS_OF_NAME/CD                     {:db/unique :db.unique/identity}
-   :NAMECHANGE_REASON/CD                 {:db/unique :db.unique/identity}
-   :VIRTUAL_PRODUCT_PRES_STATUS/CD       {:db/unique :db.unique/identity}
-   :CONTROL_DRUG_CATEGORY/CD             {:db/unique :db.unique/identity}
-   :LICENSING_AUTHORITY/CD               {:db/unique :db.unique/identity}
-   :UNIT_OF_MEASURE/CD                   {:db/unique :db.unique/identity}
-   :FORM/CD                              {:db/unique :db.unique/identity}
-   :ONT_FORM_ROUTE/CD                    {:db/unique :db.unique/identity}
-   :ROUTE/CD                             {:db/unique    :db.unique/identity
-                                          :db/valueType :db.type/long}
-   :DT_PAYMENT_CATEGORY/CD               {:db/unique :db.unique/identity}
-   :SUPPLIER/CD                          {:db/unique :db.unique/identity}
-   :FLAVOUR/CD                           {:db/unique :db.unique/identity}
-   :COLOUR/CD                            {:db/unique :db.unique/identity}
-   :BASIS_OF_STRNTH/CD                   {:db/unique :db.unique/identity}
-   :REIMBURSEMENT_STATUS/CD              {:db/unique :db.unique/identity}
-   :SPEC_CONT/CD                         {:db/unique :db.unique/identity}
-   :VIRTUAL_PRODUCT_NON_AVAIL/CD         {:db/unique :db.unique/identity}
-   :DISCONTINUED_IND/CD                  {:db/unique :db.unique/identity}
-   :DF_INDICATOR/CD                      {:db/unique :db.unique/identity}
-   :PRICE_BASIS/CD                       {:db/unique :db.unique/identity}
-   :LEGAL_CATEGORY/CD                    {:db/unique :db.unique/identity}
-   :AVAILABILITY_RESTRICTION/CD          {:db/unique :db.unique/identity}
-   :LICENSING_AUTHORITY_CHANGE_REASON/CD {:db/unique :db.unique/identity}
+   :COMBINATION_PACK_IND/CD              {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :COMBINATION_PROD_IND/CD              {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :BASIS_OF_NAME/CD                     {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :NAMECHANGE_REASON/CD                 {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :VIRTUAL_PRODUCT_PRES_STATUS/CD       {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :CONTROL_DRUG_CATEGORY/CD             {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :LICENSING_AUTHORITY/CD               {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :UNIT_OF_MEASURE/CD                   {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :FORM/CD                              {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :ONT_FORM_ROUTE/CD                    {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :ROUTE/CD                             {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :DT_PAYMENT_CATEGORY/CD               {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :SUPPLIER/CD                          {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :FLAVOUR/CD                           {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :COLOUR/CD                            {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :BASIS_OF_STRNTH/CD                   {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :REIMBURSEMENT_STATUS/CD              {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :SPEC_CONT/CD                         {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :VIRTUAL_PRODUCT_NON_AVAIL/CD         {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :DISCONTINUED_IND/CD                  {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :DF_INDICATOR/CD                      {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :PRICE_BASIS/CD                       {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :LEGAL_CATEGORY/CD                    {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :AVAILABILITY_RESTRICTION/CD          {:db/unique :db.unique/identity :db/valueType :db.type/long}
+   :LICENSING_AUTHORITY_CHANGE_REASON/CD {:db/unique :db.unique/identity :db/valueType :db.type/long}
 
    ;; ingredients
    :INGREDIENT/ISID                      {:db/unique :db.unique/identity :db/valueType :db.type/long}
@@ -327,7 +327,7 @@
          [[:AMPP _]] (parse-flat-property m :APPID)
          [[:INGREDIENT :INGREDIENT]] (parse-lookup m)
          [[:LOOKUP _]] (parse-lookup m)
-         [[:GTIN :AMPP]] (parse-nested-property m :GTIN_DETAILS :AMPP/GTIN_DETAILS :AMPPID)   ;;NB: they use :AMPPID not APPID in the GTIN file, just to be inconsistent
+         [[:GTIN :AMPP]] (parse-nested-property m :GTIN_DETAILS :AMPP/GTIN_DETAILS :AMPPID) ;;NB: they use :AMPPID not APPID in the GTIN file, just to be inconsistent
          [[:BNF :VMPS]] (parse-nested-property m :BNF_DETAILS :VMP/BNF_DETAILS :VPID)
          [[:BNF :AMPS]] (parse-nested-property m :BNF_DETAILS :AMP/BNF_DETAILS :APID)
          :else (log/warn "Unknown file type / component type tuple" m)))
@@ -335,10 +335,10 @@
 (defn ^DmdStore open-store [dir]
   (->DmdStore (d/create-conn dir schema)))
 
-(defn create-store [dir ch]
+(defn create-store [dir ch & {:keys [batch-size] :or {batch-size 500}}]
   (let [conn (d/create-conn dir schema)
         cpu (.availableProcessors (Runtime/getRuntime))
-        ch' (a/chan 50 (partition-all 500))]
+        ch' (a/chan 50 (partition-all batch-size))]
     (a/pipeline cpu ch' (map #(parse %)) ch)
     (loop [batch (a/<!! ch')]
       (when batch
@@ -760,9 +760,9 @@
                [?e :LOOKUP/KIND :BASIS_OF_NAME]]
              (d/db conn)))
 
-  (def conn (d/create-conn "dmd-2021-08-30.db" schema))
+  (def conn (d/create-conn "dmd-2021-09-06.db" schema))
   (def st (->DmdStore conn))
-  (fetch-product st 1337011000001106)
+  (fetch-product st 13275011000001101)
   (fetch-lookup st :PRICE_BASIS)
 
   )
