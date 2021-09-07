@@ -196,11 +196,11 @@ the VTM, and an AMPP will include all of the others!
 ```json
 {
   "BASIS": {
-    "CD": "0001",
+    "CD": 1,
     "DESC": "rINN - Recommended International Non-proprietary"
   },
-  "BASISCD": "0001",
-  "BASIS_PREVCD": "0001",
+  "BASISCD": 1,
+  "BASIS_PREVCD": 1,
   "BNF_DETAILS": {
     "ATC": "C08CA01",
     "DDD": 5.0,
@@ -212,14 +212,14 @@ the VTM, and an AMPP will include all of the others!
     "VPID": 12797611000001109
   },
   "CONTROL_DRUG_INFO": {
-    "CD": "0000",
+    "CD": 0,
     "DESC": "No Controlled Drug Status"
   },
   "DF_IND": {
-    "CD": "2",
+    "CD": 2,
     "DESC": "Continuous"
   },
-  "DF_INDCD": "2",
+  "DF_INDCD": 2,
   "DRUG_FORM": {
     "CD": 385023001,
     "DESC": "Oral solution"
@@ -234,10 +234,10 @@ the VTM, and an AMPP will include all of the others!
   "INGREDIENTS": [
     {
       "BASIS_STRNT": {
-        "CD": "0001",
+        "CD": 1,
         "DESC": "Based on Ingredient Substance"
       },
-      "BASIS_STRNTCD": "0001",
+      "BASIS_STRNTCD": 1,
       "IS": {
         "ISID": 386864001,
         "ISIDDT": "2005-07-27",
@@ -257,22 +257,22 @@ the VTM, and an AMPP will include all of the others!
   "NMDT": "2015-06-08",
   "NMPREV": "Amlodipine 5mg/5ml oral solution sugar free",
   "NON_AVAIL": {
-    "CD": "0001",
+    "CD": 1,
     "DESC": "Actual Products not Available"
   },
-  "NON_AVAILCD": "0001",
+  "NON_AVAILCD": 1,
   "NON_AVAILDT": "2016-12-06",
   "ONT_DRUG_FORMS": [
     {
-      "CD": "0005",
+      "CD": 5,
       "DESC": "solution.oral"
     }
   ],
   "PRES_STAT": {
-    "CD": "0001",
+    "CD": 1,
     "DESC": "Valid as a prescribable product"
   },
-  "PRES_STATCD": "0001",
+  "PRES_STATCD": 1,
   "SUG_F": true,
   "TYPE": "VMP",
   "VPID": 12797611000001109,
@@ -284,7 +284,6 @@ the VTM, and an AMPP will include all of the others!
   },
   "VTMID": 108537001
 }
-
 ```
 
 ##### Map from BNF or ATC codes to VMPs
