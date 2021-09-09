@@ -19,7 +19,9 @@
   to changes in those definitions as they occur.
 
   For more information see
-  https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf"
+  https://www.nhsbsa.nhs.uk/sites/default/files/2021-02/dm%2Bd%20data%20model%20%28V2%29%2002.2021.pdf
+  https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf
+  https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Data_Model_R2_v3.1_May_2015.pdf"
   (:require [clojure.core.async :as a]
             [clojure.data.xml :as xml]
             [clojure.data.zip.xml :as zx]
