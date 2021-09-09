@@ -1,5 +1,5 @@
 (ns com.eldrix.dmd.store2
-  "A datalog store for dm+d"
+  "A datalog store for dm+d."
   (:require [clojure.core.async :as a]
             [clojure.core.match :refer [match]]
             [clojure.tools.logging.readable :as log]
@@ -19,7 +19,7 @@
    - properties are namespaced using a code representing the filename from which
    they were derived (e.g. :VTM :VMP :AMP etc), except lookups are given their
    own namespace representing that lookup (e.g. :BASIS_OF_NAME).
-   - lookups are referenced by their code (e.g. :BASIS_OF_NAME/CD \"0003\") and
+   - lookups are referenced by their code (e.g. :BASIS_OF_NAME/CD 3) and
    the source entity has a property :VMP/BASIS based on the original reference
    (e.g. :VMP/BASISCD)."
   {:PRODUCT/ID                           {:db/unique    :db.unique/identity
@@ -63,7 +63,7 @@
    :VMP/CONTROL_DRUG_INFO                {:db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
    :VMP/BNF_DETAILS                      {:db/valueType :db.type/ref}
 
-   ;; VMP - VPIs
+   ;; VMP - VPIs - ingredients
    :VPI/PRODUCT                          {:db/valueType :db.type/ref}
    :VPI/ISID                             {:db/valueType :db.type/long}
    :VPI/IS                               {:db/valueType :db.type/ref}
@@ -188,11 +188,15 @@
    :BNF_DETAILS/DDD_UOM                  {:db/valueType :db.type/ref}})
 
 (def lookup-references
-  "Defines how individual properties can be supplemented by adding a datalog
-  reference using the property and the foreign key specified.
+  "Declarative description of how how individual properties can be supplemented
+  by adding a datalog reference using the property and the foreign key specified.
+
   A nested map of <file-type> <component-type> with a tuple representing
   - property    : name of property to contain the reference
-  - foreign-key : the attribute representing the foreign key."
+  - foreign-key : the attribute representing the foreign key.
+
+  For example, the :VTMID property of the VMP component is turned into a
+  property :VMP/VTM that will reference using the key :PRODUCT/ID."
   {:VMP  {:VMP                        {:VTMID           [:VMP/VTM :PRODUCT/ID]
                                        :BASISCD         [:VMP/BASIS :BASIS_OF_NAME/CD]
                                        :BASIC_PREVCD    [:VMP/BASIC_PREV :BASIS_OF_NAME/CD]
@@ -239,6 +243,11 @@
    :BNF  {:VMPS {:DDD_UOMCD [:BNF_DETAILS/DDD_UOM :UNIT_OF_MEASURE/CD]}}})
 
 (defn parse-entity
+  "Turn an arbitrary entity into something readily importable into datalog.
+  In essence, this namespaces any properties and turns lookups into datalog
+  references. It is most useful in parsing complete components or properties
+  of a dm+d component that are themselves entities (e.g. ingredients) in which
+  there are multiple properties (ingredient, amount etc)."
   [m nspace]
   (let [[file-type component-type] (:TYPE m)]
     (reduce-kv (fn [m k v]
@@ -250,6 +259,8 @@
                (dissoc m :TYPE))))
 
 (defn parse-reference
+  "Turn an arbitrary entity into a flattened reference.
+   This is most suitable for simple properties such as lookups."
   [m]
   (let [[file-type component-type] (:TYPE m)]
     (reduce-kv (fn [m k v]
@@ -264,7 +275,9 @@
         (assoc :PRODUCT/TYPE component-type
                :PRODUCT/ID (get m id-key)))))
 
-(defn parse-lookup [m]
+(defn parse-lookup
+  "Parse the definition of a lookup, or similar. "
+  [m]
   (let [[_file-type component-type] (:TYPE m)
         nspace (name component-type)
         m' (dissoc m :ID :TYPE)]
@@ -350,7 +363,7 @@
     (->DmdStore conn)))
 
 (defn product-type [^DmdStore st id]
-  (:PRODUCT/TYPE (d/q '[:find (pull ?e [*]) . :in $ ?id :where [?e :PRODUCT/ID ?id]] (d/db (.-conn st)) id)))
+  (:PRODUCT/TYPE (d/q '[:find (pull ?e [:PRODUCT/TYPE]) . :in $ ?id :where [?e :PRODUCT/ID ?id]] (d/db (.-conn st)) id)))
 
 (defn ^:private fetch-product*
   "Fetch a single product with the pull syntax pattern specified."
@@ -442,11 +455,69 @@
             (keyword nm))
        (map #(dissoc % :db/id :LOOKUP/KIND))))
 
-(defn identifiers-from-atc
-  "Get a sequence of product identifiers that match the ATC code.
+(defn results-for-eids [^DmdStore st eids]
+  (d/pull-many (d/db (.-conn st)) [:PRODUCT/ID :PRODUCT/TYPE :VTM/NM :VMP/NM :AMP/NM :VMPP/NM :AMPP/NM] eids))
+
+(defn vmp-eids-for-vtmid [^DmdStore st vtmid]
+  (d/q '[:find [?e ...]
+         :in $ ?vtmid
+         :where
+         [?e :VMP/VTMID ?vtmid]]
+       (d/db (.-conn st))
+       vtmid))
+
+(defn amp-eids-for-vtmid [^DmdStore st vtmid]
+  (d/q '[:find [?amp ...]
+         :in $ ?vtmid
+         :where
+         [?vtm :VTM/VTMID ?vtmid]
+         [?vmp :VMP/VTM ?vtm]
+         [?amp :AMP/VP ?vmp]]
+       (d/db (.-conn st))
+       vtmid))
+
+(defn vtm-eid-for-vmpid [^DmdStore st vmpid]
+  (d/q '[:find ?vtm .
+         :in $ ?vmpid
+         :where
+         [?vmp :VMP/VPID ?vmpid]
+         [?vmp :VMP/VTM ?vtm]]
+       (d/db (.-conn st))
+       vmpid))
+
+(defn amp-eids-for-vmpid [^DmdStore st vmpid]
+  (d/q '[:find [?amp ...]
+         :in $ ?vmpid
+         :where
+         [?vmp :VMP/VPID ?vmpid]
+         [?amp :AMP/VP ?vmp]]
+       (d/db (.-conn st))
+       vmpid))
+
+(defn vtm-eid-for-ampid [^DmdStore st ampid]
+  (d/q '[:find ?vtm .
+         :in $ ?ampid
+         :where
+         [?amp :AMP/APID ?ampid]
+         [?amp :AMP/VP ?vmp]
+         [?vmp :VMP/VTM ?vtm]]
+       (d/db (.-conn st))
+       ampid))
+
+(defn vmp-eid-for-ampid [^DmdStore st ampid]
+  (d/q '[:find ?vmp .
+         :in $ ?ampid
+         :where
+         [?amp :AMP/APID ?ampid]
+         [?amp :AMP/VP ?vmp]]
+       (d/db (.-conn st))
+       ampid))
+
+(defn vmp-eids-from-atc
+  "Returns VMP entity ids for the ATC code regular expression.
   Parameters:
-   - st     : dm+d store
-   - re-atc : a regexp matching the ATC code e.g. #\"L04AX.*\".
+   - st   : dm+d store
+   - re-atc : regular expression (e.g. #\"L04AX.*\").
 
   It is usual to use a prefix match match for the ATC given its code structure.
 
@@ -456,53 +527,15 @@
 
   The dm+d ATC mapping only includes VMPs, so depending on usage, extending the
   codeset to include the appropriate other dm+d structures might be required."
-  [^DmdStore st re-atc]
-  (d/q '[:find [?id ...]
-         :in $ ?atc-regexp
-         :where
-         [?e :PRODUCT/ID ?id]
-         (or [?e :VMP/BNF_DETAILS ?bnf]
-             [?e :AMP/BNF_DETAILS ?bnf])
-         [?bnf :BNF_DETAILS/ATC ?atc]
-         [(re-matches ?atc-regexp ?atc)]]
-       (d/db (.-conn st))
-       re-atc))
-
-(defn vmps-from-atc
-  "Returns VMPs for the ATC code regular expression.
-  Parameters:
-   - st   : dm+d store
-   - re-atc : regular expression (e.g. #\"L04AX.*\")."
   [^DmdStore st ^Pattern re-atc]
-  (d/q '[:find [(pull ?e [:VMP/VPID :VMP/NM]) ...]
+  (d/q '[:find [?e ...]
          :in $ ?atc-regexp
          :where
-         [?e :PRODUCT/ID ?id]
-         [?e :VMP/BNF_DETAILS ?bnf]
          [?bnf :BNF_DETAILS/ATC ?atc]
+         [?e :VMP/BNF_DETAILS ?bnf]
          [(re-matches ?atc-regexp ?atc)]]
        (d/db (.-conn st))
        re-atc))
-
-(defn vmps-for-vtmid [^DmdStore st vtmid]
-  (d/q '[:find [?id ...]
-         :in $ ?vtmid
-         :where
-         [?e :VMP/VTMID ?vtmid]
-         [?e :VMP/VPID ?id]]
-       (d/db (.-conn st))
-       vtmid))
-
-(defn amps-for-vtmid [^DmdStore st vtmid]
-  (d/q '[:find [?apid ...]
-         :in $ ?vtmid
-         :where
-         [?vtm :VTM/VTMID ?vtmid]
-         [?vmp :VMP/VTM ?vtm]
-         [?amp :AMP/VP ?vmp]
-         [?amp :AMP/APID ?apid]]
-       (d/db (.-conn st))
-       vtmid))
 
 (defn product-by-name
   "Simple search by name.
@@ -521,32 +554,101 @@
        (d/db (.-conn st))
        re-nm))
 
-(defmulti vtms "Return the VTMs associated with this product."
+(defmulti vtms "Return the entity ids for the VTMs associated with this product."
           (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
 
 (defmethod vtms :VTM [store vtm]
-  [(fetch-vtm store (:VTM/VTMID vtm))])
+  [(if-let [db-id (:db/id vtm)]
+     db-id
+     (d/q '[:find ?e .
+            :in $ ?vtmid
+            :where [?e :VTM/VTMID ?vtmid]]
+          (d/db (.-conn store))
+          (:PRODUCT/ID vtm)))])
 
 (defmethod vtms :VMP [store vmp]
-  [(fetch-vtm store (:VMP/VTMID vmp))])
+  (when-let [vtm-eid (vtm-eid-for-vmpid store (:PRODUCT/ID vmp))]
+    [vtm-eid]))
 
 (defmethod vtms :AMP [store amp]
-  ())
+  (when-let [vtm-eid (vtm-eid-for-ampid store (:PRODUCT/ID amp))]
+    [vtm-eid]))
 
 (defmulti vmps "Returns the VMPs associated with this product."
-          (fn [^DmdStore _store product] (:TYPE product)))
+          (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
 
-(defmulti vmpps "Returns identifiers for the VMPPS associated with this product."
-          (fn [^DmdStore _store product] (:TYPE product)))
+(defmethod vmps :VTM [store vtm]
+  (vmp-eids-for-vtmid store (:PRODUCT/ID vtm)))
+
+(defmethod vmps :VMP [store vmp]
+  [(if-let [db-id (:db/id vmp)]
+     db-id
+     (d/q '[:find ?e .
+            :in $ ?vmpid
+            :where [?e :VMP/VPID ?vmpid]]
+          (d/db (.-conn store))
+          (:PRODUCT/ID vmp)))])
+
+(defmethod vmps :AMP [store amp]
+  (when-let [vmp-eid (vmp-eid-for-ampid store (:PRODUCT/ID amp))]
+    [vmp-eid]))
 
 (defmulti amps "Returns identifiers for the AMPs associated with this product."
-          (fn [^DmdStore _store product] (:TYPE product)))
+          (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
 
-(defmulti ampps "Returns identifiers for the AMPPs associated with this product."
-          (fn [^DmdStore _store product] (:TYPE product)))
+(defmethod amps :VTM [store amp]
+  (amp-eids-for-vtmid store (:PRODUCT/ID amp)))
 
-(defmulti extended "Returns an extended denormalized product"
-          (fn [^DmdStore _store product] (:TYPE product)))
+(defmethod amps :VMP [store amp]
+  (amp-eids-for-vmpid store (:PRODUCT/ID amp)))
+
+(defmethod amps :AMP [store amp]
+  [(if-let [db-id (:db/id amp)]
+     db-id
+     (d/q '[:find ?e .
+            :in $ ?ampid
+            :where [?e :AMP/APID ?ampid]]
+          (d/db (.-conn store))
+          (:PRODUCT/ID amp)))])
+
+(defmulti atc-code "Return the ATC code associated with this product."
+          (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
+
+(defmethod atc-code :VTM [store vtm]
+  (d/q '[:find ?atc .
+         :in $ ?vtmid
+         :where
+         [?bnf :BNF_DETAILS/ATC ?atc]
+         [?e :VMP/BNF_DETAILS ?bnf]
+         [?e :VMP/VTMID ?vtmid]]
+       (d/db (.-conn store))
+       (:PRODUCT/ID vtm)))
+
+(defmethod atc-code :VMP [store vmp]
+  (if-let [atc (get-in vmp [:VMP/BNF_DETAILS :BNF_DETAILS/ATC])]
+    atc
+    (d/q '[:find ?atc .
+           :in $ ?vmpid
+           :where
+           [?bnf :BNF_DETAILS/ATC ?atc]
+           [?e :VMP/BNF_DETAILS ?bnf]
+           [?e :VMP/VPID ?vmpid]]
+         (d/db (.-conn store))
+         (:PRODUCT/ID vmp))))
+
+(defmethod atc-code :AMP [store amp]
+  (if-let [atc (get-in amp [:AMP/VP :VMP/BNF_DETAILS :BNF_DETAILS/ATC])]
+    atc
+    (d/q '[:find ?atc .
+           :in $ ?ampid
+           :where
+           [?bnf :BNF_DETAILS/ATC ?atc]
+           [?vmp :VMP/BNF_DETAILS ?bnf]
+           [?amp :AMP/VP ?vmp]
+           [?amp :AMP/APID ?ampid]]
+         (d/db (.-conn store))
+         (:PRODUCT/ID amp))))
+
 
 (comment
   (def lookup-example {:TYPE [:LOOKUP :NAMECHANGE_REASON], :CD "0003", :DESC "Basis of name changed", :ID :NAMECHANGE_REASON-0003})
@@ -563,7 +665,6 @@
           :PRES_STATCD     "0001",
           :DF_INDCD        "1",
           :UDFS            1})
-
 
   ;;
   (def dir "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
@@ -760,9 +861,22 @@
                [?e :LOOKUP/KIND :BASIS_OF_NAME]]
              (d/db conn)))
 
-  (def conn (d/create-conn "dmd-2021-09-06.db" schema))
-  (def st (->DmdStore conn))
-  (fetch-product st 13275011000001101)
-  (fetch-lookup st :PRICE_BASIS)
 
+  (time (d/pull-many (d/db (.-conn st)) '[:PRODUCT/ID :PRODUCT/TYPE :VTM/NM :VMP/NM :AMP/NM :VMPP/NM :AMPP/NM]
+                     ))
+
+
+
+  (def conn (d/create-conn "dmd-2021-09-06.db" schema))
+  (def st (-a>DmdStore conn))
+  (fetch-product st 13275011000001101)
+  (results-for-eids st (amps st (fetch-product st 109143003)))
+  (fetch-lookup st :PRICE_BASIS)
+  (vmps-from-atc st #"L04.*")
+  (time (product-type st 24408011000001101))
+  (def id 24408011000001101)
+  (time (:PRODUCT/TYPE (d/q '[:find (pull ?e [*]) . :in $ ?id :where [?e :PRODUCT/ID ?id]] (d/db (.-conn st)) id)))
+  (time (:PRODUCT/TYPE (d/q '[:find (pull ?e [:PRODUCT/TYPE]) . :in $ ?id :where [?e :PRODUCT/ID ?id]] (d/db (.-conn st)) id)))
+  (time (d/q '(:find (pull ?e [:PRODUCT/ID]) . :in $ ?id :where [?e :PRODUCT/ID ?id]) (d/db (.-conn st)) 24408011000001101))
+  (time (d/pull (d/db (.-conn st)) [:PRODUCT/TYPE :PRODUCT/ID] 14733))
   )

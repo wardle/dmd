@@ -9,7 +9,8 @@
             [io.pedestal.http.content-negotiation :as conneg]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
-            [io.pedestal.interceptor.error :as intc-err])
+            [io.pedestal.interceptor.error :as intc-err]
+            [io.pedestal.http.route.definition.table :as table])
   (:import (java.time LocalDate)
            (java.time.format DateTimeFormatter)))
 
@@ -124,20 +125,79 @@
          (assoc context :result (dmd/fetch-lookup store (str/upper-case lookup-kind))))))})
 
 (def atc->vmps
-  {:name ::atc->vmps
+  {:name  ::atc->vmps
    :enter (fn [context]
             (let [store (get-in context [:request ::store])
-                  atc  (get-in context [:request :path-params :atc])]
+                  atc (get-in context [:request :path-params :atc])]
               (if-not atc
                 context
                 (assoc context :result (dmd/vmps-from-atc store atc)))))})
 
+(def fetch-product-vtms
+  {:name
+   ::fetch-product-vtms
+   :enter
+   (fn [context]
+     (let [store (get-in context [:request ::store])
+           product-id (get-in context [:request :path-params :product-id])]
+       (if-not product-id
+         context
+         (assoc context :result (dmd/vtms-for-product store (Long/parseLong product-id))))))})
+
+(def fetch-product-vtm
+  {:name
+   ::fetch-product-vtm
+   :enter
+   (fn [context]
+     (let [store (get-in context [:request ::store])
+           product-id (get-in context [:request :path-params :product-id])]
+       (if-not product-id
+         context
+         (assoc context :result (first (dmd/vtms-for-product store (Long/parseLong product-id)))))))})
+
+(def fetch-product-vmps
+  {:name
+   ::fetch-product-vmps
+   :enter
+   (fn [context]
+     (let [store (get-in context [:request ::store])
+           product-id (get-in context [:request :path-params :product-id])]
+       (if-not product-id
+         context
+         (assoc context :result (dmd/vmps-for-product store (Long/parseLong product-id))))))})
+
+(def fetch-product-amps
+  {:name
+   ::fetch-product-amps
+   :enter
+   (fn [context]
+     (let [store (get-in context [:request ::store])
+           product-id (get-in context [:request :path-params :product-id])]
+       (if-not product-id
+         context
+         (assoc context :result (dmd/amps-for-product store (Long/parseLong product-id))))))})
+
+(def fetch-product-atc
+  {:name
+   ::fetch-product-atc
+   :enter
+   (fn [context]
+     (let [store (get-in context [:request ::store])
+           product-id (get-in context [:request :path-params :product-id])]
+       (if-not product-id
+         context
+         (assoc context :result (dmd/atc-for-product store (Long/parseLong product-id))))))})
 
 (def common-interceptors [service-error-handler coerce-body content-neg-intc entity-render hide-internals])
 
 (def routes
   (route/expand-routes
-    #{["/dmd/v1/product/:product-id" :get (conj common-interceptors fetch-product)]
+    #{["/dmd/v1/product/:product-id/vtms" :get (conj common-interceptors fetch-product-vtms)]
+      ["/dmd/v1/product/:product-id/vtm" :get (conj common-interceptors fetch-product-vtm)]
+      ["/dmd/v1/product/:product-id/vmps" :get (conj common-interceptors fetch-product-vmps)]
+      ["/dmd/v1/product/:product-id/amps" :get (conj common-interceptors fetch-product-amps)]
+      ["/dmd/v1/product/:product-id/atc" :get (conj common-interceptors fetch-product-atc)]
+      ["/dmd/v1/product/:product-id" :get (conj common-interceptors fetch-product)]
       ["/dmd/v1/lookup/:lookup-kind" :get (conj common-interceptors fetch-lookup)]
       ["/dmd/v1/atc/:atc/vmps" :get (conj common-interceptors atc->vmps)]}))
 

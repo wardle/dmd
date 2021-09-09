@@ -47,7 +47,6 @@
 (defn open-store [filename]
   (st2/open-store filename))
 
-
 (defn fetch-product [^DmdStore store product-id]
   (st2/fetch-product store product-id))
 
@@ -56,7 +55,23 @@
 
 (defn vmps-from-atc [^DmdStore store atc]
   (let [atc' (if (string? atc) (re-pattern atc) atc)]
-    (st2/vmps-from-atc store atc')))
+    (st2/results-for-eids store (st2/vmp-eids-from-atc store atc'))))
+
+(defn vmps-for-product [^DmdStore store id]
+  (when-let [product (fetch-product store id)]
+    (st2/results-for-eids store (st2/vmps store product))))
+
+(defn amps-for-product [^DmdStore store id]
+  (when-let [product (fetch-product store id)]
+    (st2/results-for-eids store (st2/amps store product))))
+
+(defn vtms-for-product [^DmdStore store id]
+  (when-let [product (fetch-product store id)]
+    (st2/results-for-eids store (st2/vtms store product))))
+
+(defn atc-for-product [^DmdStore store id]
+  (when-let [product (fetch-product store id)]
+    (st2/atc-code store product)))
 
 (comment
   (install-latest "/Users/mark/Dev/trud/api-key.txt" "/var/tmp/trud")
