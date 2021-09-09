@@ -173,6 +173,7 @@ These endpoints are complete:
 
 * Get denormalized information for a given product. 
 * Map between BNF or ATC codes and dm+d products. 
+* Get lookup definitions 
 
 These endpoints are currently under development and will be released shortly:
 
@@ -323,6 +324,88 @@ Result:
         "VPID": 8791411000001107
     },
   ...
+```
+##### Get lookup definitions
+
+Many products are associated with different LOOKUPS, such as BASIS_OF_NAME.
+
+`dmd` can provide these values, although the other endpoints provide
+denormalized versions of products providing lookup information in-place so
+it is less likely you will need this endpoint. 
+
+For a full list of supported lookups, see the [dm+d technical specification](  https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf).
+
+Example:
+```shell
+http -j 'localhost:8080/dmd/v1/lookup/BASIS_OF_NAME' 
+```
+
+```json
+[
+    {
+        "CD": 3,
+        "DESC": "BANM - British Approved Name (Modified)"
+    },
+    {
+        "CD": 6,
+        "DESC": "USAN - United States Adopted Name"
+    },
+    {
+        "CD": 2,
+        "DESC": "BAN - British Approved Name"
+    },
+    {
+        "CD": 5,
+        "DESC": "pINN - Proposed International Non-proprietary Name"
+    },
+    {
+        "CD": 4,
+        "DESC": "INNM - International Non-proprietary Name (Modified)"
+    },
+    {
+        "CD": 1,
+        "DESC": "rINN - Recommended International Non-proprietary"
+    },
+    {
+        "CD": 7,
+        "DESC": "Other"
+    }
+]
+```
+
+##### Map between different dm+d products
+
+You can obtain all of the VMPs of a particular product, such as a VTM:
+
+This just works for different products e.g. /vtms /vmps /amps
+
+```shell
+http -j localhost:8080/dmd/v1/product/109143003/vmps
+```
+
+```json
+[
+    {
+        "ID": 330057007,
+        "NM": "Leflunomide 10mg tablets",
+        "TYPE": "VMP"
+    },
+    {
+        "ID": 330058002,
+        "NM": "Leflunomide 20mg tablets",
+        "TYPE": "VMP"
+    },
+    {
+        "ID": 330059005,
+        "NM": "Leflunomide 100mg tablets",
+        "TYPE": "VMP"
+    },
+    {
+        "ID": 24408011000001101,
+        "NM": "Leflunomide 15mg tablets",
+        "TYPE": "VMP"
+    }
+]
 ```
 
 #### 5. Embed as a library into a larger application
