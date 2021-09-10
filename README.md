@@ -174,10 +174,10 @@ These endpoints are complete:
 * Get denormalized information for a given product. 
 * Map between BNF or ATC codes and dm+d products. 
 * Get lookup definitions 
-
-These endpoints are currently under development and will be released shortly:
-
 * Get associated products for any given product.
+
+Endpoints are currently under development:
+
 * Convert between product-based prescribing models to dose-based models and back.
 
 Further documentation will be forthcoming.
@@ -379,8 +379,12 @@ You can obtain all of the VMPs of a particular product, such as a VTM:
 
 This just works for different products e.g. /vtms /vmps /amps
 
+Examples:
 ```shell
 http -j localhost:8080/dmd/v1/product/109143003/vmps
+http -j localhost:8080/dmd/v1/product/109143003/vtms
+http -j localhost:8080/dmd/v1/product/109143003/vtm
+http -j localhost:8080/dmd/v1/product/109143003/amps
 ```
 
 ```json
