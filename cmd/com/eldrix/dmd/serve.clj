@@ -22,7 +22,7 @@
 (def ok (partial response 200))
 (def not-found (partial response 404))
 
-(def supported-types ["text/html" "application/edn" "application/json" "text/plain"])
+(def supported-types ["application/json" "application/edn"  ])
 (def content-neg-intc (conneg/negotiate-content supported-types))
 
 (def formatters
