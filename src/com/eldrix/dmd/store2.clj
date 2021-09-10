@@ -208,6 +208,8 @@
                                        :UDFS_UOMCD      [:VMP/UDFS_UOM :UNIT_OF_MEASURE/CD]
                                        :UNIT_DOSE_UOMCD [:VMP/UNIT_DOSE_UOM :UNIT_OF_MEASURE/CD]}
           :VIRTUAL_PRODUCT_INGREDIENT {:BASIS_STRNTCD [:VPI/BASIS_STRNT :BASIS_OF_STRNTH/CD]
+                                       :STRNT_NMRTR_UOMCD [:VPI/STRNT_NMRTR_UOM :UNIT_OF_MEASURE/CD]
+                                       :STRNT_DNMTR_UOMCD [:VPI/STRNT_DNMTR_UOM :UNIT_OF_MEASURE/CD]
                                        :ISID          [:VPI/IS :INGREDIENT/ISID]}
           :ONT_DRUG_FORM              {:FORMCD [:VMP/ONT_DRUG_FORMS :ONT_FORM_ROUTE/CD]}
           :DRUG_FORM                  {:FORMCD [:VMP/DRUG_FORM :FORM/CD]}
@@ -390,7 +392,11 @@
        :VMP/DF_IND            [:DF_INDICATOR/CD :DF_INDICATOR/DESC]
        :VMP/CONTROL_DRUG_INFO [:CONTROL_DRUG_CATEGORY/CD :CONTROL_DRUG_CATEGORY/DESC]
        :VMP/PRES_STAT         [:VIRTUAL_PRODUCT_PRES_STATUS/CD :VIRTUAL_PRODUCT_PRES_STATUS/DESC]
-       :VMP/INGREDIENTS       ['* {:VPI/IS '[*]} {:VPI/BASIS_STRNT '[*]}]
+       :VMP/INGREDIENTS       ['*
+                               {:VPI/IS              '[*]
+                                :VPI/BASIS_STRNT     '[*]
+                                :VPI/STRNT_NMRTR_UOM '[*]
+                                :VPI/STRNT_DNMTR_UOM '[*]}]
        :VMP/NMCHANGE          '[*]
        :VMP/ONT_DRUG_FORMS    '[*]
        :VMP/BNF_DETAILS       ['* {:BNF_DETAILS/DDD_UOM '[*]}]}])
