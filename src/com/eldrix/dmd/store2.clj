@@ -4,7 +4,8 @@
             [clojure.core.match :refer [match]]
             [clojure.tools.logging.readable :as log]
             [datalevin.core :as d]
-            [com.eldrix.dmd.import :as dim])
+            [com.eldrix.dmd.import :as dim]
+            [clojure.set :as set])
   (:import (java.io Closeable)
            (java.util.regex Pattern)))
 
