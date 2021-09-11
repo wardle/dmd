@@ -50,16 +50,28 @@
            (get-in co-amilofruse-vmp-2 [:VMP/PRES_STAT :VIRTUAL_PRODUCT_PRES_STATUS/CD])))
     ;; fetch the AMP and is the linked VMP the same as we know?
     (is (= (:AMP/VP (dmd/fetch-product st 37365811000001102)) co-amilofruse-vmp-2))
-    (is (= "C03EB01" (get-in co-amilofruse-vmp-2 [:VMP/BNF_DETAILS :BNF_DETAILS/ATC])))
+    (is (= "C03EB01"
+           (get-in co-amilofruse-vmp-2 [:VMP/BNF_DETAILS :BNF_DETAILS/ATC])
+           (dmd/atc-for-product st 318136009)))
+    (is (= "C03EB01" (dmd/atc-for-product st 34186711000001102)))  ;; test from VTM
+    (is (= "C03EB01" (dmd/atc-for-product st 37365811000001102))) ;; test from AMP
+   ; (is (= "C03EB01" (dmd/atc-for-product st 37365911000001107))) ;; test from AMPP
+    (is (= #{318136009} (set (map :PRODUCT/ID (dmd/vmps-from-atc st #"C03.*")))))
     (is (= "mg" (get-in co-amilofruse-vmp-2 [:VMP/BNF_DETAILS :BNF_DETAILS/DDD_UOM :UNIT_OF_MEASURE/DESC])))
     (is (= ["mg" "mg"] (map #(get-in % [:VPI/STRNT_NMRTR_UOM :UNIT_OF_MEASURE/DESC]) (:VMP/INGREDIENTS co-amilofruse-vmp-2))))
+    (= #{318136009 318135008} (set (map :PRODUCT/ID (dmd/vmps-for-product st  34186711000001102))))
+    (= 34186711000001102 (:PRODUCT/ID (first (dmd/vtms-for-product st 387516008))))
     (.close st)))
 
 (comment
   (run-tests)
   (import-validation)
   (def st (create-and-open-store))
-  (dmd/fetch-product st 318136009)
+
+  (dmd/fetch-product st 34186711000001102)
+  (dmd/amps-for-product st 34186711000001102)
+  (dmd/vtms-for-product st 37365811000001102)
+  (dmd/atc-for-product st 34186711000001102)
   (d/q '[:find (pull ?e [*])
          :where
          [?e :PRODUCT/TYPE :AMPP]] (d/db (.-conn st)))
