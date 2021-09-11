@@ -491,6 +491,24 @@
        (d/db (.-conn st))
        vmpid))
 
+(defn vtm-eids-for-vmp-eids
+  [^DmdStore st vmp-eids]
+  (d/q '[:find [?vtm ...]
+         :in $ [?vmp ...]
+         :where
+         [?vmp :VMP/VTM ?vtm]]
+       (d/db (.-conn st))
+       vmp-eids))
+
+(defn amp-eids-for-vmp-eids
+  [^DmdStore st vmp-eids]
+  (d/q '[:find [?amp ...]
+         :in $ [?vmp ...]
+         :where
+         [?amp :AMP/VP ?vmp]]
+       (d/db (.-conn st))
+       vmp-eids))
+
 (defn amp-eids-for-vmpid [^DmdStore st vmpid]
   (d/q '[:find [?amp ...]
          :in $ ?vmpid
@@ -542,6 +560,20 @@
          [(re-matches ?atc-regexp ?atc)]]
        (d/db (.-conn st))
        re-atc))
+
+(def supported-product-types-for-atc-map
+  #{:VTM :VMP :AMP})
+
+(defn product-eids-from-atc
+  ([^DmdStore st ^Pattern re-atc] (product-eids-from-atc st re-atc supported-product-types-for-atc-map))
+  ([^DmdStore st ^Pattern re-atc product-types]
+  (when-not (set/subset? product-types supported-product-types-for-atc-map)
+    (throw (ex-info "unsupported product-types for ATC mapping" {:requested product-types :supported supported-product-types-for-atc-map})))
+  (let [vmp-eids (vmp-eids-from-atc st re-atc)
+        vtm-eids (when (contains? product-types :VTM) (vtm-eids-for-vmp-eids st vmp-eids))
+        amp-eids (when (contains? product-types :AMP) (amp-eids-for-vmp-eids st vmp-eids))]
+    (concat (when (contains? product-types :VMP) vmp-eids)
+            vtm-eids amp-eids))))
 
 (defn product-by-name
   "Simple search by name.
@@ -874,9 +906,17 @@
 
 
   (def conn (d/create-conn "dmd-2021-09-06.db" schema))
-  (def st (-a>DmdStore conn))
+  (def st (->DmdStore conn))
   (fetch-product st 13275011000001101)
   (results-for-eids st (amps st (fetch-product st 109143003)))
+  (vmp-eids-from-atc st #"L03AX13")
+  (results-for-eids st (d/q '[:find [?vtm ...]
+                              :in $ [?vmp ...]
+                              :where
+                              [?vmp :VMP/VTM ?vtm]]
+                            (d/db (.-conn st))
+                            (vmp-eids-from-atc st #"L03.*")))
+  (results-for-eids st [8684])
   (fetch-lookup st :PRICE_BASIS)
   (vmps-from-atc st #"L04.*")
   (time (product-type st 24408011000001101))
