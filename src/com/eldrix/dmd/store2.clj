@@ -207,10 +207,10 @@
                                        :DF_INDCD        [:VMP/DF_IND :DF_INDICATOR/CD]
                                        :UDFS_UOMCD      [:VMP/UDFS_UOM :UNIT_OF_MEASURE/CD]
                                        :UNIT_DOSE_UOMCD [:VMP/UNIT_DOSE_UOM :UNIT_OF_MEASURE/CD]}
-          :VIRTUAL_PRODUCT_INGREDIENT {:BASIS_STRNTCD [:VPI/BASIS_STRNT :BASIS_OF_STRNTH/CD]
+          :VIRTUAL_PRODUCT_INGREDIENT {:BASIS_STRNTCD     [:VPI/BASIS_STRNT :BASIS_OF_STRNTH/CD]
                                        :STRNT_NMRTR_UOMCD [:VPI/STRNT_NMRTR_UOM :UNIT_OF_MEASURE/CD]
                                        :STRNT_DNMTR_UOMCD [:VPI/STRNT_DNMTR_UOM :UNIT_OF_MEASURE/CD]
-                                       :ISID          [:VPI/IS :INGREDIENT/ISID]}
+                                       :ISID              [:VPI/IS :INGREDIENT/ISID]}
           :ONT_DRUG_FORM              {:FORMCD [:VMP/ONT_DRUG_FORMS :ONT_FORM_ROUTE/CD]}
           :DRUG_FORM                  {:FORMCD [:VMP/DRUG_FORM :FORM/CD]}
           :DRUG_ROUTE                 {:ROUTECD [:VMP/DRUG_ROUTES :ROUTE/CD]}
