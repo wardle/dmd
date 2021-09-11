@@ -296,6 +296,9 @@ offline analytics.
 
 You can use a regular expression here - so L04AX.* asks for ATC codes that start with L04AX
 
+The standard dm+d includes ATC codes for VMPs only, but this service can easily
+map between dm+d products and give results for VTMs and AMPs as well.
+
 ```shell
 http -j localhost:8080/dmd/v1/atc/L04AX.*/vmps
 ```
@@ -325,6 +328,63 @@ Result:
     },
   ...
 ```
+
+```shell
+http localhost:8080/dmd/v1/atc/L03AX13/products
+```
+
+result:
+
+```json
+[
+    {
+        "ID": 29828011000001100,
+        "NM": "Glatiramer acetate 40mg/1ml solution for injection pre-filled syringes",
+        "TYPE": "VMP"
+    },
+    {
+        "ID": 400446007,
+        "NM": "Glatiramer acetate 20mg powder and solvent for solution for injection vials",
+        "TYPE": "VMP"
+    },
+    {
+        "ID": 36051411000001106,
+        "NM": "Glatiramer acetate 20mg/1ml solution for injection pre-filled syringes",
+        "TYPE": "VMP"
+    },
+    {
+        "ID": 108754007,
+        "NM": "Glatiramer",
+        "TYPE": "VTM"
+    },
+    {
+        "ID": 8261711000001107,
+        "NM": "Copaxone 20mg/1ml solution for injection pre-filled syringes",
+        "TYPE": "AMP"
+    },
+    {
+        "ID": 29821511000001103,
+        "NM": "Copaxone 40mg/1ml solution for injection pre-filled syringes",
+        "TYPE": "AMP"
+    },
+    {
+        "ID": 4880311000001105,
+        "NM": "Copaxone 20mg powder and solvent for solution for injection vials",
+        "TYPE": "AMP"
+    },
+    {
+        "ID": 34807711000001106,
+        "NM": "Brabio 20mg/1ml solution for injection pre-filled syringes",
+        "TYPE": "AMP"
+    },
+    {
+        "ID": 35041211000001107,
+        "NM": "Brabio 40mg/1ml solution for injection pre-filled syringes",
+        "TYPE": "AMP"
+    }
+]
+```
+
 ##### Get lookup definitions
 
 Many products are associated with different LOOKUPS, such as BASIS_OF_NAME.
