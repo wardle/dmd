@@ -61,6 +61,9 @@
   (let [atc' (if (string? atc) (re-pattern atc) atc)]
     (st2/results-for-eids store (st2/product-eids-from-atc store atc'))))
 
+(defn atc->snomed-ecl [^DmdStore store atc]
+  (st2/atc->ecl store (if (string? atc) (re-pattern atc) atc)))
+
 (defn vmps-for-product [^DmdStore store id]
   (when-let [product (fetch-product store id)]
     (st2/results-for-eids store (st2/vmps store product))))
