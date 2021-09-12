@@ -5,7 +5,8 @@
             [clojure.tools.logging.readable :as log]
             [datalevin.core :as d]
             [com.eldrix.dmd.import :as dim]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [clojure.string :as str])
   (:import (java.io Closeable)
            (java.util.regex Pattern)))
 
@@ -465,6 +466,11 @@
 (defn results-for-eids [^DmdStore st eids]
   (d/pull-many (d/db (.-conn st)) [:PRODUCT/ID :PRODUCT/TYPE :VTM/NM :VMP/NM :AMP/NM :VMPP/NM :AMPP/NM] eids))
 
+(defn eids->ids
+  "Return a sequence of product identifiers for the eids specified."
+  [^DmdStore st eids]
+  (map :PRODUCT/ID (d/pull-many (d/db (.-conn st)) '[:PRODUCT/ID] eids)))
+
 (defn vmp-eids-for-vtmid [^DmdStore st vtmid]
   (d/q '[:find [?e ...]
          :in $ ?vtmid
@@ -568,13 +574,31 @@
 (defn product-eids-from-atc
   ([^DmdStore st ^Pattern re-atc] (product-eids-from-atc st re-atc supported-product-types-for-atc-map))
   ([^DmdStore st ^Pattern re-atc product-types]
-  (when-not (set/subset? product-types supported-product-types-for-atc-map)
-    (throw (ex-info "unsupported product-types for ATC mapping" {:requested product-types :supported supported-product-types-for-atc-map})))
+   (when-not (set/subset? product-types supported-product-types-for-atc-map)
+     (throw (ex-info "unsupported product-types for ATC mapping" {:requested product-types :supported supported-product-types-for-atc-map})))
+   (let [vmp-eids (vmp-eids-from-atc st re-atc)
+         vtm-eids (when (product-types :VTM) (vtm-eids-for-vmp-eids st vmp-eids))
+         amp-eids (when (product-types :AMP) (amp-eids-for-vmp-eids st vmp-eids))]
+     (concat (when (contains? product-types :VMP) vmp-eids)
+             vtm-eids amp-eids))))
+
+(defn atc->ecl
+  "Convert an ATC code regexp into a SNOMED CT expression that will identify all
+  products relating to that code.
+  Not all VMPs have a VTM, but a given VTM will subsume all VTMs, VMPs and AMPs
+  in the SNOMED drug model.
+  Unfortunately, while the UK SNOMED drug extension includes trade family
+  entities, dm+d does not. This is unfortunate. In order to identify the TF
+  concept for any given AMP, we have to use an ECL expression of the form
+  (>'amp-concept-id' AND <9191801000001103|Trade Family|) to identify parent
+  concepts in the hierarchy up to and not including the TF concept itself."
+  [^DmdStore st ^Pattern re-atc]
   (let [vmp-eids (vmp-eids-from-atc st re-atc)
-        vtm-eids (when (contains? product-types :VTM) (vtm-eids-for-vmp-eids st vmp-eids))
-        amp-eids (when (contains? product-types :AMP) (amp-eids-for-vmp-eids st vmp-eids))]
-    (concat (when (contains? product-types :VMP) vmp-eids)
-            vtm-eids amp-eids))))
+        vmps (map #(str "<<" %) (eids->ids st vmp-eids))
+        vtms (map #(str "<<" %) (eids->ids st (vtm-eids-for-vmp-eids st vmp-eids)))
+        amp-ids (eids->ids st (amp-eids-for-vmp-eids st vmp-eids))
+        tfs (map (fn [ampid] (str "<<(>" ampid " AND <9191801000001103)")) amp-ids)]
+    (str/join " OR " (concat vmps vtms tfs))))
 
 (defn product-by-name
   "Simple search by name.
@@ -910,16 +934,18 @@
   (def st (->DmdStore conn))
   (fetch-product st 13275011000001101)
   (results-for-eids st (amps st (fetch-product st 109143003)))
-  (vmp-eids-from-atc st #"L03AX13")
+  (results-for-eids st (vmp-eids-from-atc st #"L03AX13"))
   (results-for-eids st (d/q '[:find [?vtm ...]
                               :in $ [?vmp ...]
                               :where
                               [?vmp :VMP/VTM ?vtm]]
                             (d/db (.-conn st))
                             (vmp-eids-from-atc st #"L03.*")))
+  (results-for-eids st (vtms st (fetch-product st 36051411000001106)))
   (results-for-eids st [8684])
   (fetch-lookup st :PRICE_BASIS)
   (vmps-from-atc st #"L04.*")
+  (atc->ecl st #"L03AX13")
   (time (product-type st 24408011000001101))
   (def id 24408011000001101)
   (time (:PRODUCT/TYPE (d/q '[:find (pull ?e [*]) . :in $ ?id :where [?e :PRODUCT/ID ?id]] (d/db (.-conn st)) id)))

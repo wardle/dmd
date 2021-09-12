@@ -142,6 +142,16 @@
                 context
                 (assoc context :result (dmd/products-from-atc store atc)))))})
 
+(def atc->ecl
+  {:name ::atc->ecl
+   :enter (fn [context]
+            (let [store (get-in context [:request ::store])
+                  atc (get-in context [:request :path-params :atc])]
+              (if-not atc
+                context
+                (assoc context :result {:atc atc
+                                        :ecl (dmd/atc->snomed-ecl store atc)}))))})
+
 (def fetch-product-vtms
   {:name
    ::fetch-product-vtms
@@ -209,7 +219,8 @@
       ["/dmd/v1/product/:product-id" :get (conj common-interceptors fetch-product)]
       ["/dmd/v1/lookup/:lookup-kind" :get (conj common-interceptors fetch-lookup)]
       ["/dmd/v1/atc/:atc/vmps" :get (conj common-interceptors atc->vmps)]
-      ["/dmd/v1/atc/:atc/products" :get (conj common-interceptors atc->products)]}))
+      ["/dmd/v1/atc/:atc/products" :get (conj common-interceptors atc->products)]
+      ["/dmd/v1/atc/:atc/ecl" :get (conj common-interceptors atc->ecl)]}))
 
 (defn inject-store
   "A simple interceptor to inject dm+d store 'store' into the context."
