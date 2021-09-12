@@ -585,20 +585,30 @@
 (defn atc->ecl
   "Convert an ATC code regexp into a SNOMED CT expression that will identify all
   products relating to that code.
+
   Not all VMPs have a VTM, but a given VTM will subsume all VTMs, VMPs and AMPs
   in the SNOMED drug model.
+
   Unfortunately, while the UK SNOMED drug extension includes trade family
   entities, dm+d does not. This is unfortunate. In order to identify the TF
   concept for any given AMP, we have to use an ECL expression of the form
   (>'amp-concept-id' AND <9191801000001103|Trade Family|) to identify parent
-  concepts in the hierarchy up to and not including the TF concept itself."
-  [^DmdStore st ^Pattern re-atc]
+  concepts in the hierarchy up to and not including the TF concept itself.
+
+  It would not be usual to want to include VMPP or AMPP, but you can include
+  if required. All AMPPs are subsumed by VMPPs, so we simply add clauses to
+  include VMPPs and descendants for each VMP using the 'Has VMP' relationship."
+  [^DmdStore st ^Pattern re-atc & {:keys [include-product-packs?] :or {include-product-packs? false}}]
   (let [vmp-eids (vmp-eids-from-atc st re-atc)
-        vmps (map #(str "<<" %) (eids->ids st vmp-eids))
+        vmp-ids (eids->ids st vmp-eids)
+        vmps (map #(str "<<" %) vmp-ids)
         vtms (map #(str "<<" %) (eids->ids st (vtm-eids-for-vmp-eids st vmp-eids)))
         amp-ids (eids->ids st (amp-eids-for-vmp-eids st vmp-eids))
-        tfs (map (fn [ampid] (str "<<(>" ampid " AND <9191801000001103)")) amp-ids)]
-    (str/join " OR " (concat vmps vtms tfs))))
+        ;; for TFs, we ask for Trade family children that are parents of each AMP:
+        tfs (map (fn [ampid] (str "<<(>" ampid " AND <9191801000001103)")) amp-ids)
+        ;; for product-packs, we ask for UK products that 'Has VMP' of each VMP we matched:
+        pp (when include-product-packs? (map (fn [vmpid] (str "<<(<8653601000001108:10362601000001103=" vmpid ")")) vmp-ids))]
+    (str/join " OR " (concat vmps vtms tfs pp))))
 
 (defn product-by-name
   "Simple search by name.
@@ -933,6 +943,7 @@
   (def conn (d/create-conn "dmd-2021-09-06.db" schema))
   (def st (->DmdStore conn))
   (fetch-product st 13275011000001101)
+  (atc->ecl st #"L04AX0." :include-product-packs? true)
   (results-for-eids st (amps st (fetch-product st 109143003)))
   (results-for-eids st (vmp-eids-from-atc st #"L03AX13"))
   (results-for-eids st (d/q '[:find [?vtm ...]
