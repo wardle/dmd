@@ -385,6 +385,27 @@ result:
 ]
 ```
 
+As the dm+d dataset from the NHS BSA does not include products representing
+trade families, a codelist generated purely from dm+d will not include all
+device or medicine products potentially recorded in electronic health and
+care systems. As such, `dmd` can generate a SNOMED expression that can be used
+in a terminology server to generate a codelist, or check that a medication is
+a match for that constraint. I recommend [hermes](https://github.com/wardle/hermes)
+to do this, as it is lightweight and fast, and can expand those expressions
+easily. 
+
+```shell
+http -j localhost:8080/dmd/v1/atc/L03AX13/ecl
+```
+
+Result
+```json
+{
+    "atc": "L03AX13",
+    "ecl": "<<29828011000001100 OR <<400446007 OR <<36051411000001106 OR <<108754007 OR <<(>8261711000001107 AND <9191801000001103) OR <<(>29821511000001103 AND <9191801000001103) OR <<(>4880311000001105 AND <9191801000001103) OR <<(>34807711000001106 AND <9191801000001103) OR <<(>35041211000001107 AND <9191801000001103)"
+}
+```
+
 ##### Get lookup definitions
 
 Many products are associated with different LOOKUPS, such as BASIS_OF_NAME.
