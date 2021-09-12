@@ -12,7 +12,7 @@
            com.eldrix/trud           {:git/url "https://github.com/wardle/trud.git"
                                       :sha     "c73e7dcb4f7420b5e22e528f74c58d884bd6907e"}
            com.wsscode/pathom        {:git/url "https://github.com/wilkerlucio/pathom3"
-                                      :sha     "ee459b2330bff93ed70abef572000fa204f3b7f1"}
+                                      :sha     "6e8fa24b6efcdb24c062aa3e736ad1f7e73b9fdb"}
            datalevin/datalevin       {:mvn/version "0.4.40"}}
 
  :aliases {:dev
