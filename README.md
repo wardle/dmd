@@ -187,7 +187,7 @@ Further documentation will be forthcoming.
 
 Example usage:
 ```shell
-$ http -j http://localhost:8080/dmd/v1/product/12797611000001109 
+$ http -j http://127.0.0.1:8080/dmd/v1/product/12797611000001109 
 ```
 
 Result will be the denormalized product. Each product will include
@@ -301,7 +301,7 @@ The standard dm+d includes ATC codes for VMPs only, but this service can easily
 map between dm+d products and give results for VTMs and AMPs as well.
 
 ```shell
-http -j localhost:8080/dmd/v1/atc/L04AX.*/vmps
+http -j 127.0.0.1:8080/dmd/v1/atc/L04AX.*/vmps
 ```
 
 Result:
@@ -331,7 +331,7 @@ Result:
 ```
 
 ```shell
-http localhost:8080/dmd/v1/atc/L03AX13/products
+http 127.0.0.1:8080/dmd/v1/atc/L03AX13/products
 ```
 
 result:
@@ -396,7 +396,7 @@ to do this, as it is lightweight and fast, and can expand those expressions
 easily. 
 
 ```shell
-http -j localhost:8080/dmd/v1/atc/L03AX13/ecl
+http -j 127.0.0.1:8080/dmd/v1/atc/L03AX13/ecl
 ```
 
 Result
@@ -419,7 +419,7 @@ For a full list of supported lookups, see the [dm+d technical specification](  h
 
 Example:
 ```shell
-http -j 'localhost:8080/dmd/v1/lookup/BASIS_OF_NAME' 
+http -j '127.0.0.1:8080/dmd/v1/lookup/BASIS_OF_NAME' 
 ```
 
 ```json
@@ -463,10 +463,10 @@ This just works for different products e.g. /vtms /vmps /amps
 
 Examples:
 ```shell
-http -j localhost:8080/dmd/v1/product/109143003/vmps
-http -j localhost:8080/dmd/v1/product/109143003/vtms
-http -j localhost:8080/dmd/v1/product/109143003/vtm
-http -j localhost:8080/dmd/v1/product/109143003/amps
+http -j 127.0.0.1:8080/dmd/v1/product/109143003/vmps
+http -j 127.0.0.1:8080/dmd/v1/product/109143003/vtms
+http -j 127.0.0.1:8080/dmd/v1/product/109143003/vtm
+http -j 127.0.0.1:8080/dmd/v1/product/109143003/amps
 ```
 
 ```json
