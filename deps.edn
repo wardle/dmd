@@ -13,7 +13,7 @@
                                       :sha     "c73e7dcb4f7420b5e22e528f74c58d884bd6907e"}
            com.wsscode/pathom        {:git/url "https://github.com/wilkerlucio/pathom3"
                                       :sha     "6e8fa24b6efcdb24c062aa3e736ad1f7e73b9fdb"}
-           datalevin/datalevin       {:mvn/version "0.4.40"}}
+           datalevin/datalevin       {:mvn/version "0.5.9"}}
 
  :aliases {:dev
            {:extra-paths ["cmd" "test/src" "test/resources"]}
