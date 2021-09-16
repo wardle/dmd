@@ -722,6 +722,32 @@
          (d/db (.-conn store))
          (:PRODUCT/ID amp))))
 
+(defmethod atc-code :VMPP [store vmpp]
+  (if-let [atc (get-in vmpp [:VMPP/VP :VMP/BNF_DETAILS :BNF_DETAILS/ATC])]
+    atc
+    (d/q '[:find ?atc .
+           :in $ ?vppid
+           :where
+           [?bnf :BNF_DETAILS/ATC ?atc]
+           [?vmp :VMP/BNF_DETAILS ?bnf]
+           [?vmpp :VMPP/VP ?vmp]
+           [?vmpp :VMPP/VPPID ?vppid]]
+         (d/db (.-conn store))
+         (:PRODUCT/ID vmpp))))
+
+(defmethod atc-code :AMPP [store ampp]
+  (if-let [atc (get-in ampp [:AMPP/VPP :VMPP/VP :VMP/BNF_DETAILS :BNF_DETAILS/ATC])]
+    atc
+    (d/q '[:find ?atc .
+           :in $ ?appid
+           :where
+           [?bnf :BNF_DETAILS/ATC ?atc]
+           [?vmp :VMP/BNF_DETAILS ?bnf]
+           [?vmpp :VMPP/VP ?vmp]
+           [?ampp :AMPP/VPP ?vmpp]
+           [?ampp :AMPP/APPID ?appid]]
+         (d/db (.-conn store))
+         (:PRODUCT/ID ampp))))
 
 (comment
   (def lookup-example {:TYPE [:LOOKUP :NAMECHANGE_REASON], :CD "0003", :DESC "Basis of name changed", :ID :NAMECHANGE_REASON-0003})
@@ -742,7 +768,7 @@
   ;;
   (def dir "/Users/mark/Downloads/nhsbsa_dmd_3.4.0_20210329000001")
   (def conn (d/create-conn "wibble.db" schema))
-  (def conn (d/create-conn "dmd-2021-08-30.db" schema))
+  (def conn (d/create-conn "dmd-2021-09-13.db" schema))
   (def st (->DmdStore conn))
 
   (require '[com.eldrix.dmd.import :as dim])
@@ -940,9 +966,11 @@
 
 
 
-  (def conn (d/create-conn "dmd-2021-09-06.db" schema))
+  (def conn (d/create-conn "dmd-2021-09-13.db" schema))
   (def st (->DmdStore conn))
-  (fetch-product st 13275011000001101)
+  (get-in (fetch-product st 18741211000001100) [:AMPP/VPP :VMPP/VP :VMP/BNF_DETAILS :BNF_DETAILS/ATC])
+  (atc-code st {:PRODUCT/TYPE :VMPP :PRODUCT/ID 18740611000001108})
+
   (atc->ecl st #"L04AX0." :include-product-packs? true)
   (results-for-eids st (amps st (fetch-product st 109143003)))
   (results-for-eids st (vmp-eids-from-atc st #"L03AX13"))
