@@ -628,7 +628,7 @@
        re-nm))
 
 (defmulti vtms "Return the entity ids for the VTMs associated with this product."
-          (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
+  (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
 
 (defmethod vtms :VTM [store vtm]
   [(if-let [db-id (:db/id vtm)]
@@ -648,7 +648,7 @@
     [vtm-eid]))
 
 (defmulti vmps "Returns the VMPs associated with this product."
-          (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
+  (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
 
 (defmethod vmps :VTM [store vtm]
   (vmp-eids-for-vtmid store (:PRODUCT/ID vtm)))
@@ -667,7 +667,7 @@
     [vmp-eid]))
 
 (defmulti amps "Returns identifiers for the AMPs associated with this product."
-          (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
+  (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
 
 (defmethod amps :VTM [store amp]
   (amp-eids-for-vtmid store (:PRODUCT/ID amp)))
