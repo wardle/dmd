@@ -507,6 +507,24 @@
        (d/db (.-conn st))
        vmp-eids))
 
+(defn vmp-eids-without-vtms
+  "Return VMP eids without VTMs.
+  Parameters:
+  - st       : DmdStore
+  - vmp-eids : a sequence of VMP eids
+
+  To help with testing, if vmp-eids is omitted, all VMPs without an associated
+  VTM are returned."
+  ([^DmdStore st]
+   (vmp-eids-without-vtms st (d/q '[:find [?vmp ...] :in $ :where [?vmp :PRODUCT/TYPE :VMP]] (d/db (.-conn st)))))
+  ([^DmdStore st vmp-eids]
+   (d/q '[:find [?vmp ...]
+          :in $ [?vmp ...]
+          :where
+          [(missing? $ ?vmp :VMP/VTM)]]
+        (d/db (.-conn st))
+        vmp-eids)))
+
 (defn amp-eids-for-vmp-eids
   [^DmdStore st vmp-eids]
   (d/q '[:find [?amp ...]
@@ -600,14 +618,14 @@
   include VMPPs and descendants for each VMP using the 'Has VMP' relationship."
   [^DmdStore st ^Pattern re-atc & {:keys [include-product-packs?] :or {include-product-packs? false}}]
   (let [vmp-eids (vmp-eids-from-atc st re-atc)
-        vmp-ids (eids->ids st vmp-eids)
-        vmps (map #(str "<<" %) vmp-ids)
+        vmp-ids (eids->ids st (vmp-eids-without-vtms st vmp-eids))    ;; only need to include VMPs without a VTM
+        vmps (map #(str "<<" %) vmp-ids)  ;; this will only include VMPs without a VTM
         vtms (map #(str "<<" %) (eids->ids st (vtm-eids-for-vmp-eids st vmp-eids)))
         amp-ids (eids->ids st (amp-eids-for-vmp-eids st vmp-eids))
         ;; for TFs, we ask for Trade family children that are parents of each AMP:
         tfs (map (fn [ampid] (str "<<(>" ampid " AND <9191801000001103)")) amp-ids)
-        ;; for product-packs, we ask for UK products that 'Has VMP' of each VMP we matched:
-        pp (when include-product-packs? (map (fn [vmpid] (str "<<(<8653601000001108:10362601000001103=" vmpid ")")) vmp-ids))]
+        ;; for product-packs, we ask for UK products that 'Has VMP' of all VMPs we matched:
+        pp (when include-product-packs? (map (fn [vmpid] (str "<<(<8653601000001108:10362601000001103=" vmpid ")")) (eids->ids st vmp-eids)))]
     (str/join " OR " (concat vmps vtms tfs pp))))
 
 (defn product-by-name
