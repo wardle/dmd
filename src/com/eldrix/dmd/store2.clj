@@ -685,7 +685,7 @@
           (:PRODUCT/ID amp)))])
 
 (defmulti atc-code "Return the ATC code associated with this product."
-          (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
+  (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
 
 (defmethod atc-code :VTM [store vtm]
   (d/q '[:find ?atc .
