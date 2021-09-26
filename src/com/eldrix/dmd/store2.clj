@@ -562,9 +562,9 @@
   (d/q '[:find [?e ...]
          :in $ ?atc-regexp
          :where
-         [?bnf :BNF_DETAILS/ATC ?atc]
+         [(re-matches ?atc-regexp ?atc)]
          [?e :VMP/BNF_DETAILS ?bnf]
-         [(re-matches ?atc-regexp ?atc)]]
+         [?bnf :BNF_DETAILS/ATC ?atc]]
        (d/db (.-conn st))
        re-atc))
 
