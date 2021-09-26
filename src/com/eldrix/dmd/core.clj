@@ -57,12 +57,32 @@
   (let [atc' (if (string? atc) (re-pattern atc) atc)]
     (st2/results-for-eids store (st2/vmp-eids-from-atc store atc'))))
 
-(defn products-from-atc [^DmdStore store atc]
-  (let [atc' (if (string? atc) (re-pattern atc) atc)]
-    (st2/results-for-eids store (st2/product-eids-from-atc store atc'))))
+(defn products-from-atc
+  "Returns a sequence of products matching the ATC code.
+  Parameters:
+  - store         : DmdStore
+  - atc           : atc regexp
+  - product-types : a set of product types (e.g. #{:VTM :VMP :AMP :VMPP :AMPP}).
 
-(defn atc->snomed-ecl [^DmdStore store atc]
+  By default only VTM VMP and AMP products will be returned."
+  ([^DmdStore store atc]
+   (products-from-atc store atc #{:VTM :VMP :AMP}))
+  ([^DmdStore store atc product-types]
+  (let [atc' (if (string? atc) (re-pattern atc) atc)]
+    (st2/results-for-eids store (st2/product-eids-from-atc store atc' product-types)))))
+
+(defn atc->snomed-ecl
+  "Create a SNOMED CT ECL expression from the ATC pattern specified, returning
+  an expression that will return VTMs, VMPs and AMPs. "
+  [^DmdStore store atc]
   (st2/atc->ecl store (if (string? atc) (re-pattern atc) atc)))
+
+(defn atc->products-for-ecl
+  "Return a map of products that can be used to build a more complete SNOMED CT
+  ECL expression that will include all matching UK products. We have to do it
+  this way because TF products are not included in the UK dm+d distribution."
+  [^DmdStore store atc]
+  (st2/atc->products-for-ecl store atc))
 
 (defn vmps-for-product [^DmdStore store id]
   (when-let [product (fetch-product store id)]
@@ -77,17 +97,17 @@
     (st2/results-for-eids store (st2/vtms store product))))
 
 (defn atc-for-product [^DmdStore store id]
-  (when-let [product (fetch-product store id)]
+  (when-let [product (st2/fetch-product store id)]
     (st2/atc-code store product)))
 
 (comment
   (install-latest "/Users/mark/Dev/trud/api-key.txt" "/var/tmp/trud")
 
-  (def store (open-store "dmd-2021-07-05.db"))
+  (def store (open-store "dmd-2021-09-13.db"))
   (.close store)
   (def vtm (fetch-product store 108537001))
   vtm
-
+  (time (atc-for-product store 20428411000001100))
 
   (dim/dmd-file-seq "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud16249114005046941653")
 

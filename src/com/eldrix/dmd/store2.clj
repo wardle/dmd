@@ -606,7 +606,7 @@
        re-atc))
 
 (def supported-product-types-for-atc-map
-  #{:VTM :VMP :AMP})
+  #{:VTM :VMP :AMP :VMPP :AMPP})
 
 (defn product-eids-from-atc
   ([^DmdStore st ^Pattern re-atc] (product-eids-from-atc st re-atc supported-product-types-for-atc-map))
@@ -615,9 +615,14 @@
      (throw (ex-info "unsupported product-types for ATC mapping" {:requested product-types :supported supported-product-types-for-atc-map})))
    (let [vmp-eids (vmp-eids-from-atc st re-atc)
          vtm-eids (when (product-types :VTM) (vtm-eids-for-vmp-eids st vmp-eids))
-         amp-eids (when (product-types :AMP) (amp-eids-for-vmp-eids st vmp-eids))]
+         amp-eids (when (or (product-types :AMP) (product-types :AMPP)) (amp-eids-for-vmp-eids st vmp-eids))
+         vmpp-eids (when (product-types :VMPP) (vmpp-eids-for-vmp-eids st vmp-eids))
+         ampp-eids (when (product-types :AMPP) (ampp-eids-for-amp-eids st amp-eids))]
      (concat (when (contains? product-types :VMP) vmp-eids)
-             vtm-eids amp-eids))))
+             vtm-eids
+             (when (product-types :AMP) amp-eids)
+             vmpp-eids
+             ampp-eids))))
 
 (defn atc->products-for-ecl
   "Returns a map containing product type as key and a sequence of product
