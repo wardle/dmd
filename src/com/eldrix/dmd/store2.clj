@@ -618,26 +618,49 @@
      (concat (when (contains? product-types :VMP) vmp-eids)
              vtm-eids amp-eids))))
 
+(defn atc->products-for-ecl
+  "Returns a map containing product type as key and a sequence of product
+  identifiers as each value, designed for building an ECL expression.
+
+  As the child relationships of a VTM include all VMPs and AMPs, we do not have
+  to include VMPs or AMPs unless there is no VTM for a given VMP. As such, VMPs
+  are only returned iff there is no associated VTM. However, all AMPs are
+  returned as it is likely that those will be needed in order to derive a list
+  of TF products. It is sadly the case that the stock dm+d does not include TF
+  products, while the SNOMED drug extension does include those products."
+  [^DmdStore st ^Pattern re-atc]
+  (let [vmp-eids (vmp-eids-from-atc st re-atc)
+        vtm-eids (vtm-eids-for-vmp-eids st vmp-eids)
+        amp-eids (amp-eids-for-vmp-eids st vmp-eids)]
+    {:VTM (eids->ids st vtm-eids)
+     :VMP (eids->ids st (vmp-eids-without-vtms st vmp-eids)) ;; only need to include VMPs without a VTM
+     :AMP (eids->ids st amp-eids)}))
+
 (defn atc->ecl
   "Convert an ATC code regexp into a SNOMED CT expression that will identify all
-  products relating to that code.
+  dm+d products relating to that code.
 
   Not all VMPs have a VTM, but a given VTM will subsume all VTMs, VMPs and AMPs
   in the SNOMED drug model.
 
   Unfortunately, while the UK SNOMED drug extension includes trade family
   entities, dm+d does not. This is unfortunate. In order to identify the TF
-  concept for any given AMP, we have to use an ECL expression of the form
+  concept for any given AMP, we could use an ECL expression of the form
   (>'amp-concept-id' AND <9191801000001103|Trade Family|) to identify parent
   concepts in the hierarchy up to and not including the TF concept itself.
+  However, this can result in a very long expression indeed. Therefore, by
+  default, the expression will *not* include clauses that will try to include
+  TF product types. If you need to build an ECL expression that includes TF,
+  this should ideally be done within the context of the SNOMED drug extension.
+  You can use 'atc->products' to help build that ECL expression.
 
   It would not be usual to want to include VMPP or AMPP, but you can include
   if required. All AMPPs are subsumed by VMPPs, so we simply add clauses to
   include VMPPs and descendants for each VMP using the 'Has VMP' relationship."
   [^DmdStore st ^Pattern re-atc & {:keys [include-product-packs?] :or {include-product-packs? false}}]
   (let [vmp-eids (vmp-eids-from-atc st re-atc)
-        vmp-ids (eids->ids st (vmp-eids-without-vtms st vmp-eids))    ;; only need to include VMPs without a VTM
-        vmps (map #(str "<<" %) vmp-ids)  ;; this will only include VMPs without a VTM
+        vmp-ids (eids->ids st (vmp-eids-without-vtms st vmp-eids)) ;; only need to include VMPs without a VTM
+        vmps (map #(str "<<" %) vmp-ids)                    ;; this will only include VMPs without a VTM
         vtms (map #(str "<<" %) (eids->ids st (vtm-eids-for-vmp-eids st vmp-eids)))
         amp-ids (eids->ids st (amp-eids-for-vmp-eids st vmp-eids))
         ;; for TFs, we ask for Trade family children that are parents of each AMP:
