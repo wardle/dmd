@@ -534,6 +534,7 @@
        (d/db (.-conn st))
        vmp-eids))
 
+
 (defn amp-eids-for-vmpid [^DmdStore st vmpid]
   (d/q '[:find [?amp ...]
          :in $ ?vmpid
@@ -645,26 +646,25 @@
 
   Unfortunately, while the UK SNOMED drug extension includes trade family
   entities, dm+d does not. This is unfortunate. In order to identify the TF
-  concept for any given AMP, we could use an ECL expression of the form
+  concept for any given AMP, we can use an ECL expression of the form
   (>'amp-concept-id' AND <9191801000001103|Trade Family|) to identify parent
   concepts in the hierarchy up to and not including the TF concept itself.
-  However, this can result in a very long expression indeed. Therefore, by
-  default, the expression will *not* include clauses that will try to include
-  TF product types. If you need to build an ECL expression that includes TF,
-  this should ideally be done within the context of the SNOMED drug extension.
-  You can use 'atc->products' to help build that ECL expression.
+  However, this can result in a very long expression indeed. If you need to
+  build an ECL expression that includes TF, this is better done within the
+  context of the SNOMED drug extension. You can use 'atc->products-for-ecl'
+  to help build that ECL expression.
 
   It would not be usual to want to include VMPP or AMPP, but you can include
   if required. All AMPPs are subsumed by VMPPs, so we simply add clauses to
   include VMPPs and descendants for each VMP using the 'Has VMP' relationship."
-  [^DmdStore st ^Pattern re-atc & {:keys [include-product-packs?] :or {include-product-packs? false}}]
+  [^DmdStore st ^Pattern re-atc & {:keys [include-tf? include-product-packs?] :or {include-tf? false include-product-packs? false}}]
   (let [vmp-eids (vmp-eids-from-atc st re-atc)
         vmp-ids (eids->ids st (vmp-eids-without-vtms st vmp-eids)) ;; only need to include VMPs without a VTM
         vmps (map #(str "<<" %) vmp-ids)                    ;; this will only include VMPs without a VTM
         vtms (map #(str "<<" %) (eids->ids st (vtm-eids-for-vmp-eids st vmp-eids)))
         amp-ids (eids->ids st (amp-eids-for-vmp-eids st vmp-eids))
         ;; for TFs, we ask for Trade family children that are parents of each AMP:
-        tfs (map (fn [ampid] (str "<<(>" ampid " AND <9191801000001103)")) amp-ids)
+        tfs (when include-tf? (map (fn [ampid] (str "<<(>" ampid " AND <9191801000001103)")) amp-ids))
         ;; for product-packs, we ask for UK products that 'Has VMP' of all VMPs we matched:
         pp (when include-product-packs? (map (fn [vmpid] (str "<<(<8653601000001108:10362601000001103=" vmpid ")")) (eids->ids st vmp-eids)))]
     (str/join " OR " (concat vmps vtms tfs pp))))
@@ -1050,4 +1050,6 @@
   (time (:PRODUCT/TYPE (d/q '[:find (pull ?e [:PRODUCT/TYPE]) . :in $ ?id :where [?e :PRODUCT/ID ?id]] (d/db (.-conn st)) id)))
   (time (d/q '(:find (pull ?e [:PRODUCT/ID]) . :in $ ?id :where [?e :PRODUCT/ID ?id]) (d/db (.-conn st)) 24408011000001101))
   (time (d/pull (d/db (.-conn st)) [:PRODUCT/TYPE :PRODUCT/ID] 14733))
+  (time (atc-code st {:PRODUCT/TYPE :AMPP :PRODUCT/ID 16532911000001107}))
+  (time (product-name st {:PRODUCT/TYPE :VTM :PRODUCT/ID 108537001}))
   )
