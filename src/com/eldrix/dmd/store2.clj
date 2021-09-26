@@ -691,9 +691,9 @@
   (d/q '[:find ?atc .
          :in $ ?vtmid
          :where
-         [?bnf :BNF_DETAILS/ATC ?atc]
-         [?e :VMP/BNF_DETAILS ?bnf]
-         [?e :VMP/VTMID ?vtmid]]
+         [?vmp :VMP/VTMID ?vtmid]
+         [?vmp :VMP/BNF_DETAILS ?bnf]
+         [?bnf :BNF_DETAILS/ATC ?atc]]
        (d/db (.-conn store))
        (:PRODUCT/ID vtm)))
 
@@ -703,9 +703,9 @@
     (d/q '[:find ?atc .
            :in $ ?vmpid
            :where
-           [?bnf :BNF_DETAILS/ATC ?atc]
-           [?e :VMP/BNF_DETAILS ?bnf]
-           [?e :VMP/VPID ?vmpid]]
+           [?vmp :VMP/VPID ?vmpid]
+           [?vmp :VMP/BNF_DETAILS ?bnf]
+           [?bnf :BNF_DETAILS/ATC ?atc]]
          (d/db (.-conn store))
          (:PRODUCT/ID vmp))))
 
@@ -715,10 +715,10 @@
     (d/q '[:find ?atc .
            :in $ ?ampid
            :where
-           [?bnf :BNF_DETAILS/ATC ?atc]
-           [?vmp :VMP/BNF_DETAILS ?bnf]
+           [?amp :AMP/APID ?ampid]
            [?amp :AMP/VP ?vmp]
-           [?amp :AMP/APID ?ampid]]
+           [?vmp :VMP/BNF_DETAILS ?bnf]
+           [?bnf :BNF_DETAILS/ATC ?atc]]
          (d/db (.-conn store))
          (:PRODUCT/ID amp))))
 
@@ -728,10 +728,10 @@
     (d/q '[:find ?atc .
            :in $ ?vppid
            :where
-           [?bnf :BNF_DETAILS/ATC ?atc]
-           [?vmp :VMP/BNF_DETAILS ?bnf]
+           [?vmpp :VMPP/VPPID ?vppid]
            [?vmpp :VMPP/VP ?vmp]
-           [?vmpp :VMPP/VPPID ?vppid]]
+           [?vmp :VMP/BNF_DETAILS ?bnf]
+           [?bnf :BNF_DETAILS/ATC ?atc]]
          (d/db (.-conn store))
          (:PRODUCT/ID vmpp))))
 
@@ -741,11 +741,11 @@
     (d/q '[:find ?atc .
            :in $ ?appid
            :where
-           [?bnf :BNF_DETAILS/ATC ?atc]
-           [?vmp :VMP/BNF_DETAILS ?bnf]
-           [?vmpp :VMPP/VP ?vmp]
+           [?ampp :AMPP/APPID ?appid]
            [?ampp :AMPP/VPP ?vmpp]
-           [?ampp :AMPP/APPID ?appid]]
+           [?vmpp :VMPP/VP ?vmp]
+           [?vmp :VMP/BNF_DETAILS ?bnf]
+           [?bnf :BNF_DETAILS/ATC ?atc]]
          (d/db (.-conn store))
          (:PRODUCT/ID ampp))))
 
