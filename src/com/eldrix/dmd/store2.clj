@@ -543,6 +543,24 @@
        (d/db (.-conn st))
        vmpid))
 
+(defn vmpp-eids-for-vmp-eids
+  [^DmdStore st vmp-eids]
+  (d/q '[:find [?vmpp ...]
+         :in $ [?vmp ...]
+         :where
+         [?vmpp :VMPP/VP ?vmp]]
+       (d/db (.-conn st))
+       vmp-eids))
+
+(defn ampp-eids-for-amp-eids
+  [^DmdStore st amp-eids]
+  (d/q '[:find [?ampp ...]
+         :in $ [?amp ...]
+         :where
+         [?ampp :AMPP/AP ?amp]]
+       (d/db (.-conn st))
+       amp-eids))
+
 (defn vtm-eid-for-ampid [^DmdStore st ampid]
   (d/q '[:find ?vtm .
          :in $ ?ampid
