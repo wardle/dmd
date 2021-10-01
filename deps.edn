@@ -1,7 +1,7 @@
 {:paths   ["src" "resources" "classes"]
 
- :deps    {org.clojure/clojure       {:mvn/version "1.11.0-alpha1"}
-           org.clojure/core.async    {:mvn/version "1.3.618"}
+ :deps    {org.clojure/clojure       {:mvn/version "1.11.0-alpha2"}
+           org.clojure/core.async    {:mvn/version "1.3.622"}
            org.clojure/core.match    {:mvn/version "1.0.0"}
            org.clojure/data.csv      {:mvn/version "1.0.0"}
            org.clojure/data.json     {:mvn/version "2.4.0"}
@@ -12,8 +12,8 @@
            com.eldrix/trud           {:git/url "https://github.com/wardle/trud.git"
                                       :sha     "c73e7dcb4f7420b5e22e528f74c58d884bd6907e"}
            com.wsscode/pathom        {:git/url "https://github.com/wilkerlucio/pathom3"
-                                      :sha     "6e8fa24b6efcdb24c062aa3e736ad1f7e73b9fdb"}
-           datalevin/datalevin       {:mvn/version "0.5.9"}}
+                                      :sha     "1aec64d88ef915c9525ae54feffa60f3850faa96"}
+           datalevin/datalevin       {:mvn/version "0.5.22"}}
 
  :aliases {:dev
            {:extra-paths ["cmd" "test/src" "test/resources"]}
@@ -23,7 +23,7 @@
             :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.206"}
                           io.pedestal/pedestal.service   {:mvn/version "0.5.9"}
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.9"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.2.5"}}
+                          ch.qos.logback/logback-classic {:mvn/version "1.2.6"}}
             :main-opts   ["-m" "com.eldrix.dmd.cli"]
             :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                           "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
@@ -38,7 +38,7 @@
            :test
            {:extra-paths ["test/src" "test/resources"]
             :extra-deps  {io.github.cognitect-labs/test-runner {:git/sha "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}
-                          ch.qos.logback/logback-classic       {:mvn/version "1.2.5"}}
+                          ch.qos.logback/logback-classic       {:mvn/version "1.2.6"}}
             :main-opts   ["-m" "cognitect.test-runner"]
             :exec-fn     cognitect.test-runner.api/test
             :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
@@ -77,12 +77,12 @@
             :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
 
            :jar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.297"}}
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
             :exec-fn      hf.depstar/jar
             :exec-args    {:jar "target/dmd-lib.jar"}}
 
            :uberjar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.297"}}
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
             :exec-fn      hf.depstar/uberjar
             :exec-args    {:jar        "target/dmd.jar"
                            :aot        true
