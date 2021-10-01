@@ -7,18 +7,20 @@
             [clojure.string :as str]
             [com.eldrix.trud.zip :as zipfile])
   (:import (java.time.format DateTimeFormatter)
-           (com.eldrix.dmd.store2 DmdStore)))
+           (com.eldrix.dmd.store2 DmdStore)
+           (java.time LocalDate)))
 
 (defn install-from-dirs
   "Creates a new dm+d filestore at `filename` from the directories specified."
   [filename dirs & {:keys [_batch-size] :as opts}]
   (when (= 0 (count dirs)) (throw (ex-info "no directories specified" {:filename filename :dirs dirs})))
-  (let [ch (a/chan)]
+  (let [ch (a/chan)
+        release-date (last (sort (remove nil? (map #(:release-date (dim/get-release-metadata %)) dirs))))]
     (a/thread
       (doseq [dir dirs]
         (dim/stream-dmd dir ch :close? false))
       (a/close! ch))
-    (st2/create-store filename ch opts)))
+    (st2/create-store filename ch (assoc opts :release-date release-date))))
 
 (defn print-available-releases
   [api-key]
@@ -46,6 +48,9 @@
 
 (defn open-store [filename]
   (st2/open-store filename))
+
+(defn fetch-release-date [^DmdStore store]
+  (st2/fetch-release-date store))
 
 (defn fetch-product [^DmdStore store product-id]
   (st2/fetch-product store product-id))

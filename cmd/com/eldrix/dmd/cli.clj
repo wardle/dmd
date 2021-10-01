@@ -60,6 +60,7 @@
   (if db
     (let [st (dmd/open-store db)]
       (log/info "starting server using " db " on port" port)
+      (log/info "UK dm+d release:" (.format java.time.format.DateTimeFormatter/ISO_DATE (dmd/fetch-release-date st)))
       (try (serve/start-server st (Integer/parseInt port))
            (catch NumberFormatException e
              (log/error "invalid port:" port))))

@@ -8,7 +8,10 @@
             [clojure.set :as set]
             [clojure.string :as str])
   (:import (java.io Closeable)
-           (java.util.regex Pattern)))
+           (java.util.regex Pattern)
+           (java.time LocalDate LocalDateTime)))
+
+(def store-version 1)
 
 (deftype DmdStore [conn]
   Closeable
@@ -349,10 +352,7 @@
          [[:BNF :AMPS]] (parse-nested-property m :BNF_DETAILS :AMP/BNF_DETAILS :APID)
          :else (log/warn "Unknown file type / component type tuple" m)))
 
-(defn ^DmdStore open-store [dir]
-  (->DmdStore (d/create-conn dir schema)))
-
-(defn create-store [dir ch & {:keys [batch-size] :or {batch-size 500}}]
+(defn create-store [dir ch & {:keys [batch-size release-date] :or {batch-size 500}}]
   (let [conn (d/create-conn dir schema)
         cpu (.availableProcessors (Runtime/getRuntime))
         ch' (a/chan 50 (partition-all batch-size))]
@@ -364,7 +364,30 @@
           (catch Exception e
             (throw (ex-info "error during import" {:batch batch} e))))
         (recur (a/<!! ch'))))
+    (d/transact! conn [{:db/id            -1
+                        :metadata/version store-version
+                        :metadata/created (LocalDateTime/now)
+                        :metadata/release release-date}])
     (->DmdStore conn)))
+
+
+(defn ^:private fetch-metadata [^DmdStore st]
+  (->> (d/q '[:find [(pull ?e [*]) ...]
+              :where
+              [?e :metadata/created ?]]
+            (d/db (.-conn st)))
+       (sort-by :metadata/created)
+       last))
+
+(defn fetch-release-date [^DmdStore st]
+  (:metadata/release (fetch-metadata st)))
+
+(defn ^DmdStore open-store [dir]
+  (let [st (->DmdStore (d/create-conn dir schema))
+        metadata (fetch-metadata st)]
+    (when-not (= store-version (:metadata/version metadata))
+      (throw (ex-info "incompatible database version." {:expected store-version :got metadata})))
+    st))
 
 (defn product-type [^DmdStore st id]
   (:PRODUCT/TYPE (d/q '[:find (pull ?e [:PRODUCT/TYPE]) . :in $ ?id :where [?e :PRODUCT/ID ?id]] (d/db (.-conn st)) id)))
