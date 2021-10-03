@@ -1,5 +1,17 @@
 # CHANGELOG
 
+# v0.5.3 - 2021-10-03
+
+* Include metadata with each database permitting checks for compatibility and versioning
+* Upgraded dependencies, including datalevin 0.5.22
+* Simplified ECL generation of products, now *only* including VTMs,AMPs and VMPs by design.
+* Add fetch of VMPPs and AMPPs for a product to backing store API.
+* Permit resolution of ATC codes from any product arbitrarily.
+
+# v0.5.2 - 2021-09-12
+
+* Include option to include product packs [this feature later removed]
+
 # v0.5.1 - 2021-09-12
 
 * Turn ATC codes / regular expressions into SNOMED expressions that can be expanded by a terminology server such as [hermes](https://github.com/wardle/hermes)
