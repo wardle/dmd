@@ -67,7 +67,7 @@ clj -M:run install --db dmd-2021-07-01.db ~/Downloads/dmd-2021-07-01
 ```
 or
 ```shell
-java -jar dmd.jar --db dmd-2021-07-01.db ~/Downloads/dmd-2021-07-01 
+java -jar dmd-server-0.6.139.jar --db dmd-2021-07-01.db ~/Downloads/dmd-2021-07-01 
 ```
 
 This will look for files in the directory specified and create a new file-based
@@ -90,7 +90,7 @@ clj -M:run latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/t
 ```
 or
 ```shell
-java -jar dmd.jar latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/trud/cache
+java -jar dmd-server-0.6.139.jar latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/trud/cache
 ```
 
 This will create a file-based database named dmd-2021-04-12.db (or whatever release date is appropriate).
@@ -101,7 +101,7 @@ clj -M:run latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/t
 ```
 or
 ```shell
-java -jar dmd.jar latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/trud/cache --db dmd.db
+java -jar dmd-server-0.6.139.jar latest --api-key /var/local/trud/api-key.txt --cache-dir /var/local/trud/cache --db dmd.db
 ```
 
 Note: this does not support updating an existing datafile. It is much better
@@ -117,7 +117,7 @@ clj -M:run list --api-key /var/local/trud/api-key.txt
 ```
 or
 ```shell
-java -jar dmd.jar list --api-key /var/local/trud/api-key.txt
+java -jar dmd-server-0.6.139.jar list --api-key /var/local/trud/api-key.txt
 ```
 
 
@@ -156,7 +156,7 @@ clj -M:run serve --db dmd-2021-04-12.db --port 8080
 ```
 or
 ```shell
-java -jar dmd.jar --db dmd-2021-04-12.db --port 8080
+java -jar dmd-server-0.6.139.jar --db dmd-2021-04-12.db --port 8080
 ```
 
 As it is very likely that the complete dm+d dataset will fit into the memory
@@ -697,12 +697,12 @@ clj -M:lint/kondo
 #### Build library jar
 
 ```shell
-clj -X:jar
+clj -T:build jar
 ```
 
 #### Build and run an uberjar
 
 ```shell
-clj -X:uberjar
-java -jar target/dmd.jar --help
+clj -T:build jar
+java -jar target/dmd-server-0.6.139.jar --help
 ```

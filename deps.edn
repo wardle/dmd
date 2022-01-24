@@ -9,13 +9,17 @@
            org.clojure/data.zip      {:mvn/version "1.0.0"}
            org.clojure/tools.logging {:mvn/version "1.1.0"}
 
-           com.eldrix/trud           {:git/url "https://github.com/wardle/trud.git"
-                                      :sha     "c73e7dcb4f7420b5e22e528f74c58d884bd6907e"}
-           com.wsscode/pathom        {:git/url "https://github.com/wilkerlucio/pathom3"
-                                      :sha     "1aec64d88ef915c9525ae54feffa60f3850faa96"}
+           com.eldrix/trud           {:mvn/version "1.0.75"}
+
+           com.wsscode/pathom3       {:mvn/version "2021.07.10-1-alpha"}
            datalevin/datalevin       {:mvn/version "0.5.22"}}
 
- :aliases {:dev
+ :aliases {:build
+           {:deps       {io.github.clojure/tools.build {:git/tag "v0.7.5" :git/sha "34727f7"}
+                         slipset/deps-deploy           {:mvn/version "RELEASE"}}
+            :ns-default build}
+
+           :dev
            {:extra-paths ["cmd" "test/src" "test/resources"]}
 
            :run
@@ -74,17 +78,4 @@
 
            :lint/eastwood
            {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]
-            :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
-
-           :jar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
-            :exec-fn      hf.depstar/jar
-            :exec-args    {:jar "target/dmd-lib.jar"}}
-
-           :uberjar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
-            :exec-fn      hf.depstar/uberjar
-            :exec-args    {:jar        "target/dmd.jar"
-                           :aot        true
-                           :aliases    [:run]
-                           :main-class "com.eldrix.dmd.cli"}}}}
+            :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}}}
