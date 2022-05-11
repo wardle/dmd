@@ -1,5 +1,10 @@
 # CHANGELOG
 
+# v0.6.141 - 2022-05-11
+
+* New API endpoint to search for a product by exact name
+* New build system using tools.build
+
 # v0.5.3 - 2021-10-03
 
 * Include metadata with each database permitting checks for compatibility and versioning
