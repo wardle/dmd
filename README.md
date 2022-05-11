@@ -287,6 +287,37 @@ the VTM, and an AMPP will include all of the others!
   "VTMID": 108537001
 }
 ```
+##### Get a product by exact name
+
+You can search by exact name, if you have data without dm+d codes, but derived from the dm+d dataset.
+
+This is a case-sensitive search.
+
+```shell
+http -j 'http://127.0.0.1:8080/dmd/v1/search?s=Amlodipine 5mg/5ml oral solution sugar-free'
+```
+Result:
+```json
+{
+    "BASIS": {
+        "CD": 1,
+        "DESC": "rINN - Recommended International Non-proprietary"
+    },
+    "BASISCD": 1,
+    "BNF_DETAILS": {
+        "ATC": "C08CA01",
+        "BNF": "02060200",
+        "DDD": 5.0,
+        "DDD_UOM": {
+            "CD": 258684004,
+            "DESC": "mg"
+        },
+        "DDD_UOMCD": 258684004,
+        "VPID": 39732011000001102
+    },
+    "CONTROL_DRUG_INFO": {
+...
+```
 
 ##### Map from BNF or ATC codes to VMPs
 

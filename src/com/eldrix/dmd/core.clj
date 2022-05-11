@@ -55,6 +55,10 @@
 (defn fetch-product [^DmdStore store product-id]
   (st2/fetch-product store product-id))
 
+(defn fetch-product-by-exact-name [^DmdStore store nm]
+  (when-let [id (st2/product-by-exact-name store nm)]
+    (st2/fetch-product store id)))
+
 (defn fetch-lookup [^DmdStore store lookup-kind]
   (st2/fetch-lookup store lookup-kind))
 

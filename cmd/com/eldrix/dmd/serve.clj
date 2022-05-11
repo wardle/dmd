@@ -113,6 +113,18 @@
          context
          (assoc context :result (dmd/fetch-product store (Long/parseLong product-id))))))})
 
+(def search-product
+  {:name
+   ::search-product
+   :enter
+   (fn [context]
+     (let [store (get-in context [:request ::store])
+           s (get-in context [:request :query-params :s])]
+       (println "Search: " s)
+       (if-not s
+         context
+         (assoc context :result (dmd/fetch-product-by-exact-name store s)))))})
+
 (def fetch-lookup
   {:name
    ::fetch-lookup
@@ -217,6 +229,7 @@
       ["/dmd/v1/product/:product-id/amps" :get (conj common-interceptors fetch-product-amps)]
       ["/dmd/v1/product/:product-id/atc" :get (conj common-interceptors fetch-product-atc)]
       ["/dmd/v1/product/:product-id" :get (conj common-interceptors fetch-product)]
+      ["/dmd/v1/search" :get (conj common-interceptors search-product)]
       ["/dmd/v1/lookup/:lookup-kind" :get (conj common-interceptors fetch-lookup)]
       ["/dmd/v1/atc/:atc/vmps" :get (conj common-interceptors atc->vmps)]
       ["/dmd/v1/atc/:atc/products" :get (conj common-interceptors atc->products)]

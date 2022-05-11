@@ -714,6 +714,20 @@
        (d/db (.-conn st))
        re-nm))
 
+(defn product-by-exact-name
+  "Returns a single product identifier for a search by exact name."
+  [st nm]
+  (d/q '[:find ?id .
+         :in $ ?nm
+         :where
+         [?e :PRODUCT/ID ?id]
+         (or
+           [?e :VTM/NM ?nm]
+           [?e :AMP/DESC ?nm]
+           [?e :VMP/NM ?nm])]
+     (d/db (.-conn st))
+     nm))
+
 (defmulti vtms "Return the entity ids for the VTMs associated with this product."
   (fn [^DmdStore _store product] (:PRODUCT/TYPE product)))
 
