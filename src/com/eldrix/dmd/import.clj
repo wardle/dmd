@@ -38,10 +38,10 @@
 
 ;; dm+d date format = CCYY-MM-DD
 (defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
-(defn- ^Long parse-long [^String s] (Long/parseLong s))
+(defn- ^Long unsafe-parse-long [^String s] (Long/parseLong s))
 (defn- ^Integer parse-integer [^String s] (Integer/parseInt s))
 (defn- ^Boolean parse-flag [^String s] (boolean (= 1 (Integer/parseInt s)))) ;; just for fun, they sometimes use "1" or "0001" for flags...
-(defn- ^Double parse-double [^String s] (Double/parseDouble s))
+(defn- ^Double unsafe-parse-double [^String s] (Double/parseDouble s))
 
 (def ^:private file-ordering
   "Order of file import for relational integrity, if needed."
@@ -113,79 +113,79 @@
 (def ^:private property-parsers
   {
    ;; VTM properties
-   :VTMID             parse-long
+   :VTMID             unsafe-parse-long
    :INVALID           parse-flag
-   :VTMIDPREV         parse-long
+   :VTMIDPREV         unsafe-parse-long
    :VTMIDDT           parse-date
 
    ;; VMP properties
-   :VPID              parse-long
+   :VPID              unsafe-parse-long
    :VPIDDT            parse-date
-   :VPIDPREV          parse-long
-   :BASISCD           parse-long
+   :VPIDPREV          unsafe-parse-long
+   :BASISCD           unsafe-parse-long
    :NMDT              parse-date
-   :BASIS_PREVCD      parse-long
-   :NMCHANGECD        parse-long
-   :COMBPRODCD        parse-long
-   :PRES_STATCD       parse-long
+   :BASIS_PREVCD      unsafe-parse-long
+   :NMCHANGECD        unsafe-parse-long
+   :COMBPRODCD        unsafe-parse-long
+   :PRES_STATCD       unsafe-parse-long
    :SUG_F             parse-flag
    :GLU_F             parse-flag
    :PRES_F            parse-flag
    :CFC_F             parse-flag
-   :NON_AVAILCD       parse-long
+   :NON_AVAILCD       unsafe-parse-long
    :NON_AVAILDT       parse-date
-   :DF_INDCD          parse-long
-   :UDFS              parse-double
-   :UDFS_UOMCD        parse-long
-   :UNIT_DOSE_UOMCD   parse-long
-   :ISID              parse-long
-   :BASIS_STRNTCD     parse-long
-   :BS_SUBID          parse-long
-   :STRNT_NMRTR_VAL   parse-double
-   :STRNT_NMRTR_UOMCD parse-long
-   :STRNT_DNMTR_VAL   parse-double
-   :STRNT_DNMTR_UOMCD parse-long
-   :FORMCD            parse-long
-   :ROUTECD           parse-long
-   :CATCD             parse-long
+   :DF_INDCD          unsafe-parse-long
+   :UDFS              unsafe-parse-double
+   :UDFS_UOMCD        unsafe-parse-long
+   :UNIT_DOSE_UOMCD   unsafe-parse-long
+   :ISID              unsafe-parse-long
+   :BASIS_STRNTCD     unsafe-parse-long
+   :BS_SUBID          unsafe-parse-long
+   :STRNT_NMRTR_VAL   unsafe-parse-double
+   :STRNT_NMRTR_UOMCD unsafe-parse-long
+   :STRNT_DNMTR_VAL   unsafe-parse-double
+   :STRNT_DNMTR_UOMCD unsafe-parse-long
+   :FORMCD            unsafe-parse-long
+   :ROUTECD           unsafe-parse-long
+   :CATCD             unsafe-parse-long
    :CATDT             parse-date
-   :CAT_PREVCD        parse-long
+   :CAT_PREVCD        unsafe-parse-long
 
    ;; AMP properties
-   :APID              parse-long
-   :SUPPCD            parse-long
-   :LIC_AUTHCD        parse-long
-   :LIC_AUTH_PREVCD   parse-long
-   :LIC_AUTHCHANGECD  parse-long
+   :APID              unsafe-parse-long
+   :SUPPCD            unsafe-parse-long
+   :LIC_AUTHCD        unsafe-parse-long
+   :LIC_AUTH_PREVCD   unsafe-parse-long
+   :LIC_AUTHCHANGECD  unsafe-parse-long
    :LIC_AUTHCHANGEDT  parse-date
-   :FLAVOURCD         parse-long
+   :FLAVOURCD         unsafe-parse-long
    :EMA               parse-flag
    :PARALLEL_IMPORT   parse-flag
-   :AVAIL_RESTRICTCD  parse-long
-   :STRNTH            parse-double
-   :UOMCD             parse-long
-   :COLOURCD          parse-long
+   :AVAIL_RESTRICTCD  unsafe-parse-long
+   :STRNTH            unsafe-parse-double
+   :UOMCD             unsafe-parse-long
+   :COLOURCD          unsafe-parse-long
 
    ;; VMPP properties
-   :VPPID             parse-long
-   :QTYVAL            parse-double
-   :QTY_UOMCD         parse-long
-   :COMBPACKCD        parse-long
-   :PAY_CATCD         parse-long
+   :VPPID             unsafe-parse-long
+   :QTYVAL            unsafe-parse-double
+   :QTY_UOMCD         unsafe-parse-long
+   :COMBPACKCD        unsafe-parse-long
+   :PAY_CATCD         unsafe-parse-long
    :PRICE             parse-integer
    :DT                parse-date
    :PREVPRICE         parse-integer
-   :PRNTVPPID         parse-long
-   :CHLDVPPID         parse-long
+   :PRNTVPPID         unsafe-parse-long
+   :CHLDVPPID         unsafe-parse-long
 
    ;; AMPP properties
-   :APPID             parse-long
-   :LEGAL_CATCD       parse-long
-   :DISCCD            parse-long
+   :APPID             unsafe-parse-long
+   :LEGAL_CATCD       unsafe-parse-long
+   :DISCCD            unsafe-parse-long
    :DISCDT            parse-date
-   :REIMB_STATCD      parse-long
+   :REIMB_STATCD      unsafe-parse-long
    :REIMB_STATDT      parse-date
-   :REIMB_STATPREVCD  parse-long
+   :REIMB_STATPREVCD  unsafe-parse-long
    :SCHED_2           parse-flag
    :ACBS              parse-flag
    :PADM              parse-flag
@@ -196,32 +196,32 @@
    :ENURSE_F          parse-flag
    :DENT_F            parse-flag
    :PRICEDT           parse-date
-   :PRICE_BASISCD     parse-long
+   :PRICE_BASISCD     unsafe-parse-long
    :PX_CHRGS          parse-flag
    :DISP_FEES         parse-flag                            ;; unlike the documentation, this is actually a flag (1 or omitted).
    :BB                parse-flag
    :CAL_PACK          parse-flag
-   :SPEC_CONTCD       parse-long
+   :SPEC_CONTCD       unsafe-parse-long
    :FP34D             parse-flag
-   :PRNTAPPID         parse-long
-   :CHLDAPPID         parse-long
+   :PRNTAPPID         unsafe-parse-long
+   :CHLDAPPID         unsafe-parse-long
 
    ;; ingredients
-   :ISIDPREV          parse-long
+   :ISIDPREV          unsafe-parse-long
    :ISIDDT            parse-date
 
    ;; lookups
-   :CD                parse-long
-   :CDPREV            parse-long
+   :CD                unsafe-parse-long
+   :CDPREV            unsafe-parse-long
    :CDDT              parse-date
 
    ;; BNF / extras
-   :DDD_UOMCD         parse-long
-   :DDD               parse-double
+   :DDD_UOMCD         unsafe-parse-long
+   :DDD               unsafe-parse-double
    :STARTDT           parse-date
-   :ENDDT             parse-date
+   :ENDDT             parse-date})
 
-   })
+   
 
 (defn- parse-property [k v]
   (if-let [parser (get property-parsers k)]
@@ -455,5 +455,5 @@
   (def ch (a/chan))
   (a/thread (stream-gtin root ch nil true))
   (a/<!! ch)
-  (map clojure.pprint/print-table (cardinalities "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud2465267306253668332/"))
-  )
+  (map clojure.pprint/print-table (cardinalities "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud2465267306253668332/")))
+  
