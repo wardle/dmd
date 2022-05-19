@@ -3,6 +3,7 @@ pom.xml.asc
 *.iml
 *.jar
 *.class
+.clj-kondo/
 /lib/
 /classes/
 /target/
