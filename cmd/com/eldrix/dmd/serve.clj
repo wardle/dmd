@@ -22,7 +22,7 @@
 (def ok (partial response 200))
 (def not-found (partial response 404))
 
-(def supported-types ["application/json" "application/edn"  ])
+(def supported-types ["application/json" "application/edn"])
 (def content-neg-intc (conneg/negotiate-content supported-types))
 
 (def formatters
@@ -276,5 +276,4 @@
   (do
     (require '[io.pedestal.test])
     (defn test-request [verb url]
-      (io.pedestal.test/response-for (::http/service-fn @server) verb url)))
-  )
+      (io.pedestal.test/response-for (::http/service-fn @server) verb url))))
