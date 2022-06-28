@@ -120,7 +120,6 @@
    (fn [context]
      (let [store (get-in context [:request ::store])
            s (get-in context [:request :query-params :s])]
-       (println "Search: " s)
        (if-not s
          context
          (assoc context :result (dmd/fetch-product-by-exact-name store s)))))})
