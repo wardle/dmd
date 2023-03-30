@@ -46,4 +46,4 @@
 
 # v0.1.0  - 2021-04-14
 
-* Basis dm+d functionality
+* Basic dm+d functionality
