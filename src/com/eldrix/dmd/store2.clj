@@ -77,6 +77,8 @@
    :VPI/STRNT_NMRTR_VAL                  {:db/valueType :db.type/double}
    :VPI/STRNT_NMRTR_UOMCD                {:db/valueType :db.type/long}
    :VPI/STRNT_NMRTR_UOM                  {:db/valueType :db.type/ref}
+   :VPI/STRNT_DNMTR_UOMCD                {:db/valueType :db.type/long}
+   :VPI/STRNT_DNMTR_UOM                  {:db/valueType :db.type/ref}
 
    ;; AMP
    :AMP/APID                             {:db/valueType :db.type/long}
