@@ -87,8 +87,9 @@
           (= "list" command) (list-available options)
           (= "download" command) (download options params)
           (= "install" command) (install options params)
-          (= "serve" command) (run-server options))))))
+          (= "serve" command) (run-server options)
+          :else (exit 1 (str "invalid command\n" (usage summary))))))))
 
-(comment
-  )
+(comment)
+
 
