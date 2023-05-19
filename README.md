@@ -737,3 +737,26 @@ clj -T:build jar
 clj -T:build jar
 java -jar target/dmd-server-0.6.139.jar --help
 ```
+
+
+
+
+
+
+#### xtdb notes
+
+To get xtdb working on a mac (aarch64), you may need to install openssl. 
+
+You will need to do this if you get an error such as 
+```shell
+WARNING: /Users/mark/Library/Java/JavaVirtualMachines/corretto-17.0.6/Contents/Home/bin/java is loading libcrypto in an unsafe way
+```
+
+To fix this, install `openssl` and add symlinks to /usr/local/lib: 
+
+```shell
+brew install openssl
+cd /usr/local/lib
+sudo ln -s /opt/homebrew/Cellar/openssl@3/3.1.0/lib/libssl.dylib libssl.dylib
+sudo ln -s /opt/homebrew/Cellar/openssl@3/3.1.0/lib/libcrypto.dylib libcrypto.dylib
+```

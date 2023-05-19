@@ -9,7 +9,7 @@
            org.clojure/data.zip      {:mvn/version "1.0.0"}
            org.clojure/tools.logging {:mvn/version "1.2.4"}
 
-           com.eldrix/trud           {:mvn/version "1.0.87"}
+           com.eldrix/trud           {:mvn/version "1.0.104"}
 
            com.wsscode/pathom3       {:mvn/version "2023.01.31-alpha"}
            datalevin/datalevin       {:mvn/version "0.8.9"}}
@@ -19,8 +19,14 @@
                          slipset/deps-deploy           {:mvn/version "RELEASE"}}
             :ns-default build}
 
+           :xt
+           {:extra-deps {com.xtdb/xtdb-core {:mvn/version "1.23.1"}
+                         com.xtdb/xtdb-lmdb {:mvn/version "1.23.1"}}}
+
            :dev
-           {:extra-paths ["cmd" "test/src" "test/resources"]}
+           {:extra-paths ["cmd" "test/src" "test/resources"]
+            :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
+                          "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"]}
 
            :run
            {:extra-paths ["cmd"]

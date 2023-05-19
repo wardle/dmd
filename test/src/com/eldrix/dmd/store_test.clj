@@ -5,6 +5,7 @@
             [clojure.java.io :as io]
             [com.eldrix.dmd.import :as dim]
             [datalevin.core :as d]
+            [com.eldrix.dmd.parse :as p]
             [com.eldrix.dmd.store2 :as st2])
   (:import [java.nio.file Files]
            (java.nio.file.attribute FileAttribute)
@@ -23,8 +24,8 @@
   (let [st (create-and-open-store)
         ap-ing-exists {:TYPE [:AMP :AP_INGREDIENT], :APID 37365811000001102, :ISID 387516008}
         ap-ing-not-exists {:TYPE [:AMP :AP_INGREDIENT] :APID 37365811000001102 :ISID 123}]
-    (is (d/transact! (.-conn st) [(st2/parse ap-ing-exists)]))
-    (is (thrown? ExceptionInfo (d/transact! (.-conn st) [(st2/parse ap-ing-not-exists)])))))
+    (is (d/transact! (.-conn st) [(p/parse ap-ing-exists)]))
+    (is (thrown? ExceptionInfo (d/transact! (.-conn st) [(p/parse ap-ing-not-exists)])))))
 
 ;; test basic import, store and fetch across products.
 (deftest import-store-and-fetch
@@ -78,6 +79,5 @@
          :where
          [?e :PRODUCT/TYPE :AMPP]] (d/db (.-conn st)))
 
-  (st2/parse (first (dim/get-component (io/resource dir) :BNF :VMPS)))
+  (st2/parse (first (dim/get-component (io/resource dir) :BNF :VMPS))))
 
-  )
