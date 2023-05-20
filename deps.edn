@@ -12,7 +12,7 @@
            com.eldrix/trud           {:mvn/version "1.0.104"}
 
            com.wsscode/pathom3       {:mvn/version "2023.01.31-alpha"}
-           datalevin/datalevin       {:mvn/version "0.8.9"}}
+           datalevin/datalevin       {:mvn/version "0.8.16"}}
 
  :aliases {:build
            {:deps       {io.github.clojure/tools.build {:git/tag "v0.9.4" :git/sha "76b78fe"}
@@ -20,8 +20,8 @@
             :ns-default build}
 
            :xt
-           {:extra-deps {com.xtdb/xtdb-core {:mvn/version "1.23.1"}
-                         com.xtdb/xtdb-lmdb {:mvn/version "1.23.1"}}}
+           {:extra-deps {com.xtdb/xtdb-core {:mvn/version "1.23.2"}
+                         com.xtdb/xtdb-lmdb {:mvn/version "1.23.2"}}}
 
            :dev
            {:extra-paths ["cmd" "test/src" "test/resources"]
@@ -30,10 +30,10 @@
 
            :run
            {:extra-paths ["cmd"]
-            :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.214"}
+            :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.219"}
                           io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.4.6"}}
+                          ch.qos.logback/logback-classic {:mvn/version "1.4.7"}}
             :main-opts   ["-m" "com.eldrix.dmd.cli"]
             :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                           "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"]}
@@ -47,7 +47,7 @@
            :test
            {:extra-paths ["test/src" "test/resources"]
             :extra-deps  {io.github.cognitect-labs/test-runner {:git/sha "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
-                          ch.qos.logback/logback-classic       {:mvn/version "1.4.6"}}
+                          ch.qos.logback/logback-classic       {:mvn/version "1.4.7"}}
             :main-opts   ["-m" "cognitect.test-runner"]
             :exec-fn     cognitect.test-runner.api/test
             :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
