@@ -65,19 +65,19 @@
 (def coerce-body
   {:name ::coerce-body
    :leave
-         (fn [context]
-           (if (get-in context [:response :headers "Content-Type"])
-             context
-             (update-in context [:response] coerce-to (accepted-type context))))})
+   (fn [context]
+     (if (get-in context [:response :headers "Content-Type"])
+       context
+       (update-in context [:response] coerce-to (accepted-type context))))})
 
 (def entity-render
   "Interceptor to render an entity '(:result context)' into the response."
   {:name :entity-render
    :leave
-         (fn [context]
-           (if-let [item (:result context)]
-             (assoc context :response (ok item))
-             context))})
+   (fn [context]
+     (if-let [item (:result context)]
+       (assoc context :response (ok item))
+       context))})
 
 (def hidden-properties
   "A set of properties to be removed from the external API."
@@ -86,11 +86,14 @@
 
 (defn ^:private hide-internals* [x]
   (cond
-    (map? x) (reduce-kv (fn [result k v]
-                          (if (hidden-properties k)
-                            result
-                            (assoc result k (hide-internals* v)))) {} x)
-    (coll? x) (map hide-internals* x)
+    (map? x)
+    (reduce-kv
+      (fn [result k v]
+        (if (hidden-properties k)
+          result
+          (assoc result k (hide-internals* v)))) {} x)
+    (coll? x)
+    (map hide-internals* x)
     :else x))
 
 (def hide-internals
@@ -145,7 +148,7 @@
                 (assoc context :result (dmd/vmps-from-atc store atc)))))})
 
 (def atc->products
-  {:name ::atc->products
+  {:name  ::atc->products
    :enter (fn [context]
             (let [store (get-in context [:request ::store])
                   atc (get-in context [:request :path-params :atc])]
@@ -154,7 +157,7 @@
                 (assoc context :result (dmd/products-from-atc store atc)))))})
 
 (def atc->ecl
-  {:name ::atc->ecl
+  {:name  ::atc->ecl
    :enter (fn [context]
             (let [store (get-in context [:request ::store])
                   atc (get-in context [:request :path-params :atc])]
