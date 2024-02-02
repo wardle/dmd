@@ -59,6 +59,5 @@
   api-key
 
   (print-available-releases api-key)
-  (def releases (download-release api-key "/var/tmp/trud"))
+  (def releases (download-release api-key "/var/tmp/trud")))
 
-  )

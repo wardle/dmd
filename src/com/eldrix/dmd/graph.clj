@@ -130,5 +130,4 @@
                    [:uk.nhs.dmd/VTMID
                     :uk.nhs.dmd/NM
                     :uk.nhs.dmd/VMPS
-                    :info.snomed.Concept/id]}])
-  )
+                    :info.snomed.Concept/id]}]))

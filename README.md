@@ -8,8 +8,13 @@
 
 Implementation of the UK NHS dictionary of medicines and devices (dm+d).
 
-This is a lightweight library and microservice for UK dm+d data. It is a thin wrapper around the dm+d data; providing a
-fast key value backing store functionality.
+This is a lightweight library and microservice for UK dm+d data. 
+
+It is a thin wrapper around the dm+d data; `dmd` creates a SQLite file-based database and a set of APIs
+including for the JVM (e.g. Clojure) and via HTTP (via other programming languages). As SQLite databases
+use a very stable file format, they are extremely good as acting as containers for rich data, such as dm+d,
+as well as for archival purposes. The data can be used directly from a range of programming languages
+as most modern systems have SQLite bindings.
 
 The test harness contains an extract of dm+d data that represents public sector information licensed under the 
 [Open Government Licence v3.0](http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/). These data
@@ -27,15 +32,20 @@ the reasons I decided to create `dmd` as a separate service.
 
 # Getting started
 
-`dmd` creates what you should regard as an  immutable file-based database. 
+`dmd` creates what you should regard as an immutable file-based database. 
 That database can then be used by `dmd` whether operating as a library or a 
-microservice.
+microservice. The data is stored in a SQLite database. 
 
-#### 1. Install clojure, if not already available
+You can use `dmd` to run a server providing an easy to use HTTP API, or use 
+in-process on the JVM (Java Virtual Machine) from, for example, Clojure, 
+or directly use the created SQLite from your programming language of choice,
+such as Python.
 
-You can either install clojure and run from source code, or download a runnable jar file. 
+#### 1. Install Clojure, if not already available
 
-I suggest [installing clojure](https://clojure.org/guides/getting_started) for the easiest experience.
+You can either install Clojure and run from source code, or download a runnable jar file. 
+
+I suggest [installing Clojure](https://clojure.org/guides/getting_started) for the easiest experience.
 If you prefer, download a runnable jar file from the [published releases](https://github.com/wardle/dmd/releases).
 
 #### 2. Register for a TRUD account and (optionally) download an api key
@@ -740,23 +750,3 @@ java -jar target/dmd-server-0.6.139.jar --help
 
 
 
-
-
-
-#### xtdb notes
-
-To get xtdb working on a mac (aarch64), you may need to install openssl. 
-
-You will need to do this if you get an error such as 
-```shell
-WARNING: /Users/mark/Library/Java/JavaVirtualMachines/corretto-17.0.6/Contents/Home/bin/java is loading libcrypto in an unsafe way
-```
-
-To fix this, install `openssl` and add symlinks to /usr/local/lib: 
-
-```shell
-brew install openssl
-cd /usr/local/lib
-sudo ln -s /opt/homebrew/Cellar/openssl@3/3.1.0/lib/libssl.dylib libssl.dylib
-sudo ln -s /opt/homebrew/Cellar/openssl@3/3.1.0/lib/libcrypto.dylib libcrypto.dylib
-```
