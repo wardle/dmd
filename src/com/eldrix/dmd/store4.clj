@@ -276,7 +276,9 @@
 
 (defn open-store
   [filename]
-  (jdbc/get-connection (str "jdbc:sqlite:" filename)))
+  (if (.exists (io/file filename))
+    (jdbc/get-connection (str "jdbc:sqlite:" filename))
+    (throw (ex-info (str "file not found:" filename) {}))))
 
 (defn fetch-release-date
   [conn]
