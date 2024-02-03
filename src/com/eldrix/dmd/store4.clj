@@ -235,9 +235,10 @@
     :insert "insert into GTIN__AMPP (AMPPID, GTIN, STARTDT) VALUES (?,?,?)"
     :data   (juxt :AMPPID :GTIN :STARTDT)}
    {:id     [:BNF :VMPS]
-    :create "create table BNF__VMPS (VPID integer, ATC string)"
-    :insert "insert into BNF__VMPS (VPID, ATC) VALUES (?,?)"
-    :data   (juxt :VPID :ATC)}])
+    :create "create table BNF_DETAILS (VPID integer, BNF string, ATC string, DDD string, DDD_UOMCD integer,
+             foreign key(DDD_UOMCD) references UNIT_OF_MEASURE(CD))"
+    :insert "insert into BNF_DETAILS (VPID, BNF, ATC, DDD, DDD_UOMCD) VALUES (?,?,?,?,?)"
+    :data   (juxt :VPID :BNF :ATC :DDD :DDD_UOMCD)}])
 
 (def entity-by-type
   (reduce (fn [acc {:keys [id] :as entity}] (assoc acc id entity)) {} entities))
@@ -363,7 +364,8 @@
 
 (defn fetch-vmp-bnf-details
   [conn vpid]
-  (jdbc/execute-one! conn ["select * from BNF__VMPS where vpid=?" vpid]))
+  (when-let [{:BNF_DETAILS/keys [DDD_UOMCD] :as bnf} (jdbc/execute-one! conn ["select * from BNF_DETAILS where vpid=?" vpid])]
+    (assoc bnf :BNF_DETAILS/DDD_UOM (fetch-lookup conn :UNIT_OF_MEASURE DDD_UOMCD))))
 
 (defn fetch-vmp*
   [conn vpid]
@@ -466,7 +468,7 @@
   "Return a vector of VPIDs matching the given ATC code/prefix."
   [conn atc]
   (into [] (map :VPID)
-        (jdbc/plan conn ["select vpid from bnf__vmps where atc like ?" (str atc "%")])))
+        (jdbc/plan conn ["select vpid from BNF_DETAILS where atc like ?" (str atc "%")])))
 
 (defn vpids-from-atc-wo-vtms
   "Returns a vector of VPIDs matching the given ATC code/prefix that do not
@@ -475,13 +477,13 @@
   not need VMPs unless there is no associated VTM."
   [conn atc]
   (into [] (map :VPID)
-        (jdbc/plan conn ["select vpid from vmp where vtmid is null and vpid in (select vpid from bnf__vmps where atc like ?)" (str atc "%")])))
+        (jdbc/plan conn ["select vpid from vmp where vtmid is null and vpid in (select vpid from BNF_DETAILS where atc like ?)" (str atc "%")])))
 
 (defn ^:deprecated vmps-from-atc
   "Return VMPs matching the given ATC code as a prefix"
   [conn atc]
   (into [] (map #(fetch-vmp conn (:VPID %)))
-        (jdbc/plan conn ["select vpid from bnf__vmps where atc like ?" (str atc "%")])))
+        (jdbc/plan conn ["select vpid from BNF_DETAILS where atc like ?" (str atc "%")])))
 
 (defn vpids-for-vtmids
   "Returns VPIDs for the given VTMIDs."
@@ -594,14 +596,14 @@
 
 (defn atc-code-for-vpids
   [conn vpids]
-  (:BNF__VMPS/ATC (jdbc/execute-one! conn (sql/format {:select :atc :from :BNF__VMPS :where [:and [:<> :atc nil] [:in :vpid vpids]] :limit 1}))))
+  (:BNF_DETAILS/ATC (jdbc/execute-one! conn (sql/format {:select :atc :from :BNF_DETAILS :where [:and [:<> :atc nil] [:in :vpid vpids]] :limit 1}))))
 
 (defn atc-code
   "Return the ATC code for the product specified."
   [conn id]
   (case (product-type conn id)
     :VTM (atc-code-for-vpids conn (vpids-for-vtmids conn [id]))
-    :VMP (:BNF__VMPS/ATC (jdbc/execute-one! conn ["select ATC from BNF__VMPS where VPID=?" id]))
+    :VMP (:BNF_DETAILS/ATC (jdbc/execute-one! conn ["select ATC from BNF_DETAILS where VPID=?" id]))
     :AMP (atc-code-for-vpids conn (vpids-for-apids conn [id]))
     :VMPP (atc-code-for-vpids conn (vpids-for-vmpps conn [id]))
     :AMPP (atc-code-for-vpids conn (vpids-for-apids conn (apids-for-appids conn [id])))
