@@ -134,7 +134,7 @@
    (fn [context]
      (let [store (get-in context [:request ::store])
            lookup-kind (get-in context [:request :path-params :lookup-kind])]
-       (if-not lookup-kind
+       (if (str/blank? lookup-kind)
          context
          (assoc context :result (dmd/fetch-lookup store (str/upper-case lookup-kind))))))})
 
@@ -143,7 +143,7 @@
    :enter (fn [context]
             (let [store (get-in context [:request ::store])
                   atc (get-in context [:request :path-params :atc])]
-              (if-not atc
+              (if (str/blank? atc)
                 context
                 (assoc context :result (dmd/vmps-from-atc store atc)))))})
 
@@ -152,7 +152,7 @@
    :enter (fn [context]
             (let [store (get-in context [:request ::store])
                   atc (get-in context [:request :path-params :atc])]
-              (if-not atc
+              (if (str/blank? atc)
                 context
                 (assoc context :result (dmd/products-from-atc store atc)))))})
 
@@ -161,7 +161,7 @@
    :enter (fn [context]
             (let [store (get-in context [:request ::store])
                   atc (get-in context [:request :path-params :atc])]
-              (if-not atc
+              (if (str/blank? atc)
                 context
                 (assoc context :result {:atc atc
                                         :ecl (dmd/atc->snomed-ecl store atc)}))))})

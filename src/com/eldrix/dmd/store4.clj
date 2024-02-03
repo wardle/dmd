@@ -8,7 +8,7 @@
             [com.eldrix.dmd.import :as dim]
             [honey.sql :as sql]
             [next.jdbc :as jdbc])
-  (:import (java.time LocalDateTime)))
+  (:import (java.time LocalDate LocalDateTime)))
 
 
 (def store-version 1)
@@ -279,7 +279,7 @@
 
 (defn fetch-release-date
   [conn]
-  (:METADATA/release (jdbc/execute-one! conn ["select release from metadata"])))
+  (some-> (:METADATA/release (jdbc/execute-one! conn ["select release from metadata"])) LocalDate/parse))
 
 (defn create-store
   [filename dirs & {:keys [batch-size release-date] :or {batch-size 50000}}]
@@ -481,7 +481,7 @@
   "Return VMPs matching the given ATC code as a prefix"
   [conn atc]
   (into [] (map #(fetch-vmp conn (:VPID %)))
-        (jdbc/plan conn ["select vpid from bnf__vmps where atc like ?" atc])))
+        (jdbc/plan conn ["select vpid from bnf__vmps where atc like ?" (str atc "%")])))
 
 (defn vpids-for-vtmids
   "Returns VPIDs for the given VTMIDs."
@@ -668,7 +668,7 @@
   [conn atc & {:keys [include-tf? include-product-packs?] :or {include-tf? false include-product-packs? false}}]
   (let [vmps (map #(str "<<" %) (vpids-from-atc-wo-vtms conn atc)) ;; this will only include VMPs without a VTM
         vpids (vpids-from-atc conn atc)
-        vtms (map #(str "<<" %) (vtmids-for-vpids conn vpids))
+        vtms (map #(str "<<" %) (set (vtmids-for-vpids conn vpids)))
         apids (apids-for-vpids conn vpids)
         ;; for TFs, we ask for Trade family children that are parents of each AMP:
         ;; one can build a much more optimised clause here if you have access to SNOMED drug extension

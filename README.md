@@ -336,13 +336,11 @@ Anatomical Therapeutic Chemical (ATC) codes are a useful way of categorising dru
 and so you can use `dmd` to generate codelists for operational, realtime or 
 offline analytics.
 
-You can use a regular expression here - so L04AX.* asks for ATC codes that start with L04AX
-
 The standard dm+d includes ATC codes for VMPs only, but this service can easily
 map between dm+d products and give results for VTMs and AMPs as well.
 
 ```shell
-http -j 127.0.0.1:8080/dmd/v1/atc/L04AX.*/vmps
+http -j 127.0.0.1:8080/dmd/v1/atc/L04AX/vmps
 ```
 
 Result:
