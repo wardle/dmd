@@ -37,11 +37,11 @@
 (set! *warn-on-reflection* true)
 
 ;; dm+d date format = CCYY-MM-DD
-(defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
-(defn- ^Long unsafe-parse-long [^String s] (Long/parseLong s))
-(defn- ^Integer parse-integer [^String s] (Integer/parseInt s))
-(defn- ^Boolean parse-flag [^String s] (boolean (= 1 (Integer/parseInt s)))) ;; just for fun, they sometimes use "1" or "0001" for flags...
-(defn- ^Double unsafe-parse-double [^String s] (Double/parseDouble s))
+(defn- parse-date ^LocalDate [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
+(defn- unsafe-parse-long ^Long [^String s] (Long/parseLong s))
+(defn- parse-integer ^Integer [^String s] (Integer/parseInt s))
+(defn- parse-flag ^Boolean [^String s] (boolean (= 1 (Integer/parseInt s)))) ;; just for fun, they sometimes use "1" or "0001" for flags...
+(defn- unsafe-parse-double ^Double [^String s] (Double/parseDouble s))
 
 (def ^:private file-ordering
   "Order of file import for relational integrity, if needed."
