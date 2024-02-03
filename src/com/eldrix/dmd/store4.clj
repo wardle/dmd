@@ -492,7 +492,7 @@
 (defn vtmids-for-vpids
   "Return VTMIDs for the given VPIDs."
   [conn vpids]
-  (into [] (comp (map :VTMID) (remove nil?))
+  (into #{} (comp (map :VTMID) (remove nil?))
         (jdbc/plan conn (sql/format {:select :vtmid :from :vmp :where [:in :vpid vpids]}))))
 
 (defn vppids-for-vpids
