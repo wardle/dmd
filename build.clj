@@ -25,7 +25,17 @@
                 :scm       {:url                 "https://github.com/wardle/dmd"
                             :tag                 (str "v" version)
                             :connection          "scm:git:git://github.com/wardle/dmd.git"
-                            :developerConnection "scm:git:ssh://git@github.com/wardle/dmd.git"}})
+                            :developerConnection "scm:git:ssh://git@github.com/wardle/dmd.git"}
+                :pom-data  [[:description "Implementation of the UK NHS dictionary of medicines and devices (dm+d)."]
+                            [:developers
+                             [:developer
+                              [:id "wardle"] [:name "Mark Wardle"] [:email "mark@wardle.org"] [:url "https://wardle.org"]]]
+                            [:organization [:name "Eldrix Ltd"]]
+                            [:licenses
+                             [:license
+                              [:name "Eclipse Public License v2.0"]
+                              [:url "https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html"]
+                              [:distribution "repo"]]]]})
   (b/copy-dir {:src-dirs   ["src"]
                :target-dir class-dir})
   (b/jar {:class-dir class-dir
@@ -67,3 +77,4 @@
            :uber-file uber-file
            :basis     uber-basis
            :main      'com.eldrix.dmd.cli}))
+
