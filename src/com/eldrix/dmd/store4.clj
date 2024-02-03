@@ -8,11 +8,8 @@
             [com.eldrix.dmd.import :as dim]
             [honey.sql :as sql]
             [next.jdbc :as jdbc])
+  (:import (java.time LocalDateTime)))
 
-  (:import (java.io File)
-           (java.time LocalDateTime)
-           (java.util.regex Pattern)
-           (org.sqlite Function)))
 
 (def store-version 1)
 
@@ -275,8 +272,7 @@
 
 (defn open-store
   [filename]
-  (doto (jdbc/get-connection (str "jdbc:sqlite:" filename))
-    (Function/create "regexp" (com.eldrix.dmd.sqlite.Regexp.))))
+  (jdbc/get-connection (str "jdbc:sqlite:" filename)))
 
 (defn fetch-release-date
   [conn]

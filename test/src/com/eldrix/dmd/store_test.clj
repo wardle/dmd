@@ -19,14 +19,6 @@
     (dmd/install-from-dirs db-dir [(io/resource dir)] :batch-size 1)
     (dmd/open-store db-dir)))
 
-;; ensure that importing an unknown ingredient throws an exception
-(deftest import-validation
-  (let [st (create-and-open-store)
-        ap-ing-exists {:TYPE [:AMP :AP_INGREDIENT], :APID 37365811000001102, :ISID 387516008}
-        ap-ing-not-exists {:TYPE [:AMP :AP_INGREDIENT] :APID 37365811000001102 :ISID 123}]
-    (is (d/transact! (.-conn st) [(p/parse ap-ing-exists)]))
-    (is (thrown? ExceptionInfo (d/transact! (.-conn st) [(p/parse ap-ing-not-exists)])))))
-
 ;; test basic import, store and fetch across products.
 (deftest import-store-and-fetch
   (let [st (create-and-open-store)
@@ -68,16 +60,9 @@
 
 (comment
   (run-tests)
-  (import-validation)
   (def st (create-and-open-store))
-  (st2/metadata st)
   (dmd/fetch-product st 34186711000001102)
   (dmd/amps-for-product st 34186711000001102)
   (dmd/vtms-for-product st 37365811000001102)
-  (dmd/atc-for-product st 34186711000001102)
-  (d/q '[:find (pull ?e [*])
-         :where
-         [?e :PRODUCT/TYPE :AMPP]] (d/db (.-conn st)))
-
-  (st2/parse (first (dim/get-component (io/resource dir) :BNF :VMPS))))
+  (dmd/atc-for-product st 34186711000001102))
 

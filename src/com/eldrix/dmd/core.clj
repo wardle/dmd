@@ -78,7 +78,7 @@
 (defn ^:deprecated atc->snomed-ecl
   "Create a SNOMED CT ECL expression from the ATC pattern specified, returning
   an expression that will return VTMs, VMPs and AMPs.
-  Prefer to use atc->products-for-ecl that can use SNOMED CT drug extension
+  Prefer to use [[atc->products-for-ecl]] and the SNOMED CT drug extension
   to optimise the creation of the appropriate ECL expression."
   [conn atc]
   (st4/atc->ecl conn atc))
@@ -89,7 +89,6 @@
   this way because TF products are not included in the UK dm+d distribution."
   [conn atc]
   (st4/atc->products-for-ecl conn atc))
-
 
 (defn vmps-for-product [conn id]
   (->> (st4/vpids conn id)
@@ -103,9 +102,8 @@
   (->> (st4/vtmids conn id)
        (map #(st4/fetch-vtm conn %))))
 
-#_(defn atc-for-product [^DmdStore store id]
-    (when-let [product (st2/fetch-product store id)]
-      (st2/atc-code store product)))
+(defn atc-for-product [conn id]
+  (st4/atc-code conn id))
 
 (comment
   (install-latest "/Users/mark/Dev/trud/api-key.txt" "/Users/mark/Dev/trud/cache/tmp/trud")
