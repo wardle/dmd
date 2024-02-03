@@ -1,6 +1,6 @@
 # CHANGELOG
 
-# v1.0.??? - not yet released
+# v1.0.170-alpha - 2024-02-03
 
 * Switch to using SQLite for backing store
 
