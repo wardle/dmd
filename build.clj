@@ -1,5 +1,6 @@
 (ns build
-  (:require [clojure.tools.build.api :as b]
+  (:require [borkdude.gh-release-artifact :as gh]
+            [clojure.tools.build.api :as b]
             [deps-deploy.deps-deploy :as dd]))
 
 (def lib 'com.eldrix/dmd)
@@ -78,3 +79,14 @@
            :basis     uber-basis
            :main      'com.eldrix.dmd.cli}))
 
+(defn release
+      "Deploy release to GitHub. Requires valid token in GITHUB_TOKEN environmental
+       variable."
+      [_]
+      (uber nil)
+      (println "Deploying release to GitHub")
+      (gh/release-artifact {:org    "wardle"
+                            :repo   "dmd"
+                            :tag    (str "v" version)
+                            :file   uber-file
+                            :sha256 true}))

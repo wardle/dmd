@@ -18,8 +18,9 @@
 
 
  :aliases {:build
-           {:deps       {io.github.clojure/tools.build {:git/tag "v0.9.6" :git/sha "8e78bcc"}
-                         slipset/deps-deploy           {:mvn/version "RELEASE"}}
+           {:deps       {io.github.clojure/tools.build          {:git/tag "v0.9.6" :git/sha "8e78bcc"}
+                         slipset/deps-deploy                    {:mvn/version "RELEASE"}
+                         io.github.borkdude/gh-release-artifact {:git/sha "4a9a74f0e50e897c45df8cc70684360eb30fce80"}}
             :ns-default build}
 
            :dev
