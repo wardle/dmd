@@ -1,31 +1,17 @@
 (ns com.eldrix.dmd.store-test
-  (:require [clojure.core.async :as a]
-            [clojure.test :refer :all]
+  (:require [clojure.test :refer :all]
             [com.eldrix.dmd.core :as dmd]
-            [clojure.java.io :as io]
-            [com.eldrix.dmd.import :as dim]
-            [datalevin.core :as d]
-            [com.eldrix.dmd.parse :as p]
-            [com.eldrix.dmd.store2 :as st2])
-  (:import [java.nio.file Files]
-           (java.nio.file.attribute FileAttribute)
-           (clojure.lang ExceptionInfo)
+            [clojure.java.io :as io])
+  (:import (java.io File)
            (java.time LocalDate)))
 
 (def dir "dmd-2021-08-26")
 
 (defn create-and-open-store []
-  (let [db-dir (.getAbsolutePath (.toFile (Files/createTempDirectory "dmd-test" (into-array FileAttribute []))))]
-    (dmd/install-from-dirs db-dir [(io/resource dir)] :batch-size 1)
-    (dmd/open-store db-dir)))
-
-;; ensure that importing an unknown ingredient throws an exception
-(deftest import-validation
-  (let [st (create-and-open-store)
-        ap-ing-exists {:TYPE [:AMP :AP_INGREDIENT], :APID 37365811000001102, :ISID 387516008}
-        ap-ing-not-exists {:TYPE [:AMP :AP_INGREDIENT] :APID 37365811000001102 :ISID 123}]
-    (is (d/transact! (.-conn st) [(p/parse ap-ing-exists)]))
-    (is (thrown? ExceptionInfo (d/transact! (.-conn st) [(p/parse ap-ing-not-exists)])))))
+  (let [filename (File/createTempFile "dmd-test" ".db")]
+    (.delete filename)
+    (dmd/install-from-dirs filename [(io/resource dir)] :batch-size 1)
+    (dmd/open-store filename)))
 
 ;; test basic import, store and fetch across products.
 (deftest import-store-and-fetch
@@ -45,8 +31,8 @@
     (is (= "Tablet" (get-in co-amilofruse-vmp-2 [:VMP/DRUG_FORM :FORM/DESC])))
     (is (= (:VMP/BASISCD co-amilofruse-vmp-2) (get-in co-amilofruse-vmp-2 [:VMP/BASIS :BASIS_OF_NAME/CD])))
     (is (= (get-in co-amilofruse-vmp-2 [:VMP/BASIS :BASIS_OF_NAME/DESC]) (get bases-of-name 2)))
-    (is (= #{387516008 387475002} (set (map :VPI/ISID (:VMP/INGREDIENTS co-amilofruse-vmp-2)))))
-    (is (= 2 (count (:VMP/INGREDIENTS co-amilofruse-vmp-2))))
+    (is (= #{387516008 387475002} (set (map :VMP__VIRTUAL_PRODUCT_INGREDIENT/ISID (:VMP/VIRTUAL_PRODUCT_INGREDIENTS co-amilofruse-vmp-2)))))
+    (is (= 2 (count (:VMP/VIRTUAL_PRODUCT_INGREDIENTS co-amilofruse-vmp-2))))
     ;; are we getting linked relationships right?
     (is (= 1
            (:VMP/PRES_STATCD co-amilofruse-vmp-2)
@@ -59,25 +45,17 @@
     (is (= "C03EB01" (dmd/atc-for-product st 34186711000001102))) ;; test from VTM
     (is (= "C03EB01" (dmd/atc-for-product st 37365811000001102))) ;; test from AMP
     ; (is (= "C03EB01" (dmd/atc-for-product st 37365911000001107))) ;; test from AMPP
-    (is (= #{318136009} (set (map :PRODUCT/ID (dmd/vmps-from-atc st #"C03.*")))))
-    (is (= "mg" (get-in co-amilofruse-vmp-2 [:VMP/BNF_DETAILS :BNF_DETAILS/DDD_UOM :UNIT_OF_MEASURE/DESC])))
-    (is (= ["mg" "mg"] (map #(get-in % [:VPI/STRNT_NMRTR_UOM :UNIT_OF_MEASURE/DESC]) (:VMP/INGREDIENTS co-amilofruse-vmp-2))))
+    (is (= #{318136009} (set (dmd/vpids-from-atc st "C03"))))
+    (is (= ["mg" "mg"] (map #(get-in % [:VMP__VIRTUAL_PRODUCT_INGREDIENT/STRNT_NMRTR_UOM :UNIT_OF_MEASURE/DESC]) (:VMP/VIRTUAL_PRODUCT_INGREDIENTS co-amilofruse-vmp-2))))
     (= #{318136009 318135008} (set (map :PRODUCT/ID (dmd/vmps-for-product st 34186711000001102))))
     (= 34186711000001102 (:PRODUCT/ID (first (dmd/vtms-for-product st 387516008))))
     (.close st)))
 
 (comment
   (run-tests)
-  (import-validation)
   (def st (create-and-open-store))
-  (st2/metadata st)
   (dmd/fetch-product st 34186711000001102)
   (dmd/amps-for-product st 34186711000001102)
   (dmd/vtms-for-product st 37365811000001102)
-  (dmd/atc-for-product st 34186711000001102)
-  (d/q '[:find (pull ?e [*])
-         :where
-         [?e :PRODUCT/TYPE :AMPP]] (d/db (.-conn st)))
-
-  (st2/parse (first (dim/get-component (io/resource dir) :BNF :VMPS))))
+  (dmd/atc-for-product st 34186711000001102))
 
