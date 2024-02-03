@@ -5,7 +5,8 @@
             [com.eldrix.dmd.import :as dim]
             [com.eldrix.dmd.store4 :as st4]
             [clojure.string :as str]
-            [com.eldrix.trud.core :as trud])
+            [com.eldrix.trud.core :as trud]
+            [next.jdbc :as jdbc])
   (:import (java.time.format DateTimeFormatter)))
 
 (defn install-from-dirs
@@ -61,44 +62,46 @@
   [conn atc]
   (st4/vmps-from-atc conn atc))
 
-#_(defn products-from-atc
-    "Returns a sequence of products matching the ATC code.
+(defn ^:deprecated products-from-atc
+  "Returns a sequence of products matching the ATC code.
   Parameters:
-  - store         : DmdStore
-  - atc           : atc regexp
+  - conn          :
+  - atc           : atc code / prefix
   - product-types : a set of product types (e.g. #{:VTM :VMP :AMP :VMPP :AMPP}).
 
   By default only VTM VMP and AMP products will be returned."
-    ([^DmdStore store atc]
-     (products-from-atc store atc #{:VTM :VMP :AMP}))
-    ([^DmdStore store atc product-types]
-     (let [atc' (if (string? atc) (re-pattern atc) atc)]
-       (st2/results-for-eids store (st2/product-eids-from-atc store atc' product-types)))))
+  ([conn atc]
+   (products-from-atc conn atc #{:VTM :VMP :AMP}))
+  ([conn atc product-types]
+   (map #(st4/fetch-product conn %) (st4/product-ids-from-atc conn atc product-types))))
 
-#_(defn atc->snomed-ecl
-    "Create a SNOMED CT ECL expression from the ATC pattern specified, returning
-  an expression that will return VTMs, VMPs and AMPs. "
-    [^DmdStore store atc]
-    (st2/atc->ecl store (if (string? atc) (re-pattern atc) atc)))
+(defn ^:deprecated atc->snomed-ecl
+  "Create a SNOMED CT ECL expression from the ATC pattern specified, returning
+  an expression that will return VTMs, VMPs and AMPs.
+  Prefer to use atc->products-for-ecl that can use SNOMED CT drug extension
+  to optimise the creation of the appropriate ECL expression."
+  [conn atc]
+  (st4/atc->ecl conn atc))
 
-#_(defn atc->products-for-ecl
-    "Return a map of products that can be used to build a more complete SNOMED CT
+(defn atc->products-for-ecl
+  "Return a map of products that can be used to build a more complete SNOMED CT
   ECL expression that will include all matching UK products. We have to do it
   this way because TF products are not included in the UK dm+d distribution."
-    [^DmdStore store atc]
-    (st2/atc->products-for-ecl store atc))
+  [conn atc]
+  (st4/atc->products-for-ecl conn atc))
 
-#_(defn vmps-for-product [^DmdStore store id]
-    (when-let [product (fetch-product store id)]
-      (st2/results-for-eids store (st2/vmps store product))))
 
-#_(defn amps-for-product [^DmdStore store id]
-    (when-let [product (fetch-product store id)]
-      (st2/results-for-eids store (st2/amps store product))))
+(defn vmps-for-product [conn id]
+  (->> (st4/vpids conn id)
+       (map #(st4/fetch-vmp conn %))))
 
-#_(defn vtms-for-product [^DmdStore store id]
-    (when-let [product (fetch-product store id)]
-      (st2/results-for-eids store (st2/vtms store product))))
+(defn amps-for-product [conn id]
+  (->> (st4/apids conn id)
+       (map #(st4/fetch-amp conn %))))
+
+(defn vtms-for-product [conn id]
+  (->> (st4/vtmids conn id)
+       (map #(st4/fetch-vtm conn %))))
 
 #_(defn atc-for-product [^DmdStore store id]
     (when-let [product (st2/fetch-product store id)]

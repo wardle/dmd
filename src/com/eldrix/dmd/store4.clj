@@ -3,6 +3,7 @@
   (:require [clojure.core.async :as async]
             [clojure.java.io :as io]
             [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [com.eldrix.dmd.import :as dim]
             [honey.sql :as sql]
@@ -320,10 +321,12 @@
 (defn fetch-all-lookup [conn lookup]
   (jdbc/execute! conn [(str "select CD,DESC from " (name lookup))]))
 
-(defn fetch-vtm
+(defn fetch-vtm*
   [conn vtmid]
-  (when-let [vtm (jdbc/execute-one! conn ["select * from vtm where vtmid=?" vtmid])]
-    (assoc vtm :TYPE "VTM")))
+  (some-> (jdbc/execute-one! conn ["select * from vtm where vtmid=?" vtmid])
+          (assoc :TYPE "VTM")))
+
+(def fetch-vtm fetch-vtm*)
 
 (defn fetch-ingredient
   [conn isid]
@@ -359,6 +362,11 @@
   (when-let [{:VMP__CONTROL_DRUG_INFO/keys [CATCD] :as cdi} (jdbc/execute-one! conn ["select * from VMP__CONTROL_DRUG_INFO where vpid=?" vpid])]
     (assoc cdi :VMP__CONTROL_DRUG_INFO/CAT (fetch-lookup conn :CONTROL_DRUG_CATEGORY CATCD))))
 
+(defn fetch-vmp*
+  [conn vpid]
+  (some-> (jdbc/execute-one! conn ["select * from vmp where vpid=?" vpid])
+          (assoc :TYPE "VMP")))
+
 (defn fetch-vmp
   [conn vpid]
   (when-let [{:VMP/keys [VTMID BASISCD DF_INDCD] :as vmp} (jdbc/execute-one! conn ["select * from vmp where vpid=?" vpid])]
@@ -373,6 +381,11 @@
       :VMP/DRUG_ROUTES (fetch-vmp-drug-routes conn vpid)    ;; to-many
       :VMP/CONTROL_DRUG_INFO (fetch-vmp-control-drug-info conn vpid)))) ;;to-one
 
+(defn fetch-vmpp*
+  [conn vppid]
+  (some-> (jdbc/execute-one! conn ["select * from vmpp where vppid=?" vppid])
+          (assoc :TYPE "VMPP")))
+
 (defn fetch-vmpp
   [conn vppid]
   (when-let [{:VMPP/keys [VPID COMBPACKCD QTY_UOMCD] :as vmpp}
@@ -382,6 +395,12 @@
       :VMPP/VP (fetch-vmp conn VPID)
       :VMPP/QTY_UOM (fetch-lookup conn :UNIT_OF_MEASURE QTY_UOMCD)
       :VMPP/COMBPACK (fetch-lookup conn :COMBINATION_PACK_IND COMBPACKCD))))
+
+(defn fetch-amp*
+  [conn apid]
+  (some-> (jdbc/execute-one! conn ["select * from amp where apid=?" apid])
+          (assoc :TYPE "AMP")))
+
 
 (defn fetch-amp
   [conn apid]
@@ -414,6 +433,17 @@
       (fetch-vmpp conn id)
       (fetch-ampp conn id)))
 
+(defn product-type
+  [conn id]
+  (keyword
+    (:type
+      (or
+        (jdbc/execute-one! conn ["select 'VTM' as type,vtmid from vtm where vtmid=?" id])
+        (jdbc/execute-one! conn ["select 'VMP' as type,vpid from vmp where vpid=?" id])
+        (jdbc/execute-one! conn ["select 'AMP' as type,apid from amp where apid=?" id])
+        (jdbc/execute-one! conn ["select 'VMPP' as type,vppid from vmpp where vppid=?" id])
+        (jdbc/execute-one! conn ["select 'AMPP' as type,appid from ampp where appid=?" id])))))
+
 (defn fetch-product-by-exact-name
   "Return a single product with the given exact name"
   [conn s]
@@ -428,6 +458,15 @@
   [conn atc]
   (into [] (map :VPID)
         (jdbc/plan conn ["select vpid from bnf__vmps where atc like ?" (str atc "%")])))
+
+(defn vpids-from-atc-wo-vtms
+  "Returns a vector of VPIDs matching the given ATC code/prefix that do not
+  have an associated VTM. This is only useful when constructing SNOMED ECL
+  expressions that use a combination of VTMs, VMPs and TFs, and therefore do
+  not need VMPs unless there is no associated VTM."
+  [conn atc]
+  (into [] (map :VPID)
+        (jdbc/plan conn ["select vpid from vmp where vtmid is null and vpid in (select vpid from bnf__vmps where atc like ?)" (str atc "%")])))
 
 (defn ^:deprecated vmps-from-atc
   "Return VMPs matching the given ATC code as a prefix"
@@ -444,7 +483,7 @@
 (defn vtmids-for-vpids
   "Return VTMIDs for the given VPIDs."
   [conn vpids]
-  (into [] (map :VTMID)
+  (into [] (comp (map :VTMID) (remove nil?))
         (jdbc/plan conn (sql/format {:select :vtmid :from :vmp :where [:in :vpid vpids]}))))
 
 (defn vppids-for-vpids
@@ -467,7 +506,7 @@
   "Return VPIDs for the given APIDs."
   [conn apids]
   (into [] (map :VPID)
-        (jdbc/plan conn (sql/format {:select :apid :from :vmp :where [:in :apid apids]}))))
+        (jdbc/plan conn (sql/format {:select :vpid :from :amp :where [:in :apid apids]}))))
 
 (defn appids-for-apids
   [conn apids]
@@ -479,11 +518,91 @@
   (into [] (map :APID)
         (jdbc/plan conn (sql/format {:select :apid :from :ampp :where [:in :appid appids]}))))
 
+(defn appids-for-vppids
+  [conn vppids]
+  (into [] (map :APPID)
+        (jdbc/plan conn (sql/format {:select :appid :from :ampp :where [:in :vppid vppids]}))))
+
+(defn vppids-for-appids
+  [conn appids]
+  (into [] (map :VPPID)
+        (jdbc/plan conn (sql/format {:select :vppid :from :ampp :where [:in :appid appids]}))))
+
+(defn vpids
+  "Return VMP ids for the given product."
+  [conn id]
+  (case (product-type conn id)
+    :VTM (vpids-for-vtmids conn [id])
+    :VMP [id]
+    :VMPP (vpids-for-vmpps conn [id])
+    :AMP (vpids-for-apids conn [id])
+    :AMPP (vpids-for-apids conn (apids-for-appids conn [id]))
+    nil))
+
+(defn vtmids
+  "Return VTM ids for the given product."
+  [conn id]
+  (case (product-type conn id)
+    :VTM [id]
+    :VMP (vtmids-for-vpids conn [id])
+    :VMPP (vtmids-for-vpids conn (vpids-for-vmpps conn [id]))
+    :AMP (vtmids-for-vpids conn (vpids-for-apids conn [id]))
+    :AMPP (vtmids-for-vpids conn (apids-for-appids conn [id]))
+    nil))
+
+(defn apids
+  "Return AMP ids for the given product."
+  [conn id]
+  (case (product-type conn id)
+    :VTM (apids-for-vpids conn (vpids-for-vtmids conn [id]))
+    :VMP (apids-for-vpids conn [id])
+    :VMPP (apids-for-vpids conn (vpids-for-apids conn [id]))
+    :AMP [id]
+    :AMPP (apids-for-appids conn [id])
+    nil))
+
+(defn vppids
+  "Return VMPP ids for the given product."
+  [conn id]
+  (case (product-type conn id)
+    :VTM (vppids-for-vpids conn (vpids-for-vtmids conn [id]))
+    :VMP (vppids-for-vpids conn [id])
+    :VMPP [id]
+    :AMP (vppids-for-vpids conn (vpids-for-apids conn [id]))
+    :AMPP (vppids-for-appids conn [id])
+    nil))
+
+(defn appids
+  "Return AMPP ids for the given product."
+  [conn id]
+  (case (product-type conn id)
+    :VTM (appids-for-apids conn (apids-for-vpids conn (vpids-for-vtmids conn [id])))
+    :VMP (appids-for-apids conn (apids-for-vpids conn [id]))
+    :VMPP (appids-for-vppids conn [id])
+    :AMP (appids-for-apids conn [id])
+    :AMPP [id]
+    nil))
+
+(defn atc-code-for-vpids
+  [conn vpids]
+  (:BNF__VMPS/ATC (jdbc/execute-one! conn (sql/format {:select :atc :from :BNF__VMPS :where [:and [:<> :atc nil] [:in :vpid vpids]] :limit 1}))))
+
+(defn atc-code
+  "Return the ATC code for the product specified."
+  [conn id]
+  (case (product-type conn id)
+    :VTM (atc-code-for-vpids conn (vpids-for-vtmids conn [id]))
+    :VMP (:BNF__VMPS/ATC (jdbc/execute-one! conn ["select ATC from BNF__VMPS where VPID=?" id]))
+    :AMP (atc-code-for-vpids conn (vpids-for-apids conn [id]))
+    :VMPP (atc-code-for-vpids conn (vpids-for-vmpps conn [id]))
+    :AMPP (atc-code-for-vpids conn (vpids-for-apids conn (apids-for-appids conn [id])))
+    nil))
+
 (def supported-product-types-for-atc-map
   #{:VTM :VMP :AMP :VMPP :AMPP})
 
 (defn product-ids-from-atc
-  "Returns a lazy sequence of product ids matching the ATC code"
+  "Return a lazy sequence of product ids matching the ATC code"
   ([conn atc]
    (product-ids-from-atc conn atc supported-product-types-for-atc-map))
   ([conn atc product-types]
@@ -499,6 +618,55 @@
              (when (product-types :AMP) apids)
              vppids
              appids))))
+
+(defn atc->products-for-ecl
+  "Returns a map containing product type as key and a sequence of product
+  identifiers as each value, designed for building an ECL expression.
+
+  As the child relationships of a VTM include all VMPs and AMPs, we do not have
+  to include VMPs or AMPs unless there is no VTM for a given VMP. As such, VMPs
+  are only returned iff there is no associated VTM. However, all AMPs are
+  returned as it is likely that those will be needed in order to derive a list
+  of TF products. It is sadly the case that the stock dm+d does not include TF
+  products, while the SNOMED drug extension does include those products."
+  [conn atc]
+  (let [vpids (vpids-from-atc conn atc)]
+    {:VTM (vtmids-for-vpids conn vpids)
+     :VMP (vpids-from-atc-wo-vtms conn atc)
+     :AMP (apids-for-vpids conn vpids)}))
+
+(defn atc->ecl
+  "Convert an ATC code regexp into a SNOMED CT expression that will identify all
+  dm+d products relating to that code. It is almost always better to build an
+  ECL expression using `atc->products-for-ecl` rather than this function.
+
+  Not all VMPs have a VTM, but a given VTM will subsume all VTMs, VMPs and AMPs
+  in the SNOMED drug model.
+
+  Unfortunately, while the UK SNOMED drug extension includes trade family
+  entities, dm+d does not. This is unfortunate. In order to identify the TF
+  concept for any given AMP, we can use an ECL expression of the form
+  (>'amp-concept-id' AND <9191801000001103|Trade Family|) to identify parent
+  concepts in the hierarchy up to and not including the TF concept itself.
+  However, this can result in a very long expression indeed. If you need to
+  build an ECL expression that includes TF, this is better done within the
+  context of the SNOMED drug extension. You can use 'atc->products-for-ecl'
+  to help build that ECL expression.
+
+  It would not be usual to want to include VMPP or AMPP, but you can include
+  if required. All AMPPs are subsumed by VMPPs, so we simply add clauses to
+  include VMPPs and descendants for each VMP using the 'Has VMP' relationship."
+  [conn atc & {:keys [include-tf? include-product-packs?] :or {include-tf? false include-product-packs? false}}]
+  (let [vmps (map #(str "<<" %) (vpids-from-atc-wo-vtms conn atc)) ;; this will only include VMPs without a VTM
+        vpids (vpids-from-atc conn atc)
+        vtms (map #(str "<<" %) (vtmids-for-vpids conn vpids))
+        apids (apids-for-vpids conn vpids)
+        ;; for TFs, we ask for Trade family children that are parents of each AMP:
+        ;; one can build a much more optimised clause here if you have access to SNOMED drug extension
+        tfs (when include-tf? (map (fn [apid] (str "<<(>" apid " AND <9191801000001103)")) apids))
+        ;; for product-packs, we ask for UK products that 'Has VMP' of all VMPs we matched:
+        pp (when include-product-packs? (map (fn [vpid] (str "<<(<8653601000001108:10362601000001103=" vpid ")")) vpids))]
+    (str/join " OR " (concat vmps vtms tfs pp))))
 
 (comment
   (def conn (jdbc/get-connection "jdbc:sqlite:wibble.db"))
