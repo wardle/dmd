@@ -348,7 +348,7 @@
 (defn fetch-vmp-drug-form
   [conn vpid]
   (when-let [{:VMP__DRUG_FORM/keys [FORMCD] :as df} (jdbc/execute-one! conn ["select * from vmp__drug_form where vpid=?" vpid])]
-    (fetch-lookup conn :FORM FORMCD))) ;; flatten the relationship directly
+    (fetch-lookup conn :FORM FORMCD)))                      ;; flatten the relationship directly
 
 (defn fetch-vmp-drug-routes
   [conn vpid]
