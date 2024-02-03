@@ -639,10 +639,11 @@
   of TF products. It is sadly the case that the stock dm+d does not include TF
   products, while the SNOMED drug extension does include those products."
   [conn atc]
-  (let [vpids (vpids-from-atc conn atc)]
+  (let [vpids (vpids-from-atc conn atc)
+        vpids' (vpids-from-atc-wo-vtms conn atc)]
     {:VTM (vtmids-for-vpids conn vpids)
-     :VMP (vpids-from-atc-wo-vtms conn atc)
-     :AMP (apids-for-vpids conn vpids)}))
+     :VMP vpids'
+     :AMP (apids-for-vpids conn vpids')}))
 
 (defn atc->ecl
   "Convert an ATC code regexp into a SNOMED CT expression that will identify all
@@ -668,7 +669,7 @@
   [conn atc & {:keys [include-tf? include-product-packs?] :or {include-tf? false include-product-packs? false}}]
   (let [vmps (map #(str "<<" %) (vpids-from-atc-wo-vtms conn atc)) ;; this will only include VMPs without a VTM
         vpids (vpids-from-atc conn atc)
-        vtms (map #(str "<<" %) (set (vtmids-for-vpids conn vpids)))
+        vtms (map #(str "<<" %) (vtmids-for-vpids conn vpids))
         apids (apids-for-vpids conn vpids)
         ;; for TFs, we ask for Trade family children that are parents of each AMP:
         ;; one can build a much more optimised clause here if you have access to SNOMED drug extension
