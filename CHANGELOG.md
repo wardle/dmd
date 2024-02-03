@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# v1.0.??? - not yet released
+
+* Switch to using SQLite for backing store
+
 # v0.6.141 - 2022-05-11
 
 * New API endpoint to search for a product by exact name
