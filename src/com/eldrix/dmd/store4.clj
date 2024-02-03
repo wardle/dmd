@@ -125,15 +125,17 @@
     :insert "insert into INGREDIENT(ISID,NM) VALUES (?, ?) ON CONFLICT(ISID) DO UPDATE SET NM=excluded.NM"
     :data   (juxt :ISID :NM)}
    {:id     [:VTM :VTM]
-    :create "create table VTM (VTMID integer primary key, NM text, VTMIDPREV integer, VTMIDDT text)"
-    :insert "insert into VTM(VTMID, NM, VTMIDPREV, VTMIDDT) VALUES (?, ?, ?, ?) ON CONFLICT(VTMID) DO UPDATE SET NM=excluded.NM, VTMIDPREV=excluded.VTMIDPREV, VTMIDDT=excluded.VTMIDDT"
-    :data   (juxt :VTMID :NM :VTMIDPREV :VTMIDDT)}
+    :create "create table VTM (VTMID integer primary key, INVALID boolean, NM text, ABBREVNM text, VTMIDPREV integer, VTMIDDT text)"
+    :insert "insert into VTM(VTMID, INVALID, NM, ABBREVNM, VTMIDPREV, VTMIDDT) VALUES (?,?,?,?,?,?)"
+    :data   (juxt :VTMID :INVALID :NM :ABBREVNM :VTMIDPREV :VTMIDDT)}
    {:id     [:VMP :VMP]
-    :create "create table VMP (VPID integer primary key, VTMID integer, NM text, BASISCD integer, PRES_STATCD integer, GLU_F boolean, DF_INDCD integer,
-             foreign key (VTMID) references VTM(VTMID), foreign key(BASISCD) references BASIS_OF_NAME(CD), foreign key(PRES_STATCD) references VIRTUAL_PRODUCT_PRES_STATUS(CD))"
-    :insert "insert into VMP(VPID, VTMID, NM, BASISCD, PRES_STATCD, GLU_F, DF_INDCD) VALUES (?, ?, ?, ?, ?, ?,?)
-             ON CONFLICT(VPID) DO UPDATE SET NM=excluded.NM, BASISCD=excluded.BASISCD, PRES_STATCD=excluded.PRES_STATCD, GLU_F=excluded.GLU_F, DF_INDCD=excluded.DF_INDCD"
-    :data   (juxt :VPID :VTMID :NM :BASISCD :PRES_STATCD :GLU_F :DF_INDCD)}
+    :create "create table VMP (VPID integer primary key, INVALID boolean, VTMID integer, NM text, BASISCD integer, PRES_STATCD integer, SUG_F boolean, GLU_F boolean, PRES_F boolean, CFC_F boolean,
+             NON_AVAILCD integer, DF_INDCD integer, UDFS text, UDFS_UOMCD integer, UNIT_DOSE_UOMCD,
+             foreign key (VTMID) references VTM(VTMID), foreign key(BASISCD) references BASIS_OF_NAME(CD), foreign key(PRES_STATCD) references VIRTUAL_PRODUCT_PRES_STATUS(CD),
+             foreign key (NON_AVAILCD) references VIRTUAL_PRODUCT_NON_AVAIL(CD), foreign key (DF_INDCD) references DF_INDICATOR(CD),
+             foreign key (UDFS_UOMCD) references UNIT_OF_MEASURE(CD), foreign key(UNIT_DOSE_UOMCD) references UNIT_OF_MEASURE(CD))"
+    :insert "insert into VMP(VPID, INVALID, VTMID, NM, BASISCD, PRES_STATCD, SUG_F, GLU_F, PRES_F, CFC_F, NON_AVAILCD, DF_INDCD, UDFS, UDFS_UOMCD, UNIT_DOSE_UOMCD) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    :data   (juxt :VPID :INVALID :VTMID :NM :BASISCD :PRES_STATCD :SUG_F :GLU_F :PRES_F :CFC_F :NON_AVAILCD :DF_INDCD :UDFS :UDFS_UOMCD :UNIT_DOSE_UOMCD)}
    {:id     [:VMP :VIRTUAL_PRODUCT_INGREDIENT]
     :create "create table VMP__VIRTUAL_PRODUCT_INGREDIENT (VPID integer, ISID integer, BASIS_STRNTCD integer, STRNT_NMRTR_VAL real, STRNT_NMRTR_UOMCD integer,
              foreign key(VPID) REFERENCES VMP(VPID),foreign key(ISID) REFERENCES INGREDIENT(ISID),
@@ -160,9 +162,13 @@
     :create "create table AMP (APID integer primary key, VPID integer, NM text, DESC text, SUPPCD integer, LIC_AUTHCD integer, AVAIL_RESTRICTCD integer,
              FOREIGN KEY(VPID) REFERENCES VMP(VPID), FOREIGN KEY(SUPPCD) REFERENCES SUPPLIER(CD),
              FOREIGN KEY(LIC_AUTHCD) REFERENCES LICENSING_AUTHORITY(CD), FOREIGN KEY(AVAIL_RESTRICTCD) REFERENCES AVAILABILITY_RESTRICTION(CD))"
-    :insert "insert into AMP(APID, VPID, NM, DESC, SUPPCD, LIC_AUTHCD, AVAIL_RESTRICTCD) VALUES (?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(APID) DO UPDATE SET VPID=excluded.VPID, NM=excluded.NM, DESC=excluded.DESC, SUPPCD=excluded.SUPPCD, LIC_AUTHCD=excluded.LIC_AUTHCD, AVAIL_RESTRICTCD=excluded.AVAIL_RESTRICTCD"
+    :insert "insert into AMP(APID, VPID, NM, DESC, SUPPCD, LIC_AUTHCD, AVAIL_RESTRICTCD) VALUES (?, ?, ?, ?, ?, ?, ?)"
     :data   (juxt :APID :VPID :NM :DESC :SUPPCD :LIC_AUTHCD :AVAIL_RESTRICTCD)}
+   {:id     [:AMP :AP_INGREDIENT]                           ;; excipients
+    :create "create table AMP__AP_INGREDIENT (APID integer, ISID integer, STRNTH text, UOMCD integer,
+             foreign key(APID) references AMP(APID), foreign key(ISID) references INGREDIENT(ISID), foreign key(UOMCD) references UNIT_OF_MEASURE(CD))"
+    :insert "insert into AMP__AP_INGREDIENT(APID, ISID, STRNTH, UOMCD) values (?, ?, ?, ?)"
+    :data   (juxt :APID :ISID, :STRNTH, :UOMCD)}
    {:id     [:AMP :LICENSED_ROUTE]
     :create "create table AMP__LICENSED_ROUTE (APID integer, ROUTECD integer, foreign key(APID) REFERENCES AMP(APID), FOREIGN KEY(ROUTECD) REFERENCES ROUTE(CD))"
     :insert "insert into AMP__LICENSED_ROUTE(APID, ROUTECD) VALUES (?, ?)"
@@ -175,8 +181,7 @@
     :create "create table VMPP (VPPID integer primary key, INVALID integer, NM text, VPID integer, QTYVAL text, QTY_UOMCD integer, COMBPACKCD integer,
              foreign key(VPID) REFERENCES VMP(VPID), foreign key(QTY_UOMCD) REFERENCES UNIT_OF_MEASURE(CD),
              FOREIGN KEY(COMBPACKCD) REFERENCES COMBINATION_PACK_IND(CD))"
-    :insert "insert into VMPP(VPPID, NM, VPID, QTYVAL, QTY_UOMCD) VALUES (?, ?, ?, ?, ?)
-             ON CONFLICT(VPPID) DO UPDATE SET NM=excluded.NM, VPID=excluded.VPID, QTYVAL=excluded.QTYVAL, QTY_UOMCD=excluded.QTY_UOMCD"
+    :insert "insert into VMPP(VPPID, NM, VPID, QTYVAL, QTY_UOMCD) VALUES (?, ?, ?, ?, ?)"
     :data   (juxt :VPPID :NM :VPID :QTYVAL :QTY_UOMCD)}
    {:id     [:VMPP :DRUG_TARIFF_INFO]
     :create "create table VMPP__DRUG_TARIFF_INFO (VPPID integer, PAY_CATCD integer, PRICE text, DT text, PREVPRICE text,
@@ -195,9 +200,7 @@
              foreign key(VPPID) REFERENCES VMPP(VPPID), foreign key(APID) REFERENCES AMP(APID),
              FOREIGN KEY(COMBPACKCD) REFERENCES COMBINATION_PACK_IND(CD), foreign key(LEGAL_CATCD) REFERENCES LEGAL_CATEGORY(CD),
              foreign key(DISCCD) REFERENCES DISCONTINUED_IND(CD))"
-    :insert "insert into AMPP(APPID, INVALID, NM, ABBREVNM, VPPID, APID, COMBPACKCD, LEGAL_CATCD, SUBP, DISCCD) VALUES (?, ?, ?, ?, ?, ?, ?,?,?,?)
-             ON CONFLICT(APPID) DO UPDATE SET INVALID=excluded.INVALID, NM=excluded.NM, ABBREVNM=excluded.ABBREVNM, VPPID=excluded.VPPID, APID=excluded.APID,
-             COMBPACKCD=excluded.COMBPACKCD, LEGAL_CATCD=excluded.LEGAL_CATCD, SUBP=excluded.SUBP, DISCCD=excluded.DISCCD"
+    :insert "insert into AMPP(APPID, INVALID, NM, ABBREVNM, VPPID, APID, COMBPACKCD, LEGAL_CATCD, SUBP, DISCCD) VALUES (?, ?, ?, ?, ?, ?, ?,?,?,?)"
     :data   (juxt :APPID :INVALID :NM :ABBREVNM :VPPID :APID :COMBPACKCD :LEGAL_CATCD :SUBP :DISCCD)}
    {:id     [:AMPP :APPLIANCE_PACK_INFO]
     :create "create table AMPP__APPLIANCE_PACK_INFO (APPID integer, REIMB_STATCD integer, REIMB_STATDT text, REIMB_STATPREVCD integer, PACK_ORDER_NO integer,
@@ -303,7 +306,7 @@
                 (jdbc/execute-batch! txn stmt data {})))
             (recur (async/<!! ch), (into all-errors errors)))))
       (catch Exception e
-        (log/error (ex-message e))
+        (log/warn (ex-message e))
         {:errors e}))))
 
 
@@ -345,7 +348,7 @@
 (defn fetch-vmp-drug-form
   [conn vpid]
   (when-let [{:VMP__DRUG_FORM/keys [FORMCD] :as df} (jdbc/execute-one! conn ["select * from vmp__drug_form where vpid=?" vpid])]
-    (assoc df :VMP__DRUG_FORM/FORM (fetch-lookup conn :FORM FORMCD))))
+    (fetch-lookup conn :FORM FORMCD))) ;; flatten the relationship directly
 
 (defn fetch-vmp-drug-routes
   [conn vpid]
@@ -358,6 +361,10 @@
   (when-let [{:VMP__CONTROL_DRUG_INFO/keys [CATCD] :as cdi} (jdbc/execute-one! conn ["select * from VMP__CONTROL_DRUG_INFO where vpid=?" vpid])]
     (assoc cdi :VMP__CONTROL_DRUG_INFO/CAT (fetch-lookup conn :CONTROL_DRUG_CATEGORY CATCD))))
 
+(defn fetch-vmp-bnf-details
+  [conn vpid]
+  (jdbc/execute-one! conn ["select * from BNF__VMPS where vpid=?" vpid]))
+
 (defn fetch-vmp*
   [conn vpid]
   (some-> (jdbc/execute-one! conn ["select * from vmp where vpid=?" vpid])
@@ -365,17 +372,23 @@
 
 (defn fetch-vmp
   [conn vpid]
-  (when-let [{:VMP/keys [VTMID BASISCD DF_INDCD] :as vmp} (jdbc/execute-one! conn ["select * from vmp where vpid=?" vpid])]
+  (when-let [{:VMP/keys [VTMID BASISCD COMBPRODCD PRES_STATCD DF_INDCD NON_AVAILCD UDFS_UOMCD UNIT_DOSE_UOMCD] :as vmp} (jdbc/execute-one! conn ["select * from vmp where vpid=?" vpid])]
     (assoc vmp
       :TYPE "VMP"
       :VMP/VTM (fetch-vtm conn VTMID)                       ;; to-one
       :VMP/BASIS (fetch-lookup conn :BASIS_OF_NAME BASISCD) ;; to-one
+      :VMP/COMBPROD (fetch-lookup conn :COMBINATION_PROD_IND COMBPRODCD)
+      :VMP/PRES_STAT (fetch-lookup conn :VIRTUAL_PRODUCT_PRES_STATUS PRES_STATCD)
+      :VMP/NON_AVAIL (fetch-lookup conn :VIRTUAL_PRODUCT_NON_AVAIL NON_AVAILCD)
+      :VMP/UDFS_UOM (fetch-lookup conn :UNIT_OF_MEASURE UDFS_UOMCD)
+      :VMP/UNIT_DOSE_UOM (fetch-lookup conn :UNIT_OF_MEASURE UNIT_DOSE_UOMCD)
       :VMP/DF_IND (fetch-lookup conn :DF_INDICATOR DF_INDCD) ;; to-one
       :VMP/VIRTUAL_PRODUCT_INGREDIENTS (fetch-vmp-ingredients conn vpid) ;; to-many
       :VMP/ONT_DRUG_FORMS (fetch-vmp-ont-drug-forms conn vpid) ;; to-many
       :VMP/DRUG_FORM (fetch-vmp-drug-form conn vpid)        ;; to-one
       :VMP/DRUG_ROUTES (fetch-vmp-drug-routes conn vpid)    ;; to-many
-      :VMP/CONTROL_DRUG_INFO (fetch-vmp-control-drug-info conn vpid)))) ;;to-one
+      :VMP/CONTROL_DRUG_INFO (fetch-vmp-control-drug-info conn vpid)
+      :VMP/BNF_DETAILS (fetch-vmp-bnf-details conn vpid)))) ;;to-one
 
 (defn fetch-vmpp*
   [conn vppid]

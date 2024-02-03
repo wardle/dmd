@@ -59,8 +59,13 @@
   (st4/fetch-all-lookup conn lookup-kind))
 
 (defn ^:deprecated vmps-from-atc
+  "DEPRECATED: use [[vpids-from-atc]] instead."
   [conn atc]
   (st4/vmps-from-atc conn atc))
+
+(defn vpids-from-atc
+  [conn atc]
+  (st4/vpids-from-atc conn atc))
 
 (defn ^:deprecated products-from-atc
   "Returns a sequence of products matching the ATC code.
@@ -107,8 +112,8 @@
 
 (comment
   (install-latest "/Users/mark/Dev/trud/api-key.txt" "/Users/mark/Dev/trud/cache/tmp/trud")
-
-  (def store (open-store "dmd-2023-04-24.db"))
+  (def conn (open-store "dmd-2024-01-29.db"))
+  ()
   (.close store)
   (def vtm (fetch-product store 774557006))
   (fetch-product-by-exact-name store "Amlodipine")
