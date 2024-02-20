@@ -5,8 +5,7 @@
             [com.eldrix.dmd.import :as dim]
             [com.eldrix.dmd.store4 :as st4]
             [clojure.string :as str]
-            [com.eldrix.trud.core :as trud]
-            [next.jdbc :as jdbc])
+            [com.eldrix.trud.core :as trud])
   (:import (java.time.format DateTimeFormatter)))
 
 (defn install-from-dirs
@@ -26,8 +25,10 @@
 (defn install-release
   "Create a versioned dm+d file-based database by downloading the dm+d
   distributions automatically from NHS Digital's TRUD service."
-  ([api-key-file cache-dir] (install-release api-key-file cache-dir nil nil))
-  ([api-key-file cache-dir filename] (install-release api-key-file cache-dir filename nil))
+  ([api-key-file cache-dir]
+   (install-release api-key-file cache-dir nil nil))
+  ([api-key-file cache-dir filename]
+   (install-release api-key-file cache-dir filename nil))
   ([api-key-file cache-dir filename release-date]
    (let [api-key (str/trim-newline (slurp api-key-file))
          releases (dl/download-release api-key cache-dir release-date)
@@ -114,12 +115,12 @@
   (install-latest "/Users/mark/Dev/trud/api-key.txt" "/Users/mark/Dev/trud/cache/tmp/trud")
   (def conn (open-store "dmd-2024-01-29.db"))
   ()
-  (.close store)
-  (def vtm (fetch-product store 774557006))
-  (fetch-product-by-exact-name store "Amlodipine")
+  (.close conn)
+  (def vtm (fetch-product conn 774557006))
+  (fetch-product-by-exact-name conn "Amlodipine")
   vtm
-  (vmps-for-product store 774557006)
-  (time (atc-for-product store 20428411000001100))
+  (vmps-for-product conn 774557006)
+  (time (atc-for-product conn 20428411000001100))
 
   (dim/dmd-file-seq "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud16249114005046941653")
 

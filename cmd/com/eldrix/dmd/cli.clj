@@ -13,7 +13,8 @@
    ["-p" "--port PORT" "Port to use"]
    ["-h" "--help"]])
 
-(defn usage [options-summary]
+(defn usage
+  [options-summary]
   (->> ["Usage: clj -M:run <command> [options]"
         "  (or java -jar dmd.jar <command> [options])"
         "Commands:"
@@ -31,7 +32,8 @@
   (println msg)
   (System/exit status))
 
-(defn download [{:keys [api-key cache-dir db]} [release-date]]
+(defn download
+  [{:keys [api-key cache-dir db]} [release-date]]
   (cond
     (not api-key)
     (exit 1 "Missing api-key. You must provide a path to a file containing TRUD api key")
@@ -40,14 +42,16 @@
     :else
     (dmd/install-release api-key cache-dir db release-date)))
 
-(defn list-available [{:keys [api-key]}]
+(defn list-available
+  [{:keys [api-key]}]
   (cond
     (not api-key)
     (exit 1 "Missing api-key. You must provide a path to a file containing TRUD api key")
     :else
     (dmd/print-available-releases (str/trim-newline (slurp api-key)))))
 
-(defn install [{:keys [db]} params]
+(defn install
+  [{:keys [db]} params]
   (cond
     (not= (count params) 1)
     (exit 1 "You must specify a directory from which to import.")
@@ -56,7 +60,8 @@
     :else
     (dmd/install-from-dirs db params)))
 
-(defn run-server [{:keys [db port] :or {port "8080"}}]
+(defn run-server
+  [{:keys [db port] :or {port "8080"}}]
   (if db
     (let [st (dmd/open-store db)]
       (log/info "starting server using " db " on port" port)
@@ -66,7 +71,8 @@
              (log/error "invalid port:" port))))
     (log/error "You must specify a database using --db")))
 
-(defn -main [& args]
+(defn -main
+  [& args]
   (let [{:keys [options arguments summary errors]} (cli/parse-opts args cli-options)]
     (cond
       ;; asking for help?
