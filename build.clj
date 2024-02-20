@@ -4,7 +4,7 @@
             [deps-deploy.deps-deploy :as dd]))
 
 (def lib 'com.eldrix/dmd)
-(def version (format "1.0.%s-alpha" (b/git-count-revs nil)))
+(def version (format "1.0.%s" (b/git-count-revs nil)))
 (def class-dir "target/classes")
 (def jar-basis (b/create-basis {:project "deps.edn"}))
 (def uber-basis (b/create-basis {:project "deps.edn"
