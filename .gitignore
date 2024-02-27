@@ -16,3 +16,4 @@ pom.xml.asc
 .nrepl-port
 .cpcache/
 /*.db
+.lsp/.cache/db.transit.json
