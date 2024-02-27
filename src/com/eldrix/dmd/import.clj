@@ -97,8 +97,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def ^:private property-parsers
-  {
-   ;; VTM properties
+  {;; VTM properties
    :VTMID             unsafe-parse-long
    :INVALID           parse-flag
    :VTMIDPREV         unsafe-parse-long
@@ -207,8 +206,6 @@
    :STARTDT           parse-date
    :ENDDT             parse-date})
 
-   
-
 (defn- parse-property [k v]
   (if-let [parser (get property-parsers k)]
     {k (parser v)}
@@ -274,12 +271,12 @@
         enddt (zx/xml1-> loc :GTINDATA :ENDDT zx/text)]
     (cond-> {:TYPE   [:GTIN :AMPP]
              :AMPPID (Long/parseLong (zx/xml1-> loc :AMPPID zx/text))}
-            gtin
-            (assoc :GTIN (Long/parseLong gtin))
-            startdt
-            (assoc :STARTDT (parse-date startdt))
-            enddt
-            (assoc :ENDDT (parse-date enddt)))))
+      gtin
+      (assoc :GTIN (Long/parseLong gtin))
+      startdt
+      (assoc :STARTDT (parse-date startdt))
+      enddt
+      (assoc :ENDDT (parse-date enddt)))))
 
 (defn stream-gtin
   [root ch _ close?]
@@ -344,7 +341,6 @@
         counts
         (recur (a/<!! ch)
                (update counts (:TYPE item) (fnil inc 0)))))))
-
 
 (defn ^:private cardinalities-for-product [dir product-kind product-identifier]
   (let [ch (a/chan 1 (filter #(not= (:TYPE %) [product-kind product-kind])))]
@@ -442,4 +438,4 @@
   (a/thread (stream-gtin root ch nil true))
   (a/<!! ch)
   (map clojure.pprint/print-table (cardinalities "/var/folders/w_/s108lpdd1bn84sntjbghwz3w0000gn/T/trud2465267306253668332/")))
-  
+
