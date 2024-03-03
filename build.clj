@@ -53,7 +53,6 @@
               :version   version
               :jar-file  jar-file}))
 
-
 (defn deploy
   "Deploy library to clojars.
   Environment variables CLOJARS_USERNAME and CLOJARS_PASSWORD must be set."
@@ -80,13 +79,13 @@
            :main      'com.eldrix.dmd.cli}))
 
 (defn release
-      "Deploy release to GitHub. Requires valid token in GITHUB_TOKEN environmental
+  "Deploy release to GitHub. Requires valid token in GITHUB_TOKEN environmental
        variable."
-      [_]
-      (uber nil)
-      (println "Deploying release to GitHub")
-      (gh/release-artifact {:org    "wardle"
-                            :repo   "dmd"
-                            :tag    (str "v" version)
-                            :file   uber-file
-                            :sha256 true}))
+  [_]
+  (uber nil)
+  (println "Deploying release to GitHub")
+  (gh/release-artifact {:org    "wardle"
+                        :repo   "dmd"
+                        :tag    (str "v" version)
+                        :file   uber-file
+                        :sha256 true}))

@@ -3,14 +3,12 @@
   (:gen-class)
   (:require [clojure.data.json :as json]
             [clojure.string :as str]
-            [clojure.tools.logging.readable :as log]
             [com.eldrix.dmd.core :as dmd]
             [io.pedestal.http :as http]
             [io.pedestal.http.content-negotiation :as conneg]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
-            [io.pedestal.interceptor.error :as intc-err]
-            [io.pedestal.http.route.definition.table :as table])
+            [io.pedestal.interceptor.error :as intc-err])
   (:import (java.time LocalDate)
            (java.time.format DateTimeFormatter)))
 
@@ -28,16 +26,15 @@
 (def formatters
   {LocalDate #(.format (DateTimeFormatter/ISO_DATE) %)})
 
-
 (def service-error-handler
   (intc-err/error-dispatch
-    [context err]
-    [{:exception-type :java.lang.NumberFormatException :interceptor ::fetch-product}]
-    (assoc context :response {:status 400
-                              :body   (str "Invalid parameters; invalid number: " (ex-message (:exception (ex-data err))))})
+   [context err]
+   [{:exception-type :java.lang.NumberFormatException :interceptor ::fetch-product}]
+   (assoc context :response {:status 400
+                             :body   (str "Invalid parameters; invalid number: " (ex-message (:exception (ex-data err))))})
 
-    :else
-    (assoc context :io.pedestal.interceptor.chain/error err)))
+   :else
+   (assoc context :io.pedestal.interceptor.chain/error err)))
 
 (defn transform-content
   [body content-type]
@@ -88,10 +85,10 @@
   (cond
     (map? x)
     (reduce-kv
-      (fn [result k v]
-        (if (hidden-properties k)
-          result
-          (assoc result k (hide-internals* v)))) {} x)
+     (fn [result k v]
+       (if (hidden-properties k)
+         result
+         (assoc result k (hide-internals* v)))) {} x)
     (coll? x)
     (map hide-internals* x)
     :else x))
@@ -225,17 +222,17 @@
 
 (def routes
   (route/expand-routes
-    #{["/dmd/v1/product/:product-id/vtms" :get (conj common-interceptors fetch-product-vtms)]
-      ["/dmd/v1/product/:product-id/vtm" :get (conj common-interceptors fetch-product-vtm)]
-      ["/dmd/v1/product/:product-id/vmps" :get (conj common-interceptors fetch-product-vmps)]
-      ["/dmd/v1/product/:product-id/amps" :get (conj common-interceptors fetch-product-amps)]
-      ["/dmd/v1/product/:product-id/atc" :get (conj common-interceptors fetch-product-atc)]
-      ["/dmd/v1/product/:product-id" :get (conj common-interceptors fetch-product)]
-      ["/dmd/v1/search" :get (conj common-interceptors search-product)]
-      ["/dmd/v1/lookup/:lookup-kind" :get (conj common-interceptors fetch-lookup)]
-      ["/dmd/v1/atc/:atc/vmps" :get (conj common-interceptors atc->vmps)]
-      ["/dmd/v1/atc/:atc/products" :get (conj common-interceptors atc->products)]
-      ["/dmd/v1/atc/:atc/ecl" :get (conj common-interceptors atc->ecl)]}))
+   #{["/dmd/v1/product/:product-id/vtms" :get (conj common-interceptors fetch-product-vtms)]
+     ["/dmd/v1/product/:product-id/vtm" :get (conj common-interceptors fetch-product-vtm)]
+     ["/dmd/v1/product/:product-id/vmps" :get (conj common-interceptors fetch-product-vmps)]
+     ["/dmd/v1/product/:product-id/amps" :get (conj common-interceptors fetch-product-amps)]
+     ["/dmd/v1/product/:product-id/atc" :get (conj common-interceptors fetch-product-atc)]
+     ["/dmd/v1/product/:product-id" :get (conj common-interceptors fetch-product)]
+     ["/dmd/v1/search" :get (conj common-interceptors search-product)]
+     ["/dmd/v1/lookup/:lookup-kind" :get (conj common-interceptors fetch-lookup)]
+     ["/dmd/v1/atc/:atc/vmps" :get (conj common-interceptors atc->vmps)]
+     ["/dmd/v1/atc/:atc/products" :get (conj common-interceptors atc->products)]
+     ["/dmd/v1/atc/:atc/ecl" :get (conj common-interceptors atc->ecl)]}))
 
 (defn inject-store
   "A simple interceptor to inject dm+d store 'store' into the context."

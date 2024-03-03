@@ -5,7 +5,6 @@
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)))
 
-
 (def dm+d-trud-identifier 24)
 (def dm+d-trud-supplementary-identifier 25)
 

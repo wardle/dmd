@@ -16,7 +16,6 @@
            org.xerial/sqlite-jdbc            {:mvn/version "3.45.1.0"}
            com.wsscode/pathom3               {:mvn/version "2023.08.22-alpha"}}
 
-
  :aliases {:build
            {:deps       {io.github.clojure/tools.build          {:git/tag "v0.9.6" :git/sha "8e78bcc"}
                          slipset/deps-deploy                    {:mvn/version "RELEASE"}
@@ -46,7 +45,6 @@
                           ch.qos.logback/logback-classic       {:mvn/version "1.4.14"}}
             :main-opts   ["-m" "cognitect.test-runner"]
             :exec-fn     cognitect.test-runner.api/test}
-
 
            :outdated
            {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}

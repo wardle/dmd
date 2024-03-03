@@ -10,7 +10,6 @@
             [next.jdbc :as jdbc])
   (:import (java.time LocalDate LocalDateTime)))
 
-
 (def store-version 1)
 
 (def entities
@@ -261,15 +260,14 @@
    :errors nil"
   [batch]
   (reduce-kv
-    (fn [acc entity-type batch]
-      (if-let [{:keys [insert data]} (entity-by-type entity-type)]
-        (update acc :stmts conj {:id entity-type, :stmt insert, :data (mapv data batch)})
-        (do
-          (println (str "skipping unsupported dm+d entity :" entity-type ": " (first batch)))
-          (update acc :errors conj {:error :unsupported :type entity-type}))))
-    {}
-    (group-by :TYPE batch)))
-
+   (fn [acc entity-type batch]
+     (if-let [{:keys [insert data]} (entity-by-type entity-type)]
+       (update acc :stmts conj {:id entity-type, :stmt insert, :data (mapv data batch)})
+       (do
+         (println (str "skipping unsupported dm+d entity :" entity-type ": " (first batch)))
+         (update acc :errors conj {:error :unsupported :type entity-type}))))
+   {}
+   (group-by :TYPE batch)))
 
 (comment
   (compile 'com.eldrix.dmd.sqlite))
@@ -312,7 +310,6 @@
         (log/warn (ex-message e))
         {:errors e}))))
 
-
 ;;;
 ;;;
 ;;;
@@ -339,8 +336,8 @@
   (->> (jdbc/execute! conn ["select * from VMP__VIRTUAL_PRODUCT_INGREDIENT where VPID=?" vpid])
        (map (fn [{:VMP__VIRTUAL_PRODUCT_INGREDIENT/keys [ISID BASIS_STRNTCD STRNT_NMRTR_UOMCD] :as vpi}]
               (assoc vpi :VMP__VIRTUAL_PRODUCT_INGREDIENT/IS (fetch-ingredient conn ISID)
-                         :VMP__VIRTUAL_PRODUCT_INGREDIENT/BASIS_STRNT (fetch-lookup conn :BASIS_OF_STRNTH BASIS_STRNTCD)
-                         :VMP__VIRTUAL_PRODUCT_INGREDIENT/STRNT_NMRTR_UOM (fetch-lookup conn :UNIT_OF_MEASURE STRNT_NMRTR_UOMCD))))))
+                     :VMP__VIRTUAL_PRODUCT_INGREDIENT/BASIS_STRNT (fetch-lookup conn :BASIS_OF_STRNTH BASIS_STRNTCD)
+                     :VMP__VIRTUAL_PRODUCT_INGREDIENT/STRNT_NMRTR_UOM (fetch-lookup conn :UNIT_OF_MEASURE STRNT_NMRTR_UOMCD))))))
 
 (defn fetch-vmp-ont-drug-forms
   [conn vpid]
@@ -378,21 +375,21 @@
   [conn vpid]
   (when-let [{:VMP/keys [VTMID BASISCD COMBPRODCD PRES_STATCD DF_INDCD NON_AVAILCD UDFS_UOMCD UNIT_DOSE_UOMCD] :as vmp} (jdbc/execute-one! conn ["select * from vmp where vpid=?" vpid])]
     (assoc vmp
-      :TYPE "VMP"
-      :VMP/VTM (fetch-vtm conn VTMID)                       ;; to-one
-      :VMP/BASIS (fetch-lookup conn :BASIS_OF_NAME BASISCD) ;; to-one
-      :VMP/COMBPROD (fetch-lookup conn :COMBINATION_PROD_IND COMBPRODCD)
-      :VMP/PRES_STAT (fetch-lookup conn :VIRTUAL_PRODUCT_PRES_STATUS PRES_STATCD)
-      :VMP/NON_AVAIL (fetch-lookup conn :VIRTUAL_PRODUCT_NON_AVAIL NON_AVAILCD)
-      :VMP/UDFS_UOM (fetch-lookup conn :UNIT_OF_MEASURE UDFS_UOMCD)
-      :VMP/UNIT_DOSE_UOM (fetch-lookup conn :UNIT_OF_MEASURE UNIT_DOSE_UOMCD)
-      :VMP/DF_IND (fetch-lookup conn :DF_INDICATOR DF_INDCD) ;; to-one
-      :VMP/VIRTUAL_PRODUCT_INGREDIENTS (fetch-vmp-ingredients conn vpid) ;; to-many
-      :VMP/ONT_DRUG_FORMS (fetch-vmp-ont-drug-forms conn vpid) ;; to-many
-      :VMP/DRUG_FORM (fetch-vmp-drug-form conn vpid)        ;; to-one
-      :VMP/DRUG_ROUTES (fetch-vmp-drug-routes conn vpid)    ;; to-many
-      :VMP/CONTROL_DRUG_INFO (fetch-vmp-control-drug-info conn vpid)
-      :VMP/BNF_DETAILS (fetch-vmp-bnf-details conn vpid)))) ;;to-one
+           :TYPE "VMP"
+           :VMP/VTM (fetch-vtm conn VTMID)                       ;; to-one
+           :VMP/BASIS (fetch-lookup conn :BASIS_OF_NAME BASISCD) ;; to-one
+           :VMP/COMBPROD (fetch-lookup conn :COMBINATION_PROD_IND COMBPRODCD)
+           :VMP/PRES_STAT (fetch-lookup conn :VIRTUAL_PRODUCT_PRES_STATUS PRES_STATCD)
+           :VMP/NON_AVAIL (fetch-lookup conn :VIRTUAL_PRODUCT_NON_AVAIL NON_AVAILCD)
+           :VMP/UDFS_UOM (fetch-lookup conn :UNIT_OF_MEASURE UDFS_UOMCD)
+           :VMP/UNIT_DOSE_UOM (fetch-lookup conn :UNIT_OF_MEASURE UNIT_DOSE_UOMCD)
+           :VMP/DF_IND (fetch-lookup conn :DF_INDICATOR DF_INDCD) ;; to-one
+           :VMP/VIRTUAL_PRODUCT_INGREDIENTS (fetch-vmp-ingredients conn vpid) ;; to-many
+           :VMP/ONT_DRUG_FORMS (fetch-vmp-ont-drug-forms conn vpid) ;; to-many
+           :VMP/DRUG_FORM (fetch-vmp-drug-form conn vpid)        ;; to-one
+           :VMP/DRUG_ROUTES (fetch-vmp-drug-routes conn vpid)    ;; to-many
+           :VMP/CONTROL_DRUG_INFO (fetch-vmp-control-drug-info conn vpid)
+           :VMP/BNF_DETAILS (fetch-vmp-bnf-details conn vpid)))) ;;to-one
 
 (defn fetch-vmpp*
   [conn vppid]
@@ -404,39 +401,38 @@
   (when-let [{:VMPP/keys [VPID COMBPACKCD QTY_UOMCD] :as vmpp}
              (jdbc/execute-one! conn ["select * from vmpp where vppid=?" vppid])]
     (assoc vmpp
-      :TYPE "VMPP"
-      :VMPP/VP (fetch-vmp conn VPID)
-      :VMPP/QTY_UOM (fetch-lookup conn :UNIT_OF_MEASURE QTY_UOMCD)
-      :VMPP/COMBPACK (fetch-lookup conn :COMBINATION_PACK_IND COMBPACKCD))))
+           :TYPE "VMPP"
+           :VMPP/VP (fetch-vmp conn VPID)
+           :VMPP/QTY_UOM (fetch-lookup conn :UNIT_OF_MEASURE QTY_UOMCD)
+           :VMPP/COMBPACK (fetch-lookup conn :COMBINATION_PACK_IND COMBPACKCD))))
 
 (defn fetch-amp*
   [conn apid]
   (some-> (jdbc/execute-one! conn ["select * from amp where apid=?" apid])
           (assoc :TYPE "AMP")))
 
-
 (defn fetch-amp
   [conn apid]
   (when-let [{:AMP/keys [VPID SUPPCD LIC_AUTHCD AVAIL_RESTRICTCD] :as amp}
              (jdbc/execute-one! conn ["select * from amp where apid=?" apid])]
     (assoc amp
-      :TYPE "AMP"
-      :AMP/SUPP (fetch-lookup conn :SUPPLIER SUPPCD)
-      :AMP/LIC_AUTH (fetch-lookup conn :LICENSING_AUTHORITY LIC_AUTHCD)
-      :AMP/AVAIL_RESTRICT (fetch-lookup conn :AVAILABILITY_RESTRICTION AVAIL_RESTRICTCD)
-      :AMP/VP (fetch-vmp conn VPID))))
+           :TYPE "AMP"
+           :AMP/SUPP (fetch-lookup conn :SUPPLIER SUPPCD)
+           :AMP/LIC_AUTH (fetch-lookup conn :LICENSING_AUTHORITY LIC_AUTHCD)
+           :AMP/AVAIL_RESTRICT (fetch-lookup conn :AVAILABILITY_RESTRICTION AVAIL_RESTRICTCD)
+           :AMP/VP (fetch-vmp conn VPID))))
 
 (defn fetch-ampp
   [conn appid]
   (when-let [{:AMPP/keys [VPPID APID COMBPACKCD LEGAL_CATCD DISCCD] :as ampp}
              (jdbc/execute-one! conn ["select * from ampp where appid=?" appid])]
     (assoc ampp
-      :TYPE "AMPP"
-      :AMPP/AP (fetch-amp conn APID)
-      :AMPP/VPP (fetch-vmpp conn VPPID)
-      :AMPP/COMBPACK (fetch-lookup conn :COMBINATION_PACK_IND COMBPACKCD)
-      :AMPP/LEGAL_CAT (fetch-lookup conn :LEGAL_CATEGORY LEGAL_CATCD)
-      :AMPP/DISC (fetch-lookup conn :DISCONTINUED_IND DISCCD))))
+           :TYPE "AMPP"
+           :AMPP/AP (fetch-amp conn APID)
+           :AMPP/VPP (fetch-vmpp conn VPPID)
+           :AMPP/COMBPACK (fetch-lookup conn :COMBINATION_PACK_IND COMBPACKCD)
+           :AMPP/LEGAL_CAT (fetch-lookup conn :LEGAL_CATEGORY LEGAL_CATCD)
+           :AMPP/DISC (fetch-lookup conn :DISCONTINUED_IND DISCCD))))
 
 (defn fetch-product
   [conn id]
@@ -449,13 +445,13 @@
 (defn product-type
   [conn id]
   (keyword
-    (:type
-      (or
-        (jdbc/execute-one! conn ["select 'VTM' as type,vtmid from vtm where vtmid=?" id])
-        (jdbc/execute-one! conn ["select 'VMP' as type,vpid from vmp where vpid=?" id])
-        (jdbc/execute-one! conn ["select 'AMP' as type,apid from amp where apid=?" id])
-        (jdbc/execute-one! conn ["select 'VMPP' as type,vppid from vmpp where vppid=?" id])
-        (jdbc/execute-one! conn ["select 'AMPP' as type,appid from ampp where appid=?" id])))))
+   (:type
+    (or
+     (jdbc/execute-one! conn ["select 'VTM' as type,vtmid from vtm where vtmid=?" id])
+     (jdbc/execute-one! conn ["select 'VMP' as type,vpid from vmp where vpid=?" id])
+     (jdbc/execute-one! conn ["select 'AMP' as type,apid from amp where apid=?" id])
+     (jdbc/execute-one! conn ["select 'VMPP' as type,vppid from vmpp where vppid=?" id])
+     (jdbc/execute-one! conn ["select 'AMPP' as type,appid from ampp where appid=?" id])))))
 
 (defn fetch-product-by-exact-name
   "Return a single product with the given exact name"
