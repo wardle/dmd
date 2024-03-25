@@ -25,6 +25,12 @@
            :dev
            {:extra-paths ["cmd" "test/src" "test/resources"]}
 
+           :nrepl-server
+           {:extra-deps {nrepl/nrepl       {:mvn/version "1.1.1"}
+                         cider/cider-nrepl {:mvn/version "0.47.0"}}
+            :main-opts  ["--main" "nrepl.cmdline"
+                         "--middleware" "[cider.nrepl/cider-middleware]"]}
+
            :run
            {:extra-paths ["cmd"]
             :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.219"}
