@@ -1,5 +1,5 @@
 (ns com.eldrix.dmd.store-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is run-tests]]
             [com.eldrix.dmd.core :as dmd]
             [clojure.java.io :as io])
   (:import (java.io File)
@@ -21,7 +21,7 @@
         co-amilofruse-vmp-2 (dmd/fetch-product st 318136009)
         bases-of-name (let [bases (dmd/fetch-lookup st :BASIS_OF_NAME)]
                         (zipmap (map :BASIS_OF_NAME/CD bases) (map :BASIS_OF_NAME/DESC bases)))]
-    (= (LocalDate/of 2021 8 26) (dmd/fetch-release-date st))
+    (is (= (LocalDate/of 2021 8 26) (dmd/fetch-release-date st)))
     (is (= "Co-amilofruse" (:VTM/NM co-amilofruse-vtm)))
     (is (not (:VMP/SUG_F co-amilofruse-vmp-1)))
     (is (:VMP/SUG_F co-amilofruse-vmp-2))
@@ -47,13 +47,16 @@
     (is (= "C03EB01" (dmd/atc-for-product st 37365911000001107))) ;; test from AMPP
     (is (= #{318136009} (set (dmd/vpids-from-atc st "C03"))))
     (is (= ["mg" "mg"] (map #(get-in % [:VMP__VIRTUAL_PRODUCT_INGREDIENT/STRNT_NMRTR_UOM :UNIT_OF_MEASURE/DESC]) (:VMP/VIRTUAL_PRODUCT_INGREDIENTS co-amilofruse-vmp-2))))
-    (= #{318136009 318135008} (set (map :PRODUCT/ID (dmd/vmps-for-product st 34186711000001102))))
-    (= 34186711000001102 (:PRODUCT/ID (first (dmd/vtms-for-product st 387516008))))
+    (is (= #{318136009 318135008} (set (map :VMP/VPID (dmd/vmps-for-product st 34186711000001102)))))
+    (is (= 34186711000001102 (:VTM/VTMID (first (dmd/vtms-for-product st 318135008)))))
     (.close st)))
 
 (comment
   (run-tests)
   (def st (create-and-open-store))
+  (dmd/fetch-product st 318135008)
+  (dmd/vtms-for-product st 318135008)
+  (dmd/vmps-for-product st 34186711000001102)
   (dmd/fetch-product st 34186711000001102)
   (dmd/amps-for-product st 34186711000001102)
   (dmd/vtms-for-product st 37365811000001102)
