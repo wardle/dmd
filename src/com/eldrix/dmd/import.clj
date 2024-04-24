@@ -23,7 +23,7 @@
 (set! *warn-on-reflection* true)
 
 ;; dm+d date format = CCYY-MM-DD
-(defn- parse-date ^LocalDate [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
+(defn- parse-date ^LocalDate [^String s] (try (LocalDate/parse s DateTimeFormatter/ISO_LOCAL_DATE) (catch DateTimeParseException _)))
 (defn- unsafe-parse-long ^Long [^String s] (Long/parseLong s))
 (defn- parse-integer ^Integer [^String s] (Integer/parseInt s))
 (defn- parse-flag ^Boolean [^String s] (boolean (= 1 (Integer/parseInt s)))) ;; just for fun, they sometimes use "1" or "0001" for flags...
