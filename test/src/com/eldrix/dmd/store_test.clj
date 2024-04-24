@@ -1,11 +1,14 @@
 (ns com.eldrix.dmd.store-test
-  (:require [clojure.test :refer [deftest is run-tests]]
+  (:require [clojure.spec.test.alpha :as stest]
+            [clojure.test :refer [deftest is run-tests]]
             [com.eldrix.dmd.core :as dmd]
             [clojure.java.io :as io])
   (:import (java.io File)
            (java.time LocalDate)))
 
 (def dir "dmd-2021-08-26")
+
+(stest/instrument)
 
 (defn create-and-open-store []
   (let [filename (File/createTempFile "dmd-test" ".db")]

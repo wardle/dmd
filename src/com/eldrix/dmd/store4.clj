@@ -3,6 +3,7 @@
   (:require [clojure.core.async :as async]
             [clojure.java.io :as io]
             [clojure.set :as set]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [com.eldrix.dmd.import :as dim]
@@ -10,7 +11,27 @@
             [next.jdbc :as jdbc])
   (:import (java.time LocalDate LocalDateTime)))
 
+(set! *warn-on-reflection* true)
+
 (def store-version 1)
+
+(s/def ::conn any?)
+(s/def ::id (s/or :kw keyword? :coll (s/coll-of keyword?)))
+(s/def ::create string?)
+(s/def ::insert string?)
+(s/def ::data fn?)
+(s/def ::entity (s/keys :req-un [::id ::create] :opt-un [::insert ::data]))
+
+(s/def ::lookup (s/or ::str string? ::sym symbol? ::kw keyword?))
+(s/def ::code (s/nilable int?))
+(s/def ::vtmid int?)
+(s/def ::isid int?)
+(s/def ::vpid int?)
+(s/def ::vppid int?)
+(s/def ::apid int?)
+(s/def ::appid int?)
+(s/def ::product-id int?)
+(s/def ::atc string?)
 
 (def entities
   [{:id     :metadata
@@ -239,14 +260,23 @@
     :insert "insert into BNF_DETAILS (VPID, BNF, ATC, DDD, DDD_UOMCD) VALUES (?,?,?,?,?)"
     :data   (juxt :VPID :BNF :ATC :DDD :DDD_UOMCD)}])
 
+(when-not
+ (s/valid? (s/coll-of ::entity) entities)
+  (throw (ex-info "Invalid entity definition" (s/explain-data (s/coll-of ::entity) entities))))
+
 (def entity-by-type
   (reduce (fn [acc {:keys [id] :as entity}] (assoc acc id entity)) {} entities))
+
+(s/fdef create-tables
+  :args (s/cat :conn ::conn))
 
 (defn create-tables
   "Creates all database tables for dm+d entities."
   [conn]
   (run! #(jdbc/execute-one! conn [%]) (map :create entities)))
 
+(s/fdef create-indexes
+  :args (s/cat :conn ::conn))
 (defn create-indexes
   [conn]
   (run! #(jdbc/execute! conn [%]) (->> entities (map :index) (remove nil?))))
@@ -273,11 +303,15 @@
   (compile 'com.eldrix.dmd.sqlite))
 
 (defn open-store
+  "Open a dm+d store. `filename` can be anything coercible to a file using [[clojure.java.io/as-file]].
+  Throws an exception if the file does not exist."
   [filename]
   (if (.exists (io/file filename))
     (jdbc/get-connection (str "jdbc:sqlite:" filename))
     (throw (ex-info (str "file not found:" filename) {}))))
 
+(s/fdef fetch-release-date
+  :args (s/cat :conn ::conn))
 (defn fetch-release-date
   [conn]
   (some-> (:METADATA/release (jdbc/execute-one! conn ["select release from metadata"])) LocalDate/parse))
@@ -303,7 +337,7 @@
                :errors (seq all-errors)})
           (do
             (jdbc/with-transaction [txn conn]
-              (doseq [{:keys [id stmt data]} stmts]
+              (doseq [{:keys [stmt data]} stmts]
                 (jdbc/execute-batch! txn stmt data {})))
             (recur (async/<!! ch), (into all-errors errors)))))
       (catch Exception e
@@ -313,25 +347,42 @@
 ;;;
 ;;;
 ;;;
-
+(s/fdef fetch-lookup
+  :args (s/cat :conn ::conn :lookup ::lookup :code ::code))
 (defn fetch-lookup [conn lookup code]
-  (jdbc/execute-one! conn [(str "select CD,DESC from " (name lookup) " WHERE CD=?") code]))
+  (when code (jdbc/execute-one! conn [(str "select CD,DESC from " (name lookup) " WHERE CD=?") code])))
 
+(s/fdef fetch-all-lookup
+  :args (s/cat :conn ::conn :lookup ::lookup))
 (defn fetch-all-lookup [conn lookup]
   (jdbc/execute! conn [(str "select CD,DESC from " (name lookup))]))
 
+(s/fdef fetch-vtm*
+  :args (s/cat :conn ::conn :vtmid ::vtmid))
 (defn fetch-vtm*
+  "Returns the given VTM with no extended information."
   [conn vtmid]
   (some-> (jdbc/execute-one! conn ["select * from vtm where vtmid=?" vtmid])
           (assoc :TYPE "VTM")))
 
-(def fetch-vtm fetch-vtm*)
+(s/fdef fetch-vtm
+  :args (s/cat :conn ::conn :vtmid ::vtmid))
+(def fetch-vtm
+  "Returns the given VTM. VTMs do not have extended information so this
+  returns the same as `fetch-vtm*`."
+  fetch-vtm*)
 
+(s/fdef fetch-ingredient
+  :args (s/cat :conn ::conn :isid ::isid))
 (defn fetch-ingredient
+  "Returns the ingredient specified."
   [conn isid]
   (jdbc/execute! conn ["select * from ingredient where isid=?" isid]))
 
-(defn fetch-vmp-ingredients
+(s/fdef fetch-vmp-ingredients
+  :args (s/cat :conn ::conn :vpid ::vpid))
+(defn ^:private fetch-vmp-ingredients
+  "Returns ingredients for the given VMP"
   [conn vpid]
   (->> (jdbc/execute! conn ["select * from VMP__VIRTUAL_PRODUCT_INGREDIENT where VPID=?" vpid])
        (map (fn [{:VMP__VIRTUAL_PRODUCT_INGREDIENT/keys [ISID BASIS_STRNTCD STRNT_NMRTR_UOMCD] :as vpi}]
@@ -339,39 +390,56 @@
                      :VMP__VIRTUAL_PRODUCT_INGREDIENT/BASIS_STRNT (fetch-lookup conn :BASIS_OF_STRNTH BASIS_STRNTCD)
                      :VMP__VIRTUAL_PRODUCT_INGREDIENT/STRNT_NMRTR_UOM (fetch-lookup conn :UNIT_OF_MEASURE STRNT_NMRTR_UOMCD))))))
 
-(defn fetch-vmp-ont-drug-forms
+(s/fdef fetch-vmp-ont-drug-forms
+  :args (s/cat :conn ::conn :vpid ::vpid))
+(defn ^:private fetch-vmp-ont-drug-forms
   [conn vpid]
   (->> (jdbc/execute! conn ["select * from vmp__ont_drug_form where vpid=?" vpid])
        (map (fn [{:VMP__ONT_DRUG_FORM/keys [FORMCD] :as odf}]
               (assoc odf :VMP__ONT_DRUG_FORM/FORM (fetch-lookup conn :ONT_FORM_ROUTE FORMCD))))))
 
-(defn fetch-vmp-drug-form
+(s/fdef fetch-vmp-drug-form
+  :args (s/cat :conn ::conn :vpid ::vpid))
+(defn ^:private fetch-vmp-drug-form
   [conn vpid]
-  (when-let [{:VMP__DRUG_FORM/keys [FORMCD] :as df} (jdbc/execute-one! conn ["select * from vmp__drug_form where vpid=?" vpid])]
+  (when-let [{:VMP__DRUG_FORM/keys [FORMCD]} (jdbc/execute-one! conn ["select * from vmp__drug_form where vpid=?" vpid])]
     (fetch-lookup conn :FORM FORMCD)))                      ;; flatten the relationship directly
 
-(defn fetch-vmp-drug-routes
+(s/fdef fetch-vmp-drug-routes
+  :args (s/cat :conn ::conn :vpid ::vpid))
+(defn ^:private fetch-vmp-drug-routes
   [conn vpid]
   (->> (jdbc/execute! conn ["select * from vmp__drug_route where vpid=?" vpid])
        (map (fn [{:VMP__DRUG_ROUTE/keys [ROUTECD] :as dr}]
               (assoc dr :VMP__DRUG_ROUTE/FORM (fetch-lookup conn :ROUTE ROUTECD))))))
 
-(defn fetch-vmp-control-drug-info
+(s/fdef fetch-vmp-control-drug-info
+  :args (s/cat :conn ::conn :vpid ::vpid))
+(defn ^:private fetch-vmp-control-drug-info
   [conn vpid]
   (when-let [{:VMP__CONTROL_DRUG_INFO/keys [CATCD] :as cdi} (jdbc/execute-one! conn ["select * from VMP__CONTROL_DRUG_INFO where vpid=?" vpid])]
     (assoc cdi :VMP__CONTROL_DRUG_INFO/CAT (fetch-lookup conn :CONTROL_DRUG_CATEGORY CATCD))))
 
-(defn fetch-vmp-bnf-details
+(s/fdef fetch-vmp-bnf-details
+  :args (s/cat :conn ::conn :vpid ::vpid))
+(defn ^:private fetch-vmp-bnf-details
   [conn vpid]
   (when-let [{:BNF_DETAILS/keys [DDD_UOMCD] :as bnf} (jdbc/execute-one! conn ["select * from BNF_DETAILS where vpid=?" vpid])]
     (assoc bnf :BNF_DETAILS/DDD_UOM (fetch-lookup conn :UNIT_OF_MEASURE DDD_UOMCD))))
 
+(s/fdef fetch-vmp*
+  :args (s/cat :conn ::conn :vpid ::vpid))
 (defn fetch-vmp*
+  "Return the given VMP without extended information."
   [conn vpid]
   (some-> (jdbc/execute-one! conn ["select * from vmp where vpid=?" vpid])
           (assoc :TYPE "VMP")))
 
+(s/fdef fetch-vmp
+  :args (s/cat :conn ::conn :vpid ::vpid))
 (defn fetch-vmp
+  "Return the given VMP with extended information to include its 
+  relationships such as its parent VTM."
   [conn vpid]
   (when-let [{:VMP/keys [VTMID BASISCD COMBPRODCD PRES_STATCD DF_INDCD NON_AVAILCD UDFS_UOMCD UNIT_DOSE_UOMCD] :as vmp} (jdbc/execute-one! conn ["select * from vmp where vpid=?" vpid])]
     (assoc vmp
@@ -391,12 +459,18 @@
            :VMP/CONTROL_DRUG_INFO (fetch-vmp-control-drug-info conn vpid)
            :VMP/BNF_DETAILS (fetch-vmp-bnf-details conn vpid)))) ;;to-one
 
+(s/fdef fetch-vmpp*
+  :args (s/cat :conn ::conn :vppid ::vppid))
 (defn fetch-vmpp*
+  "Return the given VMPP without extended information."
   [conn vppid]
   (some-> (jdbc/execute-one! conn ["select * from vmpp where vppid=?" vppid])
           (assoc :TYPE "VMPP")))
 
+(s/fdef fetch-vmpp
+  :args (s/cat :conn ::conn :vppid ::vppid))
 (defn fetch-vmpp
+  "Return the given VMPP with extended information, including its parent VMP."
   [conn vppid]
   (when-let [{:VMPP/keys [VPID COMBPACKCD QTY_UOMCD] :as vmpp}
              (jdbc/execute-one! conn ["select * from vmpp where vppid=?" vppid])]
@@ -406,12 +480,18 @@
            :VMPP/QTY_UOM (fetch-lookup conn :UNIT_OF_MEASURE QTY_UOMCD)
            :VMPP/COMBPACK (fetch-lookup conn :COMBINATION_PACK_IND COMBPACKCD))))
 
+(s/fdef fetch-amp*
+  :args (s/cat :conn ::conn :apid ::apid))
 (defn fetch-amp*
+  "Return the given AMP without extended information."
   [conn apid]
   (some-> (jdbc/execute-one! conn ["select * from amp where apid=?" apid])
           (assoc :TYPE "AMP")))
 
+(s/fdef fetch-amp
+  :args (s/cat :conn ::conn :apid ::apid))
 (defn fetch-amp
+  "Return the given AMP with extended information, including the parent VMP."
   [conn apid]
   (when-let [{:AMP/keys [VPID SUPPCD LIC_AUTHCD AVAIL_RESTRICTCD] :as amp}
              (jdbc/execute-one! conn ["select * from amp where apid=?" apid])]
@@ -422,7 +502,19 @@
            :AMP/AVAIL_RESTRICT (fetch-lookup conn :AVAILABILITY_RESTRICTION AVAIL_RESTRICTCD)
            :AMP/VP (fetch-vmp conn VPID))))
 
+(s/fdef fetch-ampp*
+  :args (s/cat :conn ::conn :appid ::appid))
+(defn fetch-ampp*
+  "Return the given AMPP without extended information."
+  [conn appid]
+  (some-> (jdbc/execute-one! conn ["select * from ampp where appid=?" appid])
+          (assoc :TYPE "AMPP")))
+
+(s/fdef fetch-ampp
+  :args (s/cat :conn ::conn :appid ::appid))
 (defn fetch-ampp
+  "Return the given AMPP with extended information, including the parent AMP 
+  and VMP."
   [conn appid]
   (when-let [{:AMPP/keys [VPPID APID COMBPACKCD LEGAL_CATCD DISCCD] :as ampp}
              (jdbc/execute-one! conn ["select * from ampp where appid=?" appid])]
@@ -434,7 +526,10 @@
            :AMPP/LEGAL_CAT (fetch-lookup conn :LEGAL_CATEGORY LEGAL_CATCD)
            :AMPP/DISC (fetch-lookup conn :DISCONTINUED_IND DISCCD))))
 
+(s/fdef fetch-product
+  :args (s/cat :conn ::conn :id ::product-id))
 (defn fetch-product
+  "Returns extended information about the product with identifier specified."
   [conn id]
   (or (fetch-vtm conn id)
       (fetch-vmp conn id)
@@ -442,7 +537,11 @@
       (fetch-vmpp conn id)
       (fetch-ampp conn id)))
 
+(s/fdef product-type
+  :args (s/cat :conn ::conn :id ::product-id))
 (defn product-type
+  "Returns a keyword :VTM :VMP :AMP :VMPP or :AMPP for the product with 
+  the identifier specified."
   [conn id]
   (keyword
    (:type
@@ -453,6 +552,8 @@
      (jdbc/execute-one! conn ["select 'VMPP' as type,vppid from vmpp where vppid=?" id])
      (jdbc/execute-one! conn ["select 'AMPP' as type,appid from ampp where appid=?" id])))))
 
+(s/fdef fetch-product-by-exact-name
+  :args (s/cat :conn ::conn :s string?))
 (defn fetch-product-by-exact-name
   "Return a single product with the given exact name"
   [conn s]
@@ -462,14 +563,18 @@
       (jdbc/execute-one! conn ["select * from vmpp where nm=?" s])
       (jdbc/execute-one! conn ["select * from ampp where nm=?" s])))
 
+(s/fdef vpids-from-atc
+  :args (s/cat :conn ::conn :atc ::atc))
 (defn vpids-from-atc
   "Return a vector of VPIDs matching the given ATC code/prefix."
   [conn atc]
   (into [] (map :VPID)
         (jdbc/plan conn ["select vpid from BNF_DETAILS where atc like ?" (str atc "%")])))
 
+(s/fdef vpids-from-atc-wo-vtms
+  :args (s/cat :conn ::conn :atc ::atc))
 (defn vpids-from-atc-wo-vtms
-  "Returns a vector of VPIDs matching the given ATC code/prefix that do not
+  "Return a vector of VPIDs matching the given ATC code/prefix that do not
   have an associated VTM. This is only useful when constructing SNOMED ECL
   expressions that use a combination of VTMs, VMPs and TFs, and therefore do
   not need VMPs unless there is no associated VTM."
@@ -477,66 +582,90 @@
   (into [] (map :VPID)
         (jdbc/plan conn ["select vpid from vmp where vtmid is null and vpid in (select vpid from BNF_DETAILS where atc like ?)" (str atc "%")])))
 
+(s/fdef vmps-from-atc
+  :args (s/cat :conn ::conn :atc ::atc))
 (defn ^:deprecated vmps-from-atc
-  "Return VMPs matching the given ATC code as a prefix"
+  "Return VMPs matching the given ATC code as a prefix."
   [conn atc]
   (into [] (map #(fetch-vmp conn (:VPID %)))
         (jdbc/plan conn ["select vpid from BNF_DETAILS where atc like ?" (str atc "%")])))
 
+(s/fdef vpids-for-vtmids
+  :args (s/cat :conn ::conn :vtmids (s/coll-of ::vtmid)))
 (defn vpids-for-vtmids
-  "Returns VPIDs for the given VTMIDs."
+  "Return VPIDs for the given VTMIDs."
   [conn vtmids]
   (into [] (map :VPID)
         (jdbc/plan conn (sql/format {:select :vpid :from :vmp :where [:in :vtmid vtmids]}))))
 
+(s/fdef vtmids-for-vpids
+  :args (s/cat :conn ::conn :vpids (s/coll-of ::vpid)))
 (defn vtmids-for-vpids
   "Return VTMIDs for the given VPIDs."
   [conn vpids]
   (into #{} (comp (map :VTMID) (remove nil?))
         (jdbc/plan conn (sql/format {:select :vtmid :from :vmp :where [:in :vpid vpids]}))))
 
+(s/fdef vppids-for-vpids
+  :args (s/cat :conn ::conn :vpids (s/coll-of ::vpid)))
 (defn vppids-for-vpids
   [conn vpids]
   (into [] (map :VPPID)
         (jdbc/plan conn (sql/format {:select :vppid :from :vmpp :where [:in :vpid vpids]}))))
 
+(s/fdef vpids-for-vmpps
+  :args (s/cat :conn ::conn :vppids (s/coll-of ::vpid)))
 (defn vpids-for-vmpps
   [conn vppids]
   (into [] (map :VPID)
         (jdbc/plan conn (sql/format {:select :vpid :from :vmpp :where [:in :vppid vppids]}))))
 
+(s/fdef vpids-for-vmpps
+  :args (s/cat :conn ::conn :vppids (s/coll-of ::vpid)))
 (defn apids-for-vpids
   "Return APIDs for the given VPIDs."
   [conn vpids]
   (into [] (map :APID)
         (jdbc/plan conn (sql/format {:select :apid :from :amp :where [:in :vpid vpids]}))))
 
+(s/fdef vpids-for-apids
+  :args (s/cat :conn ::conn :apids (s/coll-of ::apid)))
 (defn vpids-for-apids
   "Return VPIDs for the given APIDs."
   [conn apids]
   (into [] (map :VPID)
         (jdbc/plan conn (sql/format {:select :vpid :from :amp :where [:in :apid apids]}))))
 
+(s/fdef appids-for-apids
+  :args (s/cat :conn ::conn :apids (s/coll-of ::apid)))
 (defn appids-for-apids
   [conn apids]
   (into [] (map :APPID)
         (jdbc/plan conn (sql/format {:select :appid :from :ampp :where [:in :apid apids]}))))
 
+(s/fdef apids-for-appids
+  :args (s/cat :conn ::conn :appids (s/coll-of ::appid)))
 (defn apids-for-appids
   [conn appids]
   (into [] (map :APID)
         (jdbc/plan conn (sql/format {:select :apid :from :ampp :where [:in :appid appids]}))))
 
+(s/fdef appids-for-vppids
+  :args (s/cat :conn ::conn :vppids (s/coll-of :vppid)))
 (defn appids-for-vppids
   [conn vppids]
   (into [] (map :APPID)
         (jdbc/plan conn (sql/format {:select :appid :from :ampp :where [:in :vppid vppids]}))))
 
+(s/fdef vppids-for-appids
+  :args (s/cat :conn ::conn :appids (s/coll-of :appid)))
 (defn vppids-for-appids
   [conn appids]
   (into [] (map :VPPID)
         (jdbc/plan conn (sql/format {:select :vppid :from :ampp :where [:in :appid appids]}))))
 
+(s/fdef vpids
+  :args (s/cat :conn ::conn :id ::product-id))
 (defn vpids
   "Return VMP ids for the given product."
   [conn id]
@@ -548,6 +677,8 @@
     :AMPP (vpids-for-apids conn (apids-for-appids conn [id]))
     nil))
 
+(s/fdef vtmids
+  :args (s/cat :conn ::conn :id ::product-id))
 (defn vtmids
   "Return VTM ids for the given product."
   [conn id]
@@ -559,6 +690,8 @@
     :AMPP (vtmids-for-vpids conn (apids-for-appids conn [id]))
     nil))
 
+(s/fdef apids
+  :args (s/cat :conn ::conn :id ::product-id))
 (defn apids
   "Return AMP ids for the given product."
   [conn id]
@@ -570,6 +703,8 @@
     :AMPP (apids-for-appids conn [id])
     nil))
 
+(s/fdef vppids
+  :args (s/cat :conn ::conn :id ::product-id))
 (defn vppids
   "Return VMPP ids for the given product."
   [conn id]
@@ -581,6 +716,8 @@
     :AMPP (vppids-for-appids conn [id])
     nil))
 
+(s/fdef appids
+  :args (s/cat :conn :conn :id ::product-id))
 (defn appids
   "Return AMPP ids for the given product."
   [conn id]
@@ -592,10 +729,14 @@
     :AMPP [id]
     nil))
 
+(s/fdef atc-code-for-vpids
+  :args (s/cat :conn ::conn :vpids (s/coll-of ::vpid)))
 (defn atc-code-for-vpids
   [conn vpids]
   (:BNF_DETAILS/ATC (jdbc/execute-one! conn (sql/format {:select :atc :from :BNF_DETAILS :where [:and [:<> :atc nil] [:in :vpid vpids]] :limit 1}))))
 
+(s/fdef atc-code
+  :args (s/cat :conn ::conn :id ::product-id))
 (defn atc-code
   "Return the ATC code for the product specified."
   [conn id]
@@ -610,6 +751,8 @@
 (def supported-product-types-for-atc-map
   #{:VTM :VMP :AMP :VMPP :AMPP})
 
+(s/fdef product-ids-from-atc
+  :args (s/cat :conn ::conn :atc ::atc :product-types (s/? supported-product-types-for-atc-map)))
 (defn product-ids-from-atc
   "Return a lazy sequence of product ids matching the ATC code"
   ([conn atc]
@@ -627,10 +770,14 @@
              (when (product-types :AMP) apids)
              vppids
              appids))))
-
+(s/fdef atc->products-for-ecl
+  :args (s/cat :conn ::conn :atc ::atc))
 (defn atc->products-for-ecl
   "Returns a map containing product type as key and a sequence of product
   identifiers as each value, designed for building an ECL expression.
+  Parameters:
+  - conn : database connection
+  - atc  : a string representing the ATC code, or prefix. 
 
   As the child relationships of a VTM include all VMPs and AMPs, we do not have
   to include VMPs or AMPs unless there is no VTM for a given VMP. As such, VMPs
@@ -645,8 +792,11 @@
      :VMP vpids'
      :AMP (apids-for-vpids conn vpids')}))
 
-(defn atc->ecl
-  "Convert an ATC code regexp into a SNOMED CT expression that will identify all
+(defn ^:deprecated atc->ecl
+  "DEPRECATED: use `atc->products-for-ecl` instead and use that data to build
+  an ECL expression outside of this library.
+  
+  Convert an ATC code into a SNOMED CT expression that will identify all
   dm+d products relating to that code. It is almost always better to build an
   ECL expression using `atc->products-for-ecl` rather than this function.
 
