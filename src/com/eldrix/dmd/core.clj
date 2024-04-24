@@ -35,7 +35,7 @@
          unzipped (doall (map #(trud/unzip-nested (:archiveFilePath %)) releases))
          filename' (if filename filename (str "dmd-" (.format DateTimeFormatter/ISO_LOCAL_DATE (:releaseDate (first releases))) ".db"))]
      (log/info "Creating dm+d file-based database :" filename')
-     (install-from-dirs filename' (map #(.toFile %) unzipped))
+     (install-from-dirs filename' (map #(.toFile ^java.nio.file.Path %) unzipped))
      ;(zipfile/delete-paths unzipped)
      (log/info "Created dm+d file-based database :" filename'))))
 
