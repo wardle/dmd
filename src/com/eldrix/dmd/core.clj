@@ -12,8 +12,7 @@
   "Creates a new dm+d filestore at `filename` from the directories specified."
   [filename dirs & {:keys [_batch-size] :as opts}]
   (when (= 0 (count dirs)) (throw (ex-info "no directories specified" {:filename filename :dirs dirs})))
-  (let [ch (a/chan)
-        release-date (last (sort (remove nil? (map #(:release-date (dim/get-release-metadata %)) dirs))))
+  (let [release-date (last (sort (remove nil? (map #(:release-date (dim/get-release-metadata %)) dirs))))
         {:keys [errors]} (st4/create-store filename dirs (assoc opts :release-date release-date))]
     (doseq [err errors]
       (log/error "error during import: " err))))
