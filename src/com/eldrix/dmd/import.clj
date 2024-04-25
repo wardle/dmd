@@ -300,12 +300,12 @@
    :BNF        stream-nested-dmd})
 
 (defn- stream-dmd-file [ch close? {:keys [type file] :as dmd-file}]
-  (log/info "Processing " dmd-file)
   (if-let [streamer (get streamers type)]
     (with-open [rdr (io/reader file)]
+      (log/info "importing" dmd-file)
       (let [root (xml/parse rdr :skip-whitespace true)]
         (streamer root ch type close?)))
-    (log/info "Skipping file " dmd-file)))
+    (log/info "skipping" dmd-file)))
 
 (defn stream-dmd
   "Streams dm+d components from the directory to the channel.
