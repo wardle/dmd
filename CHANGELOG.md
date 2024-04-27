@@ -1,5 +1,11 @@
 # CHANGELOG
 
+# v1.0.200 - 2024-04-27
+
+* Automated tests using GitHub Actions on every commit to main branch and weekly with every release of dm+d in the UK
+* Added function specifications for main APIs
+* Updated dependencies
+
 # v1.0.180 - 2024-03-03
 
 * First release with new SQLite backing store
