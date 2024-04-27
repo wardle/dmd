@@ -1,7 +1,8 @@
 name: Test-uk-live
 
 on:
-  pull_request:
+  schedule:
+    - cron: '0 12 * * 1'    # Every Monday at 12pm
   push:
     branches: [main]
 
