@@ -23,7 +23,7 @@
 
 (use-fixtures :once live-test-fixture)
 
-(deftest simple-fetch
+(deftest ^:live simple-fetch
   (let [amlodipine-vtm (dmd/fetch-product-by-exact-name *db* "Amlodipine")
         amlodipine-vmps (dmd/vmps-for-product *db* (:VTM/VTMID amlodipine-vtm))]
     (is amlodipine-vtm)
