@@ -23,7 +23,14 @@
 
 (defn install-release
   "Create a versioned dm+d file-based database by downloading the dm+d
-  distributions automatically from NHS Digital's TRUD service."
+  distributions automatically from NHS Digital's TRUD service.
+  Parameters:
+  - api-key-file : file containing TRUD API key, anything coercible using 
+                   [[clojure.java.io/as-file]]
+  - cache-dir    : TRUD cache directory
+  - filename     : filename of database to install, can be omitted
+  - release-date : date of release to be installed, will use latest if omitted.
+                   can be a string in ISO format, or a java.time.LocalDate"
   ([api-key-file cache-dir]
    (install-release api-key-file cache-dir nil nil))
   ([api-key-file cache-dir filename]
@@ -40,6 +47,8 @@
      (log/info "Created dm+d file-based database :" filename'))))
 
 (defn install-latest
+  "Convenience function to install latest release using a filename based on its release date. 
+  For more control, use `install-release`."
   [api-key-file cache-dir]
   (install-release api-key-file cache-dir))
 
