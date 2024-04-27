@@ -68,7 +68,7 @@
 
            :test/cloverage
            {:extra-paths ["test/src" "test/resources"]
-            :extra-deps  {cloverage/cloverage {:mvn/version "RELEASE"}}
+            :extra-deps  {cloverage/cloverage {:mvn/version "1.2.4"}}
             :main-opts   ["-m" "cloverage.coverage"
                           "--src-ns-path" "src"
                           "--test-ns-path" "test/src"]
