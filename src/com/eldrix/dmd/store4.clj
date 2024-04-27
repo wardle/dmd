@@ -303,12 +303,15 @@
   (compile 'com.eldrix.dmd.sqlite))
 
 (defn open-store
-  "Open a dm+d store. `filename` can be anything coercible to a file using [[clojure.java.io/as-file]].
-  Throws an exception if the file does not exist."
   [filename]
   (if (.exists (io/file filename))
     (jdbc/get-connection (str "jdbc:sqlite:" filename))
     (throw (ex-info (str "file not found:" filename) {}))))
+
+(defn close
+  "Close the store."
+  [^java.sql.Connection conn]
+  (.close conn))
 
 (s/fdef fetch-release-date
   :args (s/cat :conn ::conn))
@@ -557,11 +560,13 @@
 (defn fetch-product-by-exact-name
   "Return a single product with the given exact name"
   [conn s]
-  (or (jdbc/execute-one! conn ["select * from vtm where nm=?" s])
-      (jdbc/execute-one! conn ["select * from vmp where nm=?" s])
-      (jdbc/execute-one! conn ["select * from amp where nm=?" s])
-      (jdbc/execute-one! conn ["select * from vmpp where nm=?" s])
-      (jdbc/execute-one! conn ["select * from ampp where nm=?" s])))
+  (when-let [x (or (jdbc/execute-one! conn ["select * from vtm where nm=?" s])
+                   (jdbc/execute-one! conn ["select * from vmp where nm=?" s])
+                   (jdbc/execute-one! conn ["select * from amp where nm=?" s])
+                   (jdbc/execute-one! conn ["select * from vmpp where nm=?" s])
+                   (jdbc/execute-one! conn ["select * from ampp where nm=?" s]))]
+    (let [nspace (-> (keys x) first namespace)]
+      (assoc x :TYPE nspace))))
 
 (s/fdef vpids-from-atc
   :args (s/cat :conn ::conn :atc ::atc))
