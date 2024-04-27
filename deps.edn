@@ -52,10 +52,6 @@
             :main-opts   ["-m" "cognitect.test-runner"]
             :exec-fn     cognitect.test-runner.api/test}
 
-           :coverage
-           {:extra-deps  {cloverage/cloverage    {:mvn/version "1.2.4"}}
-            :main-opts ["-m" "cloverage.coverage" "-p" "src" "-s" "test"]}
-
            :outdated
            {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
             :main-opts  ["-m" "antq.core"]}
