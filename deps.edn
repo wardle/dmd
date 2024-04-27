@@ -74,10 +74,7 @@
                           "--test-ns-path" "test/src"]
             :exec-fn     cloverage.coverage/run-project
             :exec-args   {:src-ns-path  ["src"]
-                          :test-ns-path ["test"]}
-            :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
-                          "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
-                          "--illegal-access=permit"]}
+                          :test-ns-path ["test"]}}
 
            :lint/kondo
            {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
