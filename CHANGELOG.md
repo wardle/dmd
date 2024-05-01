@@ -1,14 +1,14 @@
 # CHANGELOG
 
-# v1.0.??? (not yet released)
+# v1.0.202 - 2024-05-01 
 
 * Return ATC matching to same approach as before switch to SQLite and support '*' and '?' for wildcards
 
 # v1.0.200 - 2024-04-27
 
-* Automated tests using GitHub Actions on every commit to main branch and weekly with every release of dm+d in the UK
-* Added function specifications for main APIs
-* Updated dependencies
+* Automate tests using GitHub Actions on every commit to main branch and weekly with every release of dm+d in the UK
+* Add function specifications for main APIs
+* Update dependencies
 
 # v1.0.180 - 2024-03-03
 
@@ -26,8 +26,8 @@
 # v0.5.3 - 2021-10-03
 
 * Include metadata with each database permitting checks for compatibility and versioning
-* Upgraded dependencies, including datalevin 0.5.22
-* Simplified ECL generation of products, now *only* including VTMs,AMPs and VMPs by design.
+* Upgrade dependencies, including datalevin 0.5.22
+* Simplify ECL generation of products, now *only* including VTMs,AMPs and VMPs by design.
 * Add fetch of VMPPs and AMPPs for a product to backing store API.
 * Permit resolution of ATC codes from any product arbitrarily.
 
