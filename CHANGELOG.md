@@ -1,5 +1,9 @@
 # CHANGELOG
 
+# v1.0.??? (not yet released)
+
+* Return ATC matching to same approach as before switch to SQLite and support '*' and '?' for wildcards
+
 # v1.0.200 - 2024-04-27
 
 * Automated tests using GitHub Actions on every commit to main branch and weekly with every release of dm+d in the UK

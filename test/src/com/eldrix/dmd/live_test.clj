@@ -1,10 +1,8 @@
 (ns com.eldrix.dmd.live-test
-  (:require [clojure.set :as set]
-            [clojure.spec.alpha :as s]
+  (:require [clojure.java.io :as io]
             [clojure.spec.test.alpha :as stest]
-            [clojure.test :as t :refer [deftest testing is use-fixtures]]
-            [com.eldrix.dmd.core :as dmd]
-            [clojure.test :as t]))
+            [clojure.test :as t :refer [deftest is use-fixtures]]
+            [com.eldrix.dmd.core :as dmd]))
 
 (stest/instrument)
 
@@ -16,7 +14,9 @@
   (or (System/getenv "TRUD_API_KEY_FILE") "api-key.txt"))
 
 (defn live-test-fixture [f]
-  (dmd/install-release (trud-api-key-filename) "cache" "latest-dmd.db")
+  (if (.exists (io/file "latest-dmd.db"))
+    (println "WARNING: skipping test of install-release as using existing latest-dmd.db. Delete this file if required.")
+    (dmd/install-release (trud-api-key-filename) "cache" "latest-dmd.db"))
   (binding [*db* (dmd/open-store "latest-dmd.db")]
     (f)
     (dmd/close *db*)))
