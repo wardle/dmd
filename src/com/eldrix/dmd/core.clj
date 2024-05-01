@@ -81,6 +81,9 @@
   (st4/vmps-from-atc conn atc))
 
 (defn vpids-from-atc
+  "Returns a sequence of VPIDs for the ATC code specified. 
+  - conn
+  - atc - atc code - supports '*' for multiple character wildcard, and '?' for single character wildcard."
   [conn atc]
   (st4/vpids-from-atc conn atc))
 
@@ -88,7 +91,7 @@
   "Returns a sequence of products matching the ATC code.
   Parameters:
   - conn          :
-  - atc           : atc code / prefix
+  - atc           : atc code - supports '*' and '?' for pattern matching as per Lucene
   - product-types : a set of product types (e.g. #{:VTM :VMP :AMP :VMPP :AMPP}).
 
   By default only VTM VMP and AMP products will be returned."

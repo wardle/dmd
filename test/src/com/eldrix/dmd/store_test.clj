@@ -48,7 +48,7 @@
     (is (= "C03EB01" (dmd/atc-for-product st 34186711000001102))) ;; test from VTM
     (is (= "C03EB01" (dmd/atc-for-product st 37365811000001102))) ;; test from AMP
     (is (= "C03EB01" (dmd/atc-for-product st 37365911000001107))) ;; test from AMPP
-    (is (= #{318136009} (set (dmd/vpids-from-atc st "C03"))))
+    (is (= #{318136009} (set (dmd/vpids-from-atc st "C03*"))))
     (is (= ["mg" "mg"] (map #(get-in % [:VMP__VIRTUAL_PRODUCT_INGREDIENT/STRNT_NMRTR_UOM :UNIT_OF_MEASURE/DESC]) (:VMP/VIRTUAL_PRODUCT_INGREDIENTS co-amilofruse-vmp-2))))
     (is (= #{318136009 318135008} (set (map :VMP/VPID (dmd/vmps-for-product st 34186711000001102)))))
     (is (= 34186711000001102 (:VTM/VTMID (first (dmd/vtms-for-product st 318135008)))))

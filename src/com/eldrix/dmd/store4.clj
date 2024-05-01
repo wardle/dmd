@@ -568,13 +568,21 @@
     (let [nspace (-> (keys x) first namespace)]
       (assoc x :TYPE nspace))))
 
+(defn ^:private atc->like [s]
+  (-> s (str/replace "*" "%") (str/replace "?" "_")))
+
 (s/fdef vpids-from-atc
   :args (s/cat :conn ::conn :atc ::atc))
 (defn vpids-from-atc
-  "Return a vector of VPIDs matching the given ATC code/prefix."
+  "Return a vector of VPIDs matching the given ATC code."
   [conn atc]
   (into [] (map :VPID)
-        (jdbc/plan conn ["select vpid from BNF_DETAILS where atc like ?" (str atc "%")])))
+        (jdbc/plan conn ["select vpid from BNF_DETAILS where atc like ?" (atc->like atc)])))
+
+(comment
+  (def conn (jdbc/get-connection "jdbc:sqlite:latest.db"))
+  (vpids-from-atc conn "C08CA")
+  (vpids-from-atc conn (-> "C0?CA*" (str/replace "*" "%") (str/replace "?" "_"))))
 
 (s/fdef vpids-from-atc-wo-vtms
   :args (s/cat :conn ::conn :atc ::atc))
@@ -585,7 +593,7 @@
   not need VMPs unless there is no associated VTM."
   [conn atc]
   (into [] (map :VPID)
-        (jdbc/plan conn ["select vpid from vmp where vtmid is null and vpid in (select vpid from BNF_DETAILS where atc like ?)" (str atc "%")])))
+        (jdbc/plan conn ["select vpid from vmp where vtmid is null and vpid in (select vpid from BNF_DETAILS where atc like ?)" (atc->like atc)])))
 
 (s/fdef vmps-from-atc
   :args (s/cat :conn ::conn :atc ::atc))
@@ -593,7 +601,7 @@
   "Return VMPs matching the given ATC code as a prefix."
   [conn atc]
   (into [] (map #(fetch-vmp conn (:VPID %)))
-        (jdbc/plan conn ["select vpid from BNF_DETAILS where atc like ?" (str atc "%")])))
+        (jdbc/plan conn ["select vpid from BNF_DETAILS where atc like ?" (atc->like atc)])))
 
 (s/fdef vpids-for-vtmids
   :args (s/cat :conn ::conn :vtmids (s/coll-of ::vtmid)))
