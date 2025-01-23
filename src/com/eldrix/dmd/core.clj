@@ -53,12 +53,12 @@
   (install-release api-key-file cache-dir))
 
 (defn open-store
-  "Open a dm+d store. Returns what should be regarded as an opaque handle that 
-  is Closeable. Currently this is a java.sql.Connection. `filename` can be 
-  anything coercible to a file using [[clojure.java.io/as-file]]. Throws an 
-  exception if the file does not exist."
-  [filename]
-  (st4/open-store filename))
+  "Open a dm+d store. Returns what should be regarded as an opaque handle, 
+  that should be closed using `close`. Currently this is a DataSource but 
+  this is subject to change. `f` can be anything coercible to a file using 
+  [[clojure.java.io/as-file]]. Throws an exception if the file does not exist."
+  [f]
+  (st4/open-store f))
 
 (defn close [st]
   (st4/close st))

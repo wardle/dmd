@@ -299,19 +299,13 @@
    {}
    (group-by :TYPE batch)))
 
-(comment
-  (compile 'com.eldrix.dmd.sqlite))
-
 (defn open-store
   [filename]
   (if (.exists (io/file filename))
-    (jdbc/get-connection (str "jdbc:sqlite:" filename))
+    (jdbc/get-datasource (str "jdbc:sqlite:" filename))
     (throw (ex-info (str "file not found:" filename) {}))))
 
-(defn close
-  "Close the store."
-  [^java.sql.Connection conn]
-  (.close conn))
+(defn close "Close the store." [_])   ;; NOP in current implementation
 
 (s/fdef fetch-release-date
   :args (s/cat :conn ::conn))
@@ -323,23 +317,23 @@
   [filename dirs & {:keys [batch-size release-date] :or {batch-size 50000}}]
   (when (.exists (io/file filename))
     (throw (ex-info (str "dm+d database already exists: " filename) {})))
-  (let [conn (jdbc/get-connection (str "jdbc:sqlite:" filename))
+  (let [ds (jdbc/get-datasource (str "jdbc:sqlite:" filename))
         ch (async/chan 5 (comp (partition-all batch-size) (map batch->sql)))]
     (async/thread
       (doseq [dir dirs]
         (dim/stream-dmd dir ch :close? false))
       (async/close! ch))
-    (create-tables conn)
-    (jdbc/execute! conn ["insert into metadata (version, created, release) values (?,?,?)"
-                         store-version (LocalDateTime/now) release-date])
+    (create-tables ds)
+    (jdbc/execute! ds ["insert into metadata (version, created, release) values (?,?,?)"
+                       store-version (LocalDateTime/now) release-date])
     (try
       (loop [{:keys [stmts errors] :as batch} (async/<!! ch), all-errors #{}]
         (if-not batch
-          (do (create-indexes conn)
-              {:conn   conn
+          (do (create-indexes ds)
+              {:conn   ds
                :errors (seq all-errors)})
           (do
-            (jdbc/with-transaction [txn conn]
+            (jdbc/with-transaction [txn ds]
               (doseq [{:keys [stmt data]} stmts]
                 (jdbc/execute-batch! txn stmt data {})))
             (recur (async/<!! ch), (into all-errors errors)))))
