@@ -1,5 +1,10 @@
 # CHANGELOG
 
+# v1.0.208 - 2025-01-23
+
+* Use a SQLite DataSource rather than a Connection in case used by multiple threads concurrently
+* Update dependencies
+
 # v1.0.202 - 2024-05-01 
 
 * Return ATC matching to same approach as before switch to SQLite and support '*' and '?' for wildcards
