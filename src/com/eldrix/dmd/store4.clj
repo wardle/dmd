@@ -279,7 +279,7 @@
   :args (s/cat :conn ::conn))
 (defn create-indexes
   [conn]
-  (run! #(jdbc/execute! conn [%]) (->> entities (map :index) (remove nil?))))
+  (->> entities (map :index) (remove nil?) (run! #(jdbc/execute! conn [%]))))
 
 (defn batch->sql
   "For the given batch of dm+d entities, return a map of :stmts and :errors
