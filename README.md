@@ -77,7 +77,7 @@ clj -M:run install --db dmd-2021-07-01.db ~/Downloads/dmd-2021-07-01
 ```
 or
 ```shell
-java -jar dmd-server-0.6.139.jar --db dmd-2021-07-01.db ~/Downloads/dmd-2021-07-01 
+java -jar dmd-server-0.6.139.jar install --db dmd-2021-07-01.db ~/Downloads/dmd-2021-07-01 
 ```
 
 This will look for files in the directory specified and create a new file-based
@@ -166,7 +166,7 @@ clj -M:run serve --db dmd-2021-04-12.db --port 8080
 ```
 or
 ```shell
-java -jar dmd-server-0.6.139.jar --db dmd-2021-04-12.db --port 8080
+java -jar dmd-server-0.6.139.jar serve --db dmd-2021-04-12.db --port 8080
 ```
 
 As it is very likely that the complete dm+d dataset will fit into the memory
