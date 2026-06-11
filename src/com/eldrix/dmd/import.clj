@@ -31,7 +31,7 @@
 
 (def ^:private file-ordering
   "Order of file import for relational integrity, if needed."
-  [:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP :GTIN :BNF])
+  [:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP :GTIN :BNF :HISTORY :VTM_ING])
 
 (def ^DateTimeFormatter df
   (DateTimeFormatter/ofPattern "ddMMyy"))
@@ -39,17 +39,18 @@
 (def ^:private file-matcher
   "There is no formal specification for filename structure, but this is the de
   facto standard."
-  #"^f_([a-z]*)\d_\d(\d{6})\.xml$")
+  #"^f_([a-z_]*)\d_\d(\d{6})\.xml$")
 
 (defn ^:private parse-dmd-filename
-  "Parse a dm+d filename if possible."
+  "Parse a dm+d filename if possible. Files of unknown type sort last."
   [f]
   (let [f2 (clojure.java.io/as-file f)]
     (when-let [[_ nm date] (re-matches file-matcher (.getName f2))]
-      (let [kw (keyword (str/upper-case nm))]
+      (let [kw (keyword (str/upper-case nm))
+            order (.indexOf ^List file-ordering kw)]
         {:type  kw
          :date  (LocalDate/parse date df)
-         :order (.indexOf ^List file-ordering kw)
+         :order (if (neg? order) Integer/MAX_VALUE order)
          :file  f2}))))
 
 (defn should-include?
@@ -185,6 +186,7 @@
    :PX_CHRGS          parse-flag
    :DISP_FEES         parse-flag                            ;; unlike the documentation, this is actually a flag (1 or omitted).
    :BB                parse-flag
+   :LTD_STAB          parse-flag
    :CAL_PACK          parse-flag
    :SPEC_CONTCD       unsafe-parse-long
    :FP34D             parse-flag
@@ -204,7 +206,11 @@
    :DDD_UOMCD         unsafe-parse-long
    :DDD               unsafe-parse-double
    :STARTDT           parse-date
-   :ENDDT             parse-date})
+   :ENDDT             parse-date
+
+   ;; historic codes
+   :IDCURRENT         unsafe-parse-long
+   :IDPREVIOUS        unsafe-parse-long})
 
 (defn- parse-property [k v]
   (if-let [parser (get property-parsers k)]
@@ -284,6 +290,28 @@
     (a/<!! (a/onto-chan!! ch gtins false))
     (when close? (a/close! ch))))
 
+(def ^:private history-classes
+  "Map of HISTORY file section tag to dm+d class."
+  {:VTMS "VTM" :VMPS "VMP" :INGS "ING" :SUPPS "SUPP"
+   :FORMS "FORM" :ROUTES "ROUTE" :UOMS "UOM"})
+
+(defn- stream-history
+  "Stream components from the dm+d HISTORIC_CODES (bonus) file; blocking.
+  The file contains a section per class (e.g. VTMS), each containing rows of
+  IDCURRENT, IDPREVIOUS, STARTDT and optionally ENDDT. Rows where
+  IDCURRENT=IDPREVIOUS record the period of validity of the current
+  identifier. Each component is given a :CLS of \"VTM\", \"VMP\", \"ING\",
+  \"SUPP\", \"FORM\", \"ROUTE\" or \"UOM\"."
+  [root ch file-type close?]
+  (loop [sections (:content root)]
+    (when-let [section (first sections)]
+      (when-let [cls (get history-classes (:tag section))]
+        (let [kind [file-type file-type]
+              rows (map #(assoc (parse-dmd-component kind %) :CLS cls) (:content section))]
+          (a/<!! (a/onto-chan!! ch rows false))))
+      (recur (next sections))))
+  (when close? (a/close! ch)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; High-level dm+d processing functionality
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -297,7 +325,9 @@
    :INGREDIENT stream-flat-dmd
    :LOOKUP     stream-lookup-xml
    :GTIN       stream-gtin
-   :BNF        stream-nested-dmd})
+   :BNF        stream-nested-dmd
+   :HISTORY    stream-history
+   :VTM_ING    stream-flat-dmd})
 
 (defn- stream-dmd-file [ch close? {:keys [type file] :as dmd-file}]
   (if-let [streamer (get streamers type)]
