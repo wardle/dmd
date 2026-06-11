@@ -90,6 +90,16 @@
 (defn fetch-product-by-exact-name [conn nm]
   (st4/fetch-product-by-exact-name conn nm))
 
+(defn search
+  "Search product names, returning a sequence of maps of :SEARCH/ID,
+  :SEARCH/TYPE and :SEARCH/NM, best matches first. Each token is matched as
+  a prefix; multiple tokens must all match.
+  Options:
+  - :types - product types to include e.g. #{:VMP :AMP}; default, all
+  - :limit - maximum number of results; default 100"
+  [conn s & {:keys [_types _limit] :as opts}]
+  (st4/search conn s opts))
+
 (defn fetch-lookup [conn lookup-kind]
   (st4/fetch-all-lookup conn lookup-kind))
 

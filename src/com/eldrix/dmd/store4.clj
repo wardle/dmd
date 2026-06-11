@@ -332,6 +332,14 @@
   [conn]
   (run! #(jdbc/execute-one! conn [%]) (map :create entities)))
 
+(defn create-search-index
+  "Creates and populates a full-text (FTS5) index of product names. This is
+  derived data, built after import rather than being an import target."
+  [conn]
+  (jdbc/execute-one! conn ["create virtual table SEARCH using fts5(ID unindexed, TYPE unindexed, NM)"])
+  (doseq [[product-type {:keys [table pk]}] product-tables]
+    (jdbc/execute-one! conn [(str "insert into SEARCH (ID, TYPE, NM) select " pk ", '" (name product-type) "', NM from " table)])))
+
 (s/fdef create-indexes
   :args (s/cat :conn ::conn))
 (defn create-indexes
@@ -501,6 +509,7 @@
       (loop [{:keys [stmts errors] :as batch} (async/<!! ch), all-errors #{}]
         (if-not batch
           (do (create-indexes ds)
+              (create-search-index ds)
               {:errors (seq all-errors)})
           (do
             (jdbc/with-transaction [txn ds]
@@ -735,6 +744,39 @@
                    (jdbc/execute-one! conn ["select * from ampp where nm=?" s]))]
     (let [nspace (-> (keys x) first namespace)]
       (assoc x :TYPE nspace))))
+
+(defn ^:private fts5-query
+  "Turn a user-entered string into a safe FTS5 MATCH expression: each
+  whitespace-delimited token is quoted (preventing FTS5 query syntax
+  injection) and matched as a prefix; multiple tokens combine as AND."
+  [s]
+  (->> (str/split (or s "") #"\s+")
+       (remove str/blank?)
+       (map #(str "\"" (str/replace % "\"" "\"\"") "\"*"))
+       (str/join " ")))
+
+(s/def ::types (s/coll-of (set (keys product-tables))))
+(s/def ::limit pos-int?)
+(s/fdef search
+  :args (s/cat :conn ::conn :s (s/nilable string?)
+               :opts (s/keys* :opt-un [::types ::limit])))
+(defn search
+  "Search product names, returning a sequence of maps of :SEARCH/ID,
+  :SEARCH/TYPE and :SEARCH/NM, best matches first. Each token of `s` is
+  matched as a prefix; multiple tokens must all match.
+  Options:
+  - :types - product types to include e.g. #{:VMP :AMP}; default, all
+  - :limit - maximum number of results; default 100"
+  [conn s & {:keys [types limit] :or {limit 100}}]
+  (let [q (fts5-query s)]
+    (if (str/blank? q)
+      []
+      (if (seq types)
+        (jdbc/execute! conn (into [(str "select ID, TYPE, NM from SEARCH where NM match ? and TYPE in ("
+                                        (str/join "," (repeat (count types) "?"))
+                                        ") order by rank limit ?") q]
+                                  (concat (map name types) [limit])))
+        (jdbc/execute! conn ["select ID, TYPE, NM from SEARCH where NM match ? order by rank limit ?" q limit])))))
 
 (s/fdef fetch-history
   :args (s/cat :conn ::conn :id ::product-id))

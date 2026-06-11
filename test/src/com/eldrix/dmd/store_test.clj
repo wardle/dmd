@@ -60,6 +60,21 @@
     (is (every? #(seq (dmd/fetch-lookup st %)) dmd/lookup-types) "every lookup type enumerable and populated")
     (dmd/close st)))
 
+(deftest search-products
+  (let [st (create-and-open-store)]
+    (is (= #{"VTM" "VMP" "AMP" "VMPP" "AMPP"}
+           (into #{} (map :SEARCH/TYPE) (dmd/search st "co-amilofruse"))))
+    (is (= #{318135008 318136009}
+           (into #{} (map :SEARCH/ID) (dmd/search st "co-amilof" :types #{:VMP}))) "prefix search")
+    (is (= #{318136009}
+           (into #{} (map :SEARCH/ID) (dmd/search st "amilofruse 40mg" :types #{:VMP}))) "multiple tokens combine as AND")
+    (is (= 1 (count (dmd/search st "co-amilofruse" :limit 1))))
+    (is (= [] (dmd/search st "")))
+    (is (= [] (dmd/search st "   ")))
+    (is (= [] (dmd/search st nil)))
+    (is (= [] (dmd/search st "\" OR 1=1")) "FTS5 query syntax must not be interpreted")
+    (dmd/close st)))
+
 (deftest store-status
   (let [st (create-and-open-store)
         {:keys [version created release trud files counts]} (dmd/status st)]
