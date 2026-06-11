@@ -40,9 +40,13 @@
          releases (dl/download-release api-key cache-dir release-date)
          _ (log/info "Downloaded dm+d releases " releases)
          unzipped (doall (map #(trud/unzip-nested (:archiveFilePath %)) releases))
-         filename' (if filename filename (str "dmd-" (.format DateTimeFormatter/ISO_LOCAL_DATE (:releaseDate (first releases))) ".db"))]
+         filename' (if filename filename (str "dmd-" (.format DateTimeFormatter/ISO_LOCAL_DATE (:releaseDate (first releases))) ".db"))
+         trud-info (mapv (fn [release]
+                           (-> (select-keys release [:itemIdentifier :id :name :releaseDate :archiveFileName])
+                               (update :releaseDate str)))
+                         releases)]
      (log/info "Creating dm+d file-based database :" filename')
-     (install-from-dirs filename' (map #(.toFile ^java.nio.file.Path %) unzipped))
+     (install-from-dirs filename' (map #(.toFile ^java.nio.file.Path %) unzipped) :trud trud-info)
      ;(zipfile/delete-paths unzipped)
      (log/info "Created dm+d file-based database :" filename'))))
 

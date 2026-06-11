@@ -545,6 +545,24 @@ com.eldrix/dmd {:git/url "https://github.com/wardle/dmd.git"
                 :sha     "XXX"}
 ```
 
+A dm+d database file is self-describing. `dmd-database?` identifies a file as
+a dm+d database from its SQLite header (application_id 0x646D2B64, "dm+d")
+without opening it; `open-store` validates both that marker and the store
+schema version, returning a read-only pooled DataSource; and `status` returns
+the store version, dm+d release date, source TRUD provenance and entity
+counts. Each release should be built into a fresh database file; databases
+created by older versions of this library are rejected at open and should be
+rebuilt.
+
+```clojure
+(require '[com.eldrix.dmd.core :as dmd])
+(def st (dmd/open-store "dmd-2025-01-16.db"))
+(dmd/status st)                       ;; => {:version 2 :release #object[java.time.LocalDate "2025-01-16"] ...}
+(dmd/search st "amlodip" :types #{:VMP})  ;; full-text product name search
+(dmd/previous-ids st 86389004)        ;; => #{9906511000001107} - deprecated ids for a live code
+(dmd/current-ids st 9906511000001107) ;; => #{86389004} - live ids for a deprecated code
+```
+
 # Frequently asked questions
 
 ### What is the use of `dmd`?

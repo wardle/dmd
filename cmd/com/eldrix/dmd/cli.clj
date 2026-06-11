@@ -63,9 +63,10 @@
 (defn run-server
   [{:keys [db port] :or {port "8080"}}]
   (if db
-    (let [st (dmd/open-store db)]
+    (let [st (dmd/open-store db)
+          {:keys [version release counts]} (dmd/status st)]
       (log/info "starting server using " db " on port" port)
-      (log/info "UK dm+d release:" (.format java.time.format.DateTimeFormatter/ISO_DATE (dmd/fetch-release-date st)))
+      (log/info "UK dm+d release:" (str release) "(store version" (str version ")") counts)
       (try (serve/start-server st (Integer/parseInt port))
            (catch NumberFormatException e
              (log/error "invalid port:" port))))
