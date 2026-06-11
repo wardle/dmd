@@ -57,6 +57,22 @@
     (is (= ["mg" "mg"] (map #(get-in % [:VMP__VIRTUAL_PRODUCT_INGREDIENT/STRNT_NMRTR_UOM :UNIT_OF_MEASURE/DESC]) (:VMP/VIRTUAL_PRODUCT_INGREDIENTS co-amilofruse-vmp-2))))
     (is (= #{318136009 318135008} (set (map :VMP/VPID (dmd/vmps-for-product st 34186711000001102)))))
     (is (= 34186711000001102 (:VTM/VTMID (first (dmd/vtms-for-product st 318135008)))))
+    ;; fields previously dropped on import (schema v2)
+    (is (= "Co-amilofruse 2.5/20 tablets" (:VMP/NMPREV co-amilofruse-vmp-1)))
+    (is (= "2004-05-04" (:VMP/NMDT co-amilofruse-vmp-1)))
+    (is (:AMP/PARALLEL_IMPORT (dmd/fetch-product st 37706811000001108)))
+    (is (not (:AMP/INVALID (dmd/fetch-product st 37706811000001108))))
+    (let [suppliers (zipmap (map :SUPPLIER/CD (dmd/fetch-lookup st :SUPPLIER))
+                            (dmd/fetch-lookup st :SUPPLIER))]
+      (is (:SUPPLIER/INVALID (get suppliers 3145201000001108)))
+      (is (= 2073601000001105 (:SUPPLIER/CDPREV (get suppliers 15883511000001102))))
+      (is (= "2009-08-07" (:SUPPLIER/CDDT (get suppliers 15883511000001102)))))
+    (let [forms (zipmap (map :FORM/CD (dmd/fetch-lookup st :FORM)) (dmd/fetch-lookup st :FORM))]
+      (is (= 385098002 (:FORM/CDPREV (get forms 35366811000001106)))))
+    (let [ingredients (dmd/fetch-product st 318136009)]   ;; ingredient previous ids now stored
+      (is (= #{3512011000001109 3536911000001101}
+             (set (map #(get-in % [:VMP__VIRTUAL_PRODUCT_INGREDIENT/IS 0 :INGREDIENT/ISIDPREV])
+                       (:VMP/VIRTUAL_PRODUCT_INGREDIENTS ingredients))))))
     (dmd/close st)))
 
 (comment
