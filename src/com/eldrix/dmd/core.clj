@@ -40,9 +40,13 @@
          releases (dl/download-release api-key cache-dir release-date)
          _ (log/info "Downloaded dm+d releases " releases)
          unzipped (doall (map #(trud/unzip-nested (:archiveFilePath %)) releases))
-         filename' (if filename filename (str "dmd-" (.format DateTimeFormatter/ISO_LOCAL_DATE (:releaseDate (first releases))) ".db"))]
+         filename' (if filename filename (str "dmd-" (.format DateTimeFormatter/ISO_LOCAL_DATE (:releaseDate (first releases))) ".db"))
+         trud-info (mapv (fn [release]
+                           (-> (select-keys release [:itemIdentifier :id :name :releaseDate :archiveFileName])
+                               (update :releaseDate str)))
+                         releases)]
      (log/info "Creating dm+d file-based database :" filename')
-     (install-from-dirs filename' (map #(.toFile ^java.nio.file.Path %) unzipped))
+     (install-from-dirs filename' (map #(.toFile ^java.nio.file.Path %) unzipped) :trud trud-info)
      ;(zipfile/delete-paths unzipped)
      (log/info "Created dm+d file-based database :" filename'))))
 
@@ -53,12 +57,23 @@
   (install-release api-key-file cache-dir))
 
 (defn open-store
-  "Open a dm+d store. Returns what should be regarded as an opaque handle, 
-  that should be closed using `close`. Currently this is a DataSource but 
-  this is subject to change. `f` can be anything coercible to a file using 
+  "Open a dm+d store. Returns what should be regarded as an opaque handle,
+  that should be closed using `close`. Currently this is a DataSource but
+  this is subject to change. `f` can be anything coercible to a file using
   [[clojure.java.io/as-file]]. Throws an exception if the file does not exist."
   [f]
   (st4/open-store f))
+
+(defn sqlite-database?
+  "Returns true if `f` is a SQLite 3 database file."
+  [f]
+  (st4/sqlite-database? f))
+
+(defn dmd-database?
+  "Returns true if `f` is a dm+d SQLite database created by this library.
+  Strict: legacy dm+d files predating the application_id marker return false."
+  [f]
+  (st4/dmd-database? f))
 
 (defn close [st]
   (st4/close st))
@@ -66,14 +81,70 @@
 (defn fetch-release-date [store]
   (st4/fetch-release-date store))
 
+(defn status
+  "Returns a structured description of an open dm+d store, including store
+  schema version, creation date, dm+d release date, source TRUD release
+  information and file inventory when available, and entity counts."
+  [store]
+  (st4/status store))
+
 (defn fetch-product [store product-id]
   (st4/fetch-product store product-id))
 
 (defn fetch-product-by-exact-name [conn nm]
   (st4/fetch-product-by-exact-name conn nm))
 
+(defn search
+  "Search product names, returning a sequence of maps of :SEARCH/ID,
+  :SEARCH/TYPE and :SEARCH/NM, best matches first. Each token is matched as
+  a prefix; multiple tokens must all match.
+  Options:
+  - :types - product types to include e.g. #{:VMP :AMP}; default, all
+  - :limit - maximum number of results; default 100"
+  [conn s & {:keys [_types _limit] :as opts}]
+  (st4/search conn s opts))
+
 (defn fetch-lookup [conn lookup-kind]
   (st4/fetch-all-lookup conn lookup-kind))
+
+(def lookup-types
+  "Set of lookup types, as keywords, usable with [[fetch-lookup]]."
+  st4/lookup-types)
+
+(defn fetch-history
+  "Returns all history entries in which `id` is the current identifier,
+  ordered by start date, including 'self' entries recording the period of
+  validity of the current identifier itself."
+  [conn id]
+  (st4/fetch-history conn id))
+
+(defn previous-ids
+  "Returns the set of prior identifiers for the given current identifier."
+  [conn id]
+  (st4/previous-ids conn id))
+
+(defn current-ids
+  "Returns the set of identifiers in current use for the given (usually
+  historic) identifier."
+  [conn id]
+  (st4/current-ids conn id))
+
+(defn vtm-ingredients
+  "Returns ingredient (ISID) identifiers for the given VTM."
+  [conn vtmid]
+  (st4/vtm-ingredients conn vtmid))
+
+(defn vtms-for-ingredient
+  "Returns VTM identifiers for the given ingredient."
+  [conn isid]
+  (st4/vtms-for-ingredient conn isid))
+
+(defn plan-products
+  "Returns a reducible over all rows of the given product type (:VTM :VMP
+  :AMP :VMPP or :AMPP), for streaming iteration; each row is a `next.jdbc`
+  row abstraction with columns accessible by keyword."
+  [conn product-type]
+  (st4/plan-products conn product-type))
 
 (defn ^:deprecated vmps-from-atc
   "DEPRECATED: use [[vpids-from-atc]] instead."

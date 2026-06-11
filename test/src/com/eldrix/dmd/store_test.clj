@@ -2,7 +2,9 @@
   (:require [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is run-tests]]
             [com.eldrix.dmd.core :as dmd]
-            [clojure.java.io :as io])
+            [com.eldrix.dmd.store4 :as st4]
+            [clojure.java.io :as io]
+            [next.jdbc :as jdbc])
   (:import (java.io File)
            (java.time LocalDate)))
 
@@ -15,6 +17,77 @@
     (.delete filename)
     (dmd/install-from-dirs filename [(io/resource dir)] :batch-size 1)
     (dmd/open-store filename)))
+
+(deftest open-invalid-files
+  (let [not-sqlite (doto (File/createTempFile "dmd-test" ".db") (spit "this is not a database"))
+        not-dmd (File/createTempFile "dmd-test" ".db")
+        wrong-version (File/createTempFile "dmd-test" ".db")]
+    (.delete not-dmd)
+    (.delete wrong-version)
+    (with-open [conn (jdbc/get-connection (str "jdbc:sqlite:" not-dmd))]
+      (jdbc/execute-one! conn ["create table TEST (id integer)"]))
+    (with-open [conn (jdbc/get-connection (str "jdbc:sqlite:" wrong-version))]
+      (jdbc/execute-one! conn [(str "PRAGMA application_id = " st4/application-id)])
+      (jdbc/execute-one! conn ["PRAGMA user_version = 1"])
+      (jdbc/execute-one! conn ["create table TEST (id integer)"]))
+    (is (thrown-with-msg? Exception #"file not found" (dmd/open-store "no-such-file.db")))
+    (is (thrown-with-msg? Exception #"not a SQLite database" (dmd/open-store not-sqlite)))
+    (is (not (dmd/sqlite-database? not-sqlite)))
+    (is (thrown-with-msg? Exception #"not a dm\+d database" (dmd/open-store not-dmd)))
+    (is (dmd/sqlite-database? not-dmd))
+    (is (not (dmd/dmd-database? not-dmd)))
+    (is (thrown-with-msg? Exception #"incompatible dm\+d database version" (dmd/open-store wrong-version)))
+    (is (dmd/dmd-database? wrong-version))
+    (run! #(.delete ^File %) [not-sqlite not-dmd wrong-version])))
+
+(deftest history-and-queries
+  (let [st (create-and-open-store)]
+    (is (= #{354303007} (dmd/previous-ids st 34186711000001102)))
+    (is (= #{34186711000001102} (dmd/current-ids st 354303007)))
+    (is (= #{} (dmd/current-ids st 34186711000001102)) "self entries must be excluded")
+    (is (= #{} (dmd/previous-ids st 2070501000001104)) "supplier has only a self entry")
+    (let [history (dmd/fetch-history st 318135008)]
+      (is (= 2 (count history)))
+      (is (= ["10406411000001101" "318135008"] (map (comp str :HISTORY/IDPREVIOUS) history)) "ordered by start date")
+      (is (= "VMP" (:HISTORY/CLS (first history)))))
+    (is (= #{387516008 387475002} (set (dmd/vtm-ingredients st 34186711000001102))))
+    (is (= [34186711000001102] (dmd/vtms-for-ingredient st 387475002)))
+    (is (= #{"Co-amilofruse 2.5mg/20mg tablets" "Co-amilofruse 5mg/40mg tablets"}
+           (into #{} (map :NM) (dmd/plan-products st :VMP))))
+    (is (= 3 (count (into [] (map :APID) (dmd/plan-products st :AMP)))))
+    (is (contains? dmd/lookup-types :BASIS_OF_NAME))
+    (is (= 26 (count dmd/lookup-types)))
+    (is (every? #(seq (dmd/fetch-lookup st %)) dmd/lookup-types) "every lookup type enumerable and populated")
+    (dmd/close st)))
+
+(deftest search-products
+  (let [st (create-and-open-store)]
+    (is (= #{"VTM" "VMP" "AMP" "VMPP" "AMPP"}
+           (into #{} (map :SEARCH/TYPE) (dmd/search st "co-amilofruse"))))
+    (is (= #{318135008 318136009}
+           (into #{} (map :SEARCH/ID) (dmd/search st "co-amilof" :types #{:VMP}))) "prefix search")
+    (is (= #{318136009}
+           (into #{} (map :SEARCH/ID) (dmd/search st "amilofruse 40mg" :types #{:VMP}))) "multiple tokens combine as AND")
+    (is (= 1 (count (dmd/search st "co-amilofruse" :limit 1))))
+    (is (= [] (dmd/search st "")))
+    (is (= [] (dmd/search st "   ")))
+    (is (= [] (dmd/search st nil)))
+    (is (= [] (dmd/search st "\" OR 1=1")) "FTS5 query syntax must not be interpreted")
+    (dmd/close st)))
+
+(deftest store-status
+  (let [st (create-and-open-store)
+        {:keys [version created release trud files counts]} (dmd/status st)]
+    (is (= 2 version))
+    (is created)
+    (is (= (LocalDate/of 2021 8 26) release))
+    (is (nil? trud) "no TRUD provenance when installed from local directories")
+    (is (= 11 (count files)))
+    (is (= #{:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP :GTIN :BNF :HISTORY :VTM_ING}
+           (set (map :type files))))
+    (is (= {:VTM 1 :VMP 2 :AMP 3 :VMPP 1 :AMPP 1 :INGREDIENT 4 :HISTORY 10 :VTM_INGREDIENT 2 :GTIN 1 :BNF 1}
+           counts))
+    (dmd/close st)))
 
 ;; test basic import, store and fetch across products.
 (deftest import-store-and-fetch
@@ -57,6 +130,22 @@
     (is (= ["mg" "mg"] (map #(get-in % [:VMP__VIRTUAL_PRODUCT_INGREDIENT/STRNT_NMRTR_UOM :UNIT_OF_MEASURE/DESC]) (:VMP/VIRTUAL_PRODUCT_INGREDIENTS co-amilofruse-vmp-2))))
     (is (= #{318136009 318135008} (set (map :VMP/VPID (dmd/vmps-for-product st 34186711000001102)))))
     (is (= 34186711000001102 (:VTM/VTMID (first (dmd/vtms-for-product st 318135008)))))
+    ;; fields previously dropped on import (schema v2)
+    (is (= "Co-amilofruse 2.5/20 tablets" (:VMP/NMPREV co-amilofruse-vmp-1)))
+    (is (= "2004-05-04" (:VMP/NMDT co-amilofruse-vmp-1)))
+    (is (:AMP/PARALLEL_IMPORT (dmd/fetch-product st 37706811000001108)))
+    (is (not (:AMP/INVALID (dmd/fetch-product st 37706811000001108))))
+    (let [suppliers (zipmap (map :SUPPLIER/CD (dmd/fetch-lookup st :SUPPLIER))
+                            (dmd/fetch-lookup st :SUPPLIER))]
+      (is (:SUPPLIER/INVALID (get suppliers 3145201000001108)))
+      (is (= 2073601000001105 (:SUPPLIER/CDPREV (get suppliers 15883511000001102))))
+      (is (= "2009-08-07" (:SUPPLIER/CDDT (get suppliers 15883511000001102)))))
+    (let [forms (zipmap (map :FORM/CD (dmd/fetch-lookup st :FORM)) (dmd/fetch-lookup st :FORM))]
+      (is (= 385098002 (:FORM/CDPREV (get forms 35366811000001106)))))
+    (let [ingredients (dmd/fetch-product st 318136009)]   ;; ingredient previous ids now stored
+      (is (= #{3512011000001109 3536911000001101}
+             (set (map #(get-in % [:VMP__VIRTUAL_PRODUCT_INGREDIENT/IS 0 :INGREDIENT/ISIDPREV])
+                       (:VMP/VIRTUAL_PRODUCT_INGREDIENTS ingredients))))))
     (dmd/close st)))
 
 (comment

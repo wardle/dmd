@@ -31,6 +31,32 @@
     (is (seq amlodipine-vmps))
     (is (= amlodipine-vtm (:VMP/VTM (first amlodipine-vmps))))))
 
+(deftest ^:live status-and-history
+  (let [{:keys [version release counts]} (dmd/status *db*)]
+    (is (= 2 version))
+    (is release)
+    ;; if either count is zero, the supplementary release layout has likely
+    ;; changed and the bonus files are being silently dropped
+    (is (pos? (:HISTORY counts)))
+    (is (pos? (:VTM_INGREDIENT counts)))
+    ;; a real, stable historic mapping: VTM 86389004 was previously
+    ;; identified as 9906511000001107 (per the NHSBSA HISTORIC_CODES data)
+    (is (contains? (dmd/previous-ids *db* 86389004) 9906511000001107))
+    (is (contains? (dmd/current-ids *db* 9906511000001107) 86389004))))
+
+(deftest ^:live trud-provenance
+  (let [{:keys [trud files]} (dmd/status *db*)]
+    (when trud   ;; present only when latest-dmd.db was built by this test run via TRUD
+      (is (= 2 (count trud)) "expected provenance for main and supplementary releases")
+      (is (every? :releaseDate trud)))
+    (is (seq files))
+    (is (contains? (set (map :type files)) :HISTORY))))
+
+(deftest ^:live search
+  (let [results (dmd/search *db* "amlodipine" :types #{:VMP})]
+    (is (seq results))
+    (is (every? #(= "VMP" (:SEARCH/TYPE %)) results))))
+
 (comment
   (dmd/install-release "../trud/api-key.txt" "cache" "latest-dmd.db")
   (System/getenv "TRUD_API_KEY_FILE")

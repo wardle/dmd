@@ -1,5 +1,27 @@
 # CHANGELOG
 
+# Unreleased (store schema v2)
+
+Databases must be rebuilt: v1 databases (and older legacy formats) are
+rejected at open with a clear error.
+
+* Import the HISTORIC_CODES (deprecated code → live code map) and
+  VTM_INGREDIENTS files from the supplementary (bonus) distribution
+* Store all fields defined by the dm+d schema that were previously dropped,
+  including invalidity flags on every product type, previous identifiers,
+  ingredient denominator strengths, licensing authority changes, flavour,
+  colour, and lookup code history (CDDT/CDPREV)
+* New history APIs: `fetch-history`, `previous-ids`, `current-ids` map
+  deprecated identifiers to their current equivalents and vice versa
+* New `status` API returning store version, creation time, release date,
+  TRUD provenance, source file inventory and entity counts
+* Strict `open-store`: validates SQLite application_id (0x646D2B64 'dm+d')
+  and store version, with descriptive errors; read-only pooled DataSource
+* New full-text product name search via `search` (FTS5; tokenized prefix
+  matching); new `plan-products` for streaming iteration over all products;
+  `lookup-types` enumerates all lookup tables
+* Remove unused pathom3 graph API and unused dependencies
+
 # v1.0.208 - 2025-01-23
 
 * Use a SQLite DataSource rather than a Connection in case used by multiple threads concurrently

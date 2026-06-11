@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8" ?><VTM_INGREDIENTS xsi:noNamespaceSchemaLocation="vtm_ing_v1_0.xsd" xmlns="" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  ><!-- Test fixture; layout per NHSBSA VTM_INGREDIENTS bonus file -->
+<VTM_ING><VTMID>34186711000001102</VTMID><ISID>387516008</ISID></VTM_ING>
+<VTM_ING><VTMID>34186711000001102</VTMID><ISID>387475002</ISID></VTM_ING>
+</VTM_INGREDIENTS>

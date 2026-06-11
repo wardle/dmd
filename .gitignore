@@ -17,3 +17,7 @@ pom.xml.asc
 .cpcache/
 /*.db
 .lsp/.cache/db.transit.json
+api-key.txt
+cache/
+*.zip
+.eastwood
