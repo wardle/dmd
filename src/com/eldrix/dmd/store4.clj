@@ -395,18 +395,27 @@
   (some-> (jdbc/execute-one! conn [(str "PRAGMA " pragma)]) vals first))
 
 (defn open-store
+  "Open a read-only dm+d store, returning a pooled DataSource that supports
+  concurrent use. Throws an exception if the file does not exist, is not a
+  dm+d database (checked via SQLite application_id), or was created with an
+  incompatible store version (checked via SQLite user_version). Legacy
+  databases, including those predating application_id support, are rejected
+  and must be rebuilt using this version of the library."
   [filename]
   (when-not (.exists (io/file filename))
     (throw (ex-info (str "file not found: " filename) {:filename filename})))
-  (let [ds     (pool filename {:init-sql "PRAGMA query_only = 1"})
-        app-id (read-pragma ds "application_id")]
-    ;; legacy databases created before application_id was set will have 0
-    (when-not (or (zero? app-id) (= app-id application-id))
+  (when-not (dmd-database? filename)
+    (throw (ex-info (str (if (sqlite-database? filename)
+                           "not a dm+d database (or a legacy dm+d database that must be rebuilt): "
+                           "not a SQLite database: ") filename)
+                    {:filename filename})))
+  (let [ds      (pool filename {:init-sql "PRAGMA query_only = 1"})
+        version (read-pragma ds "user_version")]
+    (when-not (= store-version version)
       (.close ds)
-      (throw (ex-info (str "not a dm+d database: " filename)
-                      {:filename       filename
-                       :application-id (format "0x%08x" app-id)
-                       :expected       (format "0x%08x" application-id)})))
+      (throw (ex-info (str "incompatible dm+d database version: found " version
+                           ", expected " store-version "; rebuild the database using this version of dmd")
+                      {:filename filename :version version :expected store-version})))
     ds))
 
 (defn close
@@ -419,6 +428,35 @@
 (defn fetch-release-date
   [conn]
   (some-> (:METADATA/release (jdbc/execute-one! conn ["select release from metadata"])) LocalDate/parse))
+
+(def ^:private count-tables
+  "Tables counted by [[status]], as a vector of key and table name."
+  [[:VTM "VTM"] [:VMP "VMP"] [:AMP "AMP"] [:VMPP "VMPP"] [:AMPP "AMPP"]
+   [:INGREDIENT "INGREDIENT"] [:HISTORY "HISTORY"] [:VTM_INGREDIENT "VTM__INGREDIENT"]
+   [:GTIN "GTIN__AMPP"] [:BNF "BNF_DETAILS"]])
+
+(s/fdef status
+  :args (s/cat :conn ::conn))
+(defn status
+  "Returns a structured description of an open dm+d store:
+  - :version - store (schema) version
+  - :created - java.time.LocalDateTime the database was created
+  - :release - java.time.LocalDate of the dm+d release
+  - :trud    - source TRUD release information, when installed via TRUD
+  - :files   - inventory of imported source files
+  - :counts  - a map of entity type to row count"
+  [conn]
+  (let [{:METADATA/keys [version created release trud]} (jdbc/execute-one! conn ["select * from metadata"])]
+    {:version version
+     :created (some-> created LocalDateTime/parse)
+     :release (some-> release LocalDate/parse)
+     :trud    (some-> trud (json/read-str :key-fn keyword))
+     :files   (mapv (fn [{:FILES/keys [type name date]}]
+                      {:type (keyword type) :name name :date (some-> date LocalDate/parse)})
+                    (jdbc/execute! conn ["select * from files"]))
+     :counts  (reduce (fn [acc [k table]]
+                        (assoc acc k (:n (jdbc/execute-one! conn [(str "select count(*) as n from " table)]))))
+                      {} count-tables)}))
 
 (defn create-store
   "Create a dm+d store at `filename` from the directories `dirs`.

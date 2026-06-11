@@ -2,7 +2,9 @@
   (:require [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is run-tests]]
             [com.eldrix.dmd.core :as dmd]
-            [clojure.java.io :as io])
+            [com.eldrix.dmd.store4 :as st4]
+            [clojure.java.io :as io]
+            [next.jdbc :as jdbc])
   (:import (java.io File)
            (java.time LocalDate)))
 
@@ -15,6 +17,42 @@
     (.delete filename)
     (dmd/install-from-dirs filename [(io/resource dir)] :batch-size 1)
     (dmd/open-store filename)))
+
+(deftest open-invalid-files
+  (let [not-sqlite (doto (File/createTempFile "dmd-test" ".db") (spit "this is not a database"))
+        not-dmd (File/createTempFile "dmd-test" ".db")
+        wrong-version (File/createTempFile "dmd-test" ".db")]
+    (.delete not-dmd)
+    (.delete wrong-version)
+    (with-open [conn (jdbc/get-connection (str "jdbc:sqlite:" not-dmd))]
+      (jdbc/execute-one! conn ["create table TEST (id integer)"]))
+    (with-open [conn (jdbc/get-connection (str "jdbc:sqlite:" wrong-version))]
+      (jdbc/execute-one! conn [(str "PRAGMA application_id = " st4/application-id)])
+      (jdbc/execute-one! conn ["PRAGMA user_version = 1"])
+      (jdbc/execute-one! conn ["create table TEST (id integer)"]))
+    (is (thrown-with-msg? Exception #"file not found" (dmd/open-store "no-such-file.db")))
+    (is (thrown-with-msg? Exception #"not a SQLite database" (dmd/open-store not-sqlite)))
+    (is (not (dmd/sqlite-database? not-sqlite)))
+    (is (thrown-with-msg? Exception #"not a dm\+d database" (dmd/open-store not-dmd)))
+    (is (dmd/sqlite-database? not-dmd))
+    (is (not (dmd/dmd-database? not-dmd)))
+    (is (thrown-with-msg? Exception #"incompatible dm\+d database version" (dmd/open-store wrong-version)))
+    (is (dmd/dmd-database? wrong-version))
+    (run! #(.delete ^File %) [not-sqlite not-dmd wrong-version])))
+
+(deftest store-status
+  (let [st (create-and-open-store)
+        {:keys [version created release trud files counts]} (dmd/status st)]
+    (is (= 2 version))
+    (is created)
+    (is (= (LocalDate/of 2021 8 26) release))
+    (is (nil? trud) "no TRUD provenance when installed from local directories")
+    (is (= 11 (count files)))
+    (is (= #{:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP :GTIN :BNF :HISTORY :VTM_ING}
+           (set (map :type files))))
+    (is (= {:VTM 1 :VMP 2 :AMP 3 :VMPP 1 :AMPP 1 :INGREDIENT 4 :HISTORY 10 :VTM_INGREDIENT 2 :GTIN 1 :BNF 1}
+           counts))
+    (dmd/close st)))
 
 ;; test basic import, store and fetch across products.
 (deftest import-store-and-fetch

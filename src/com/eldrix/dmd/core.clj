@@ -53,18 +53,36 @@
   (install-release api-key-file cache-dir))
 
 (defn open-store
-  "Open a dm+d store. Returns what should be regarded as an opaque handle, 
-  that should be closed using `close`. Currently this is a DataSource but 
-  this is subject to change. `f` can be anything coercible to a file using 
+  "Open a dm+d store. Returns what should be regarded as an opaque handle,
+  that should be closed using `close`. Currently this is a DataSource but
+  this is subject to change. `f` can be anything coercible to a file using
   [[clojure.java.io/as-file]]. Throws an exception if the file does not exist."
   [f]
   (st4/open-store f))
+
+(defn sqlite-database?
+  "Returns true if `f` is a SQLite 3 database file."
+  [f]
+  (st4/sqlite-database? f))
+
+(defn dmd-database?
+  "Returns true if `f` is a dm+d SQLite database created by this library.
+  Strict: legacy dm+d files predating the application_id marker return false."
+  [f]
+  (st4/dmd-database? f))
 
 (defn close [st]
   (st4/close st))
 
 (defn fetch-release-date [store]
   (st4/fetch-release-date store))
+
+(defn status
+  "Returns a structured description of an open dm+d store, including store
+  schema version, creation date, dm+d release date, source TRUD release
+  information and file inventory when available, and entity counts."
+  [store]
+  (st4/status store))
 
 (defn fetch-product [store product-id]
   (st4/fetch-product store product-id))
