@@ -40,6 +40,26 @@
     (is (dmd/dmd-database? wrong-version))
     (run! #(.delete ^File %) [not-sqlite not-dmd wrong-version])))
 
+(deftest history-and-queries
+  (let [st (create-and-open-store)]
+    (is (= #{354303007} (dmd/previous-ids st 34186711000001102)))
+    (is (= #{34186711000001102} (dmd/current-ids st 354303007)))
+    (is (= #{} (dmd/current-ids st 34186711000001102)) "self entries must be excluded")
+    (is (= #{} (dmd/previous-ids st 2070501000001104)) "supplier has only a self entry")
+    (let [history (dmd/fetch-history st 318135008)]
+      (is (= 2 (count history)))
+      (is (= ["10406411000001101" "318135008"] (map (comp str :HISTORY/IDPREVIOUS) history)) "ordered by start date")
+      (is (= "VMP" (:HISTORY/CLS (first history)))))
+    (is (= #{387516008 387475002} (set (dmd/vtm-ingredients st 34186711000001102))))
+    (is (= [34186711000001102] (dmd/vtms-for-ingredient st 387475002)))
+    (is (= #{"Co-amilofruse 2.5mg/20mg tablets" "Co-amilofruse 5mg/40mg tablets"}
+           (into #{} (map :NM) (dmd/plan-products st :VMP))))
+    (is (= 3 (count (into [] (map :APID) (dmd/plan-products st :AMP)))))
+    (is (contains? dmd/lookup-types :BASIS_OF_NAME))
+    (is (= 26 (count dmd/lookup-types)))
+    (is (every? #(seq (dmd/fetch-lookup st %)) dmd/lookup-types) "every lookup type enumerable and populated")
+    (dmd/close st)))
+
 (deftest store-status
   (let [st (create-and-open-store)
         {:keys [version created release trud files counts]} (dmd/status st)]

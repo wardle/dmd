@@ -93,6 +93,45 @@
 (defn fetch-lookup [conn lookup-kind]
   (st4/fetch-all-lookup conn lookup-kind))
 
+(def lookup-types
+  "Set of lookup types, as keywords, usable with [[fetch-lookup]]."
+  st4/lookup-types)
+
+(defn fetch-history
+  "Returns all history entries in which `id` is the current identifier,
+  ordered by start date, including 'self' entries recording the period of
+  validity of the current identifier itself."
+  [conn id]
+  (st4/fetch-history conn id))
+
+(defn previous-ids
+  "Returns the set of prior identifiers for the given current identifier."
+  [conn id]
+  (st4/previous-ids conn id))
+
+(defn current-ids
+  "Returns the set of identifiers in current use for the given (usually
+  historic) identifier."
+  [conn id]
+  (st4/current-ids conn id))
+
+(defn vtm-ingredients
+  "Returns ingredient (ISID) identifiers for the given VTM."
+  [conn vtmid]
+  (st4/vtm-ingredients conn vtmid))
+
+(defn vtms-for-ingredient
+  "Returns VTM identifiers for the given ingredient."
+  [conn isid]
+  (st4/vtms-for-ingredient conn isid))
+
+(defn plan-products
+  "Returns a reducible over all rows of the given product type (:VTM :VMP
+  :AMP :VMPP or :AMPP), for streaming iteration; each row is a `next.jdbc`
+  row abstraction with columns accessible by keyword."
+  [conn product-type]
+  (st4/plan-products conn product-type))
+
 (defn ^:deprecated vmps-from-atc
   "DEPRECATED: use [[vpids-from-atc]] instead."
   [conn atc]

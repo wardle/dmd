@@ -310,6 +310,20 @@
 (def entity-by-type
   (reduce (fn [acc {:keys [id] :as entity}] (assoc acc id entity)) {} entities))
 
+(def lookup-types
+  "Set of lookup types, as keywords, each of which is the name of a lookup
+  table, e.g. #{:BASIS_OF_NAME :SUPPLIER ...}."
+  (into #{} (comp (filter #(and (vector? %) (= :LOOKUP (first %)))) (map second))
+        (map :id entities)))
+
+(def product-tables
+  "Map of product type to its table and primary key column."
+  {:VTM  {:table "VTM" :pk "VTMID"}
+   :VMP  {:table "VMP" :pk "VPID"}
+   :AMP  {:table "AMP" :pk "APID"}
+   :VMPP {:table "VMPP" :pk "VPPID"}
+   :AMPP {:table "AMPP" :pk "APPID"}})
+
 (s/fdef create-tables
   :args (s/cat :conn ::conn))
 
@@ -721,6 +735,59 @@
                    (jdbc/execute-one! conn ["select * from ampp where nm=?" s]))]
     (let [nspace (-> (keys x) first namespace)]
       (assoc x :TYPE nspace))))
+
+(s/fdef fetch-history
+  :args (s/cat :conn ::conn :id ::product-id))
+(defn fetch-history
+  "Returns all history entries in which `id` is the current identifier,
+  ordered by start date. Includes 'self' entries (IDCURRENT=IDPREVIOUS) which
+  record the period of validity of the current identifier itself."
+  [conn id]
+  (jdbc/execute! conn ["select * from HISTORY where IDCURRENT=? order by STARTDT" id]))
+
+(s/fdef previous-ids
+  :args (s/cat :conn ::conn :id ::product-id))
+(defn previous-ids
+  "Returns the set of prior identifiers for the given current identifier,
+  excluding the identifier itself."
+  [conn id]
+  (into #{} (map :IDPREVIOUS)
+        (jdbc/plan conn ["select distinct IDPREVIOUS from HISTORY where IDCURRENT=? and IDPREVIOUS<>IDCURRENT" id])))
+
+(s/fdef current-ids
+  :args (s/cat :conn ::conn :id ::product-id))
+(defn current-ids
+  "Returns the set of identifiers in current use for the given (usually
+  historic) identifier, excluding the identifier itself. Usually a single
+  identifier, but the data model permits more than one."
+  [conn id]
+  (into #{} (map :IDCURRENT)
+        (jdbc/plan conn ["select distinct IDCURRENT from HISTORY where IDPREVIOUS=? and IDPREVIOUS<>IDCURRENT" id])))
+
+(s/fdef vtm-ingredients
+  :args (s/cat :conn ::conn :vtmid ::vtmid))
+(defn vtm-ingredients
+  "Returns ingredient (ISID) identifiers for the given VTM."
+  [conn vtmid]
+  (into [] (map :ISID) (jdbc/plan conn ["select ISID from VTM__INGREDIENT where VTMID=?" vtmid])))
+
+(s/fdef vtms-for-ingredient
+  :args (s/cat :conn ::conn :isid ::isid))
+(defn vtms-for-ingredient
+  "Returns VTM identifiers for the given ingredient."
+  [conn isid]
+  (into [] (map :VTMID) (jdbc/plan conn ["select VTMID from VTM__INGREDIENT where ISID=?" isid])))
+
+(s/fdef plan-products
+  :args (s/cat :conn ::conn :product-type (set (keys product-tables))))
+(defn plan-products
+  "Returns a reducible (clojure.lang.IReduceInit) over all rows of the given
+  product type (:VTM :VMP :AMP :VMPP or :AMPP), for streaming iteration
+  without realising all rows in memory. Each row is a `next.jdbc` row
+  abstraction; access columns by keyword, e.g. (map :NM)."
+  [conn product-type]
+  (let [{:keys [table]} (product-tables product-type)]
+    (jdbc/plan conn [(str "select * from " table)])))
 
 (defn ^:private atc->like [s]
   (-> s (str/replace "*" "%") (str/replace "?" "_")))
