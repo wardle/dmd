@@ -1,6 +1,6 @@
 # CHANGELOG
 
-# Unreleased (store schema v2)
+# v1.0.220 - 2026-06-11
 
 Databases must be rebuilt: v1 databases (and older legacy formats) are
 rejected at open with a clear error.
