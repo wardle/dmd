@@ -1,26 +1,20 @@
 # CHANGELOG
 
-# v1.0.220 - 2026-06-11
+# v1.0.225 - 2026-06-13
 
-Databases must be rebuilt: v1 databases (and older legacy formats) are
-rejected at open with a clear error.
+A major reworking of storage and the query API. Databases must be rebuilt:
+the store now uses a new schema, and older databases are rejected at open
+with a clear error.
 
-* Import the HISTORIC_CODES (deprecated code → live code map) and
-  VTM_INGREDIENTS files from the supplementary (bonus) distribution
-* Store all fields defined by the dm+d schema that were previously dropped,
-  including invalidity flags on every product type, previous identifiers,
-  ingredient denominator strengths, licensing authority changes, flavour,
-  colour, and lookup code history (CDDT/CDPREV)
-* New history APIs: `fetch-history`, `previous-ids`, `current-ids` map
-  deprecated identifiers to their current equivalents and vice versa
-* New `status` API returning store version, creation time, release date,
-  TRUD provenance, source file inventory and entity counts
-* Strict `open-store`: validates SQLite application_id (0x646D2B64 'dm+d')
-  and store version, with descriptive errors; read-only pooled DataSource
-* New full-text product name search via `search` (FTS5; tokenized prefix
-  matching); new `plan-products` for streaming iteration over all products;
-  `lookup-types` enumerates all lookup tables
-* Remove unused pathom3 graph API and unused dependencies
+* The full dm+d schema is now imported, including the supplementary history
+  and VTM-ingredient files and many fields previously dropped; stores open
+  read-only with strict validation and carry a `status` summary (schema
+  version, release date, provenance and entity counts)
+* Every imported dataset is now queryable through `com.eldrix.dmd.core`,
+  including extended product detail, pack pricing and reimbursement, GTINs
+  (with validity dates), product history, full-text search, hierarchy
+  traversal and subsumption
+* Updated dependencies
 
 # v1.0.208 - 2025-01-23
 
