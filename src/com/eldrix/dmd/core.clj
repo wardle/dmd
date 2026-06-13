@@ -1,4 +1,22 @@
 (ns com.eldrix.dmd.core
+  "The public API for the UK NHS Dictionary of medicines and devices (dm+d).
+
+  A dm+d service is a file-based SQLite database, installed from a published
+  distribution (see [[install-release]] and [[install-from-dirs]]) and then
+  opened read-only (see [[open-store]] and [[close]]).
+
+  All query functions take an open store as their first parameter, `conn`.
+  Naming conventions:
+  - `fetch-x`          : return a single entity by identifier, as a map of
+                         namespaced keys (e.g. :VMP/NM) with relationships
+                         resolved
+  - `xids-for-product` : identifiers of related products, traversing the
+                         dm+d hierarchy from any product
+  - `xs-for-product`   : as above, but returning extended product data
+  - `x-from-y`         : dm+d identifiers from an external code system,
+                         such as ATC or GTIN
+  - `plan-x`           : a reducible over all rows of a kind, for streaming
+                         iteration without realising all rows in memory"
   (:require [clojure.core.async :as a]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.dmd.download :as dl]
@@ -9,8 +27,12 @@
   (:import (java.time.format DateTimeFormatter)))
 
 (defn install-from-dirs
-  "Creates a new dm+d filestore at `filename` from the directories specified."
-  [filename dirs & {:keys [_batch-size] :as opts}]
+  "Creates a new dm+d filestore at `filename` from the directories specified.
+  Options:
+  - :batch-size - number of components per write batch (default 50000)
+  - :trud       - source TRUD release information, stored for provenance;
+                  supplied automatically when installed via [[install-release]]"
+  [filename dirs & {:keys [_batch-size _trud] :as opts}]
   (when (= 0 (count dirs)) (throw (ex-info "no directories specified" {:filename filename :dirs dirs})))
   (let [release-date (last (sort (remove nil? (map #(:release-date (dim/get-release-metadata %)) dirs))))
         {:keys [errors]} (st/create-store filename dirs (assoc opts :release-date release-date))]
@@ -18,6 +40,9 @@
       (log/error "error during import: " err))))
 
 (defn print-available-releases
+  "Print dm+d releases available from NHS Digital's TRUD service. Note: takes
+  the API key itself, unlike [[install-release]] which takes the name of a
+  file containing the key."
   [api-key]
   (dl/print-available-releases api-key))
 
@@ -75,23 +100,41 @@
   [f]
   (st/dmd-database? f))
 
-(defn close [st]
-  (st/close st))
+(defn close
+  "Close a store opened by [[open-store]], releasing pooled connections."
+  [store]
+  (st/close store))
 
-(defn fetch-release-date [store]
-  (st/fetch-release-date store))
+(defn fetch-release-date
+  "Returns the date (java.time.LocalDate) of the dm+d release in the store."
+  [conn]
+  (st/fetch-release-date conn))
 
 (defn status
   "Returns a structured description of an open dm+d store, including store
   schema version, creation date, dm+d release date, source TRUD release
   information and file inventory when available, and entity counts."
-  [store]
-  (st/status store))
+  [conn]
+  (st/status conn))
 
-(defn fetch-product [store product-id]
-  (st/fetch-product store product-id))
+(defn fetch-product
+  "Returns extended information about the product with the given identifier,
+  of whatever product type, as a map of namespaced keys (e.g. :VMP/NM) with
+  relationships and lookups resolved; nil if not found."
+  [conn product-id]
+  (st/fetch-product conn product-id))
 
-(defn fetch-product-by-exact-name [conn nm]
+(defn product-type
+  "Returns a keyword :VTM :VMP :AMP :VMPP or :AMPP for the product with the
+  given identifier, or nil if it is not a current product identifier."
+  [conn id]
+  (st/product-type conn id))
+
+(defn fetch-product-by-exact-name
+  "Returns a single product with the given exact name, checking each product
+  type in turn; nil if no product matches. For tokenized prefix matching,
+  use [[search]]."
+  [conn nm]
   (st/fetch-product-by-exact-name conn nm))
 
 (defn search
@@ -104,8 +147,14 @@
   [conn s & {:keys [_types _limit] :as opts}]
   (st/search conn s opts))
 
-(defn fetch-lookup [conn lookup-kind]
-  (st/fetch-all-lookup conn lookup-kind))
+(defn fetch-lookup
+  "Returns lookup table entries of the given kind (e.g. :LEGAL_CATEGORY); see
+  [[lookup-types]]. With two arguments, returns all entries; with a code,
+  returns the single matching entry, or nil."
+  ([conn lookup-kind]
+   (st/fetch-all-lookup conn lookup-kind))
+  ([conn lookup-kind code]
+   (st/fetch-lookup conn lookup-kind code)))
 
 (def lookup-types
   "Set of lookup types, as keywords, usable with [[fetch-lookup]]."
@@ -129,22 +178,61 @@
   [conn id]
   (st/current-ids conn id))
 
-(defn vtm-ingredients
+(defn isids-for-vtm
   "Returns ingredient (ISID) identifiers for the given VTM."
   [conn vtmid]
-  (st/vtm-ingredients conn vtmid))
+  (st/isids-for-vtm conn vtmid))
 
-(defn vtms-for-ingredient
+(defn vtmids-for-ingredient
   "Returns VTM identifiers for the given ingredient."
   [conn isid]
-  (st/vtms-for-ingredient conn isid))
+  (st/vtmids-for-ingredient conn isid))
+
+(defn fetch-ingredient
+  "Returns the ingredient with the given ISID."
+  [conn isid]
+  (st/fetch-ingredient conn isid))
+
+(defn gtins-for-appid
+  "Returns GTINs (Global Trade Item Numbers) for the given AMPP, as a vector
+  of strings. By default, only GTINs valid on the current date are returned:
+  a GTIN is valid from its start date to its end date inclusive, so expired
+  entries, such as for packs no longer in circulation, are omitted.
+  Options:
+  - :on-date         - java.time.LocalDate on which to assess validity;
+                       default, today
+  - :include-expired - when true, return all GTINs irrespective of their
+                       period of validity"
+  [conn appid & {:keys [_on-date _include-expired] :as opts}]
+  (st/gtins-for-appid conn appid opts))
+
+(defn appids-from-gtin
+  "Returns AMPP identifiers for the given GTIN (Global Trade Item Number),
+  which may be a string or a number. Usually a single identifier, but the
+  data model permits more than one. By default, only assignments valid on
+  the current date are returned: a GTIN is valid from its start date to its
+  end date inclusive, so expired entries are omitted.
+  Options:
+  - :on-date         - java.time.LocalDate on which to assess validity;
+                       default, today
+  - :include-expired - when true, return all AMPPs irrespective of their
+                       period of validity"
+  [conn gtin & {:keys [_on-date _include-expired] :as opts}]
+  (st/appids-from-gtin conn gtin opts))
 
 (defn plan-products
   "Returns a reducible over all rows of the given product type (:VTM :VMP
   :AMP :VMPP or :AMPP), for streaming iteration; each row is a `next.jdbc`
   row abstraction with columns accessible by keyword."
-  [conn product-type]
-  (st/plan-products conn product-type))
+  [conn kind]
+  (st/plan-products conn kind))
+
+(defn plan-ingredients
+  "Returns a reducible over all rows of the INGREDIENT table, for streaming
+  iteration; each row is a `next.jdbc` row abstraction with columns
+  accessible by keyword, e.g. :ISID and :NM."
+  [conn]
+  (st/plan-ingredients conn))
 
 (defn ^:deprecated vmps-from-atc
   "DEPRECATED: use [[vpids-from-atc]] instead."
@@ -186,20 +274,82 @@
   [conn atc]
   (st/atc->products-for-ecl conn atc))
 
-(defn vmps-for-product [conn id]
-  (->> (st/vpids conn id)
-       (map #(st/fetch-vmp conn %))))
+(defn vpids-for-product
+  "Returns VMP identifiers for the given product, as a vector."
+  [conn product-id]
+  (st/vpids conn product-id))
 
-(defn amps-for-product [conn id]
-  (->> (st/apids conn id)
-       (map #(st/fetch-amp conn %))))
+(defn vtmids-for-product
+  "Returns VTM identifiers for the given product, as a set."
+  [conn product-id]
+  (st/vtmids conn product-id))
 
-(defn vtms-for-product [conn id]
-  (->> (st/vtmids conn id)
+(defn apids-for-product
+  "Returns AMP identifiers for the given product, as a vector."
+  [conn product-id]
+  (st/apids conn product-id))
+
+(defn vppids-for-product
+  "Returns VMPP identifiers for the given product, as a vector."
+  [conn product-id]
+  (st/vppids conn product-id))
+
+(defn appids-for-product
+  "Returns AMPP identifiers for the given product, as a vector."
+  [conn product-id]
+  (st/appids conn product-id))
+
+(defn subsumes?
+  "Returns true if product `a` subsumes product `b`: that is, `a` is an
+  ancestor of `b` in the dm+d product hierarchy, in which an AMPP is both an
+  AMP and a VMPP, an AMP and a VMPP are each a VMP, and a VMP is a VTM.
+  Strict: a product does not subsume itself, so equal identifiers return
+  false, as does any identifier that is not a current product identifier;
+  equivalence is left to the caller."
+  [conn a b]
+  (st/subsumes? conn a b))
+
+(defn vtms-for-product
+  "Returns VTMs for the given product, as extended product maps; see
+  [[vtmids-for-product]] for identifiers only."
+  [conn product-id]
+  (->> (st/vtmids conn product-id)
        (map #(st/fetch-vtm conn %))))
 
-(defn atc-for-product [conn id]
-  (st/atc-code conn id))
+(defn vmps-for-product
+  "Returns VMPs for the given product, as extended product maps; see
+  [[vpids-for-product]] for identifiers only."
+  [conn product-id]
+  (->> (st/vpids conn product-id)
+       (map #(st/fetch-vmp conn %))))
+
+(defn amps-for-product
+  "Returns AMPs for the given product, as extended product maps; see
+  [[apids-for-product]] for identifiers only."
+  [conn product-id]
+  (->> (st/apids conn product-id)
+       (map #(st/fetch-amp conn %))))
+
+(defn vmpps-for-product
+  "Returns VMPPs for the given product, as extended product maps; see
+  [[vppids-for-product]] for identifiers only."
+  [conn product-id]
+  (->> (st/vppids conn product-id)
+       (map #(st/fetch-vmpp conn %))))
+
+(defn ampps-for-product
+  "Returns AMPPs for the given product, as extended product maps; see
+  [[appids-for-product]] for identifiers only."
+  [conn product-id]
+  (->> (st/appids conn product-id)
+       (map #(st/fetch-ampp conn %))))
+
+(defn atc-for-product
+  "Returns the ATC code for the given product. When a product maps to more
+  than one ATC code, such as a VTM whose VMPs carry different codes, one is
+  returned arbitrarily."
+  [conn product-id]
+  (st/atc-code conn product-id))
 
 (comment
   (install-latest "/Users/mark/Dev/trud/api-key.txt" "/Users/mark/Dev/trud/cache/tmp/trud")

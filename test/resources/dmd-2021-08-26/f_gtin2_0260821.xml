@@ -9,6 +9,14 @@
                 <STARTDT>2019-03-13</STARTDT>
             </GTINDATA>
         </AMPP>
+        <AMPP>
+            <AMPPID>37365911000001107</AMPPID>
+            <GTINDATA>
+                <GTIN>5012617019844</GTIN>
+                <STARTDT>2015-06-01</STARTDT>
+                <ENDDT>2019-03-12</ENDDT>
+            </GTINDATA>
+        </AMPP>
     </AMPPS>
 </GTIN_DETAILS>
 

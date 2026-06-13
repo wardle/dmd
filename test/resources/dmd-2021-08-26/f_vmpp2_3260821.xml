@@ -9,6 +9,14 @@
             <QTYVAL>28</QTYVAL>
             <QTY_UOMCD>428673006</QTY_UOMCD>
         </VMPP>
+        <VMPP>
+            <VPPID>8967511000001109</VPPID>
+            <NM>Co-amilofruse 5mg/40mg tablets 28 tablet combination pack</NM>
+            <VPID>318136009</VPID>
+            <QTYVAL>28</QTYVAL>
+            <QTY_UOMCD>428673006</QTY_UOMCD>
+            <COMBPACKCD>0001</COMBPACKCD>
+        </VMPP>
     </VMPPS>
     <DRUG_TARIFF_INFO>
         <DTINFO>
@@ -19,4 +27,10 @@
             <PREVPRICE>740</PREVPRICE>
         </DTINFO>
     </DRUG_TARIFF_INFO>
+    <COMB_CONTENT>
+        <CCONTENT>
+            <PRNTVPPID>8967511000001109</PRNTVPPID>
+            <CHLDVPPID>1245011000001108</CHLDVPPID>
+        </CCONTENT>
+    </COMB_CONTENT>
 </VIRTUAL_MED_PRODUCT_PACK>

@@ -50,14 +50,76 @@
       (is (= 2 (count history)))
       (is (= ["10406411000001101" "318135008"] (map (comp str :HISTORY/IDPREVIOUS) history)) "ordered by start date")
       (is (= "VMP" (:HISTORY/CLS (first history)))))
-    (is (= #{387516008 387475002} (set (dmd/vtm-ingredients st 34186711000001102))))
-    (is (= [34186711000001102] (dmd/vtms-for-ingredient st 387475002)))
+    (is (= #{387516008 387475002} (set (dmd/isids-for-vtm st 34186711000001102))))
+    (is (= [34186711000001102] (dmd/vtmids-for-ingredient st 387475002)))
     (is (= #{"Co-amilofruse 2.5mg/20mg tablets" "Co-amilofruse 5mg/40mg tablets"}
            (into #{} (map :NM) (dmd/plan-products st :VMP))))
     (is (= 3 (count (into [] (map :APID) (dmd/plan-products st :AMP)))))
     (is (contains? dmd/lookup-types :BASIS_OF_NAME))
     (is (= 26 (count dmd/lookup-types)))
     (is (every? #(seq (dmd/fetch-lookup st %)) dmd/lookup-types) "every lookup type enumerable and populated")
+    (dmd/close st)))
+
+(deftest traversal-and-subsumption
+  (let [st (create-and-open-store)
+        vtm 34186711000001102
+        vmp-1 318135008                                     ;; co-amilofruse 2.5mg/20mg
+        vmp-2 318136009                                     ;; co-amilofruse 5mg/40mg
+        amp 37365811000001102                               ;; Mawdsley-Brooks; an AMP of vmp-2
+        other-amp 38847311000001102                         ;; Medihealth; another AMP of vmp-2
+        vmpp 1245011000001108                               ;; 28 tablet pack of vmp-2
+        comb-vmpp 8967511000001109                          ;; combination pack
+        ampp 37365911000001107                              ;; pack of amp, within vmpp
+        comb-ampp 8968011000001101]                         ;; combination pack of amp
+    (is (= :VTM (dmd/product-type st vtm)))
+    (is (= :VMP (dmd/product-type st vmp-2)))
+    (is (= :AMP (dmd/product-type st amp)))
+    (is (= :VMPP (dmd/product-type st vmpp)))
+    (is (= :AMPP (dmd/product-type st ampp)))
+    (is (nil? (dmd/product-type st 999)))
+    ;; identifier-level traversal
+    (is (= #{vmp-1 vmp-2} (set (dmd/vpids-for-product st vtm))))
+    (is (= [vmp-2] (dmd/vpids-for-product st ampp)))
+    (is (= #{vtm} (set (dmd/vtmids-for-product st amp))))
+    (is (= #{vtm} (set (dmd/vtmids-for-product st ampp))) "VTM must be reachable from an AMPP")
+    (is (= #{amp other-amp 37706811000001108} (set (dmd/apids-for-product st vmpp)))
+        "AMPs must be reachable from a VMPP, via the VMP")
+    (is (= #{vmpp comb-vmpp} (set (dmd/vppids-for-product st vtm))))
+    (is (= #{ampp comb-ampp} (set (dmd/appids-for-product st vtm))))
+    (is (= [ampp] (dmd/appids-for-product st vmpp)))
+    (is (= #{vtm} (dmd/vtmids-for-product st vtm)) "a VTM's VTM is itself, consistently a set")
+    (is (= vtm (:VTM/VTMID (first (dmd/vtms-for-product st ampp)))))
+    (is (= #{vmpp comb-vmpp} (into #{} (map :VMPP/VPPID) (dmd/vmpps-for-product st vtm))))
+    (is (= [ampp] (mapv :AMPP/APPID (dmd/ampps-for-product st vmpp))))
+    ;; subsumption: a VTM subsumes everything beneath it...
+    (is (dmd/subsumes? st vtm vmp-2))
+    (is (dmd/subsumes? st vtm amp))
+    (is (dmd/subsumes? st vtm vmpp))
+    (is (dmd/subsumes? st vtm ampp))
+    ;; ...a VMP subsumes its AMPs, VMPPs and AMPPs...
+    (is (dmd/subsumes? st vmp-2 amp))
+    (is (dmd/subsumes? st vmp-2 vmpp))
+    (is (dmd/subsumes? st vmp-2 ampp))
+    (is (not (dmd/subsumes? st vmp-1 amp)) "a sibling VMP subsumes nothing here")
+    (is (not (dmd/subsumes? st vmp-1 ampp)))
+    ;; ...an AMPP is both its AMP and its VMPP, but not other packs...
+    (is (dmd/subsumes? st amp ampp))
+    (is (dmd/subsumes? st amp comb-ampp))
+    (is (not (dmd/subsumes? st other-amp ampp)))
+    (is (dmd/subsumes? st vmpp ampp))
+    (is (dmd/subsumes? st comb-vmpp comb-ampp))
+    (is (not (dmd/subsumes? st comb-vmpp ampp)))
+    ;; ...and subsumption is strict, directional, and false for unknowns
+    (is (not (dmd/subsumes? st vtm vtm)) "a product does not subsume itself")
+    (is (not (dmd/subsumes? st vmp-2 vtm)))
+    (is (not (dmd/subsumes? st ampp vmpp)))
+    (is (not (dmd/subsumes? st 999 vmp-2)))
+    (is (not (dmd/subsumes? st vtm 999)))
+    ;; ingredient enumeration and single-code lookups
+    (is (= 4 (count (into [] (map :ISID) (dmd/plan-ingredients st)))))
+    (is (contains? (into #{} (map :NM) (dmd/plan-ingredients st)) "Furosemide"))
+    (is (= "POM" (:LEGAL_CATEGORY/DESC (dmd/fetch-lookup st :LEGAL_CATEGORY 3))))
+    (is (nil? (dmd/fetch-lookup st :LEGAL_CATEGORY 999)))
     (dmd/close st)))
 
 (deftest search-products
@@ -85,8 +147,80 @@
     (is (= 11 (count files)))
     (is (= #{:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP :GTIN :BNF :HISTORY :VTM_ING}
            (set (map :type files))))
-    (is (= {:VTM 1 :VMP 2 :AMP 3 :VMPP 1 :AMPP 1 :INGREDIENT 4 :HISTORY 10 :VTM_INGREDIENT 2 :GTIN 1 :BNF 1}
+    (is (= {:VTM 1 :VMP 2 :AMP 3 :VMPP 2 :AMPP 2 :INGREDIENT 4 :HISTORY 10 :VTM_INGREDIENT 2 :GTIN 2 :BNF 1}
            counts))
+    (dmd/close st)))
+
+(deftest gtins
+  (let [st (create-and-open-store)]
+    ;; the fixture AMPP has a current GTIN (started 2019-03-13, no end date)
+    ;; and an expired GTIN (2015-06-01 to 2019-03-12 inclusive)
+    (is (= ["5037563003235"] (dmd/gtins-for-appid st 37365911000001107))
+        "expired GTINs must be omitted by default")
+    (is (= #{"5037563003235" "5012617019844"}
+           (set (dmd/gtins-for-appid st 37365911000001107 :include-expired true))))
+    (is (= [37365911000001107] (dmd/appids-from-gtin st "5037563003235")))
+    (is (= [37365911000001107] (dmd/appids-from-gtin st 5037563003235))
+        "a GTIN may be given as a number")
+    (is (= [] (dmd/appids-from-gtin st "5012617019844"))
+        "expired assignments must be omitted by default")
+    (is (= [37365911000001107] (dmd/appids-from-gtin st "5012617019844" :include-expired true)))
+    (is (= [37365911000001107] (dmd/appids-from-gtin st "5012617019844" :on-date (LocalDate/of 2017 1 1)))
+        "valid during its period of validity")
+    (is (= [37365911000001107] (dmd/appids-from-gtin st "5012617019844" :on-date (LocalDate/of 2019 3 12)))
+        "valid on its end date inclusive")
+    (is (= [] (dmd/appids-from-gtin st "5037563003235" :on-date (LocalDate/of 2019 3 12)))
+        "not valid before its start date")
+    (is (= ["5037563003235"] (dmd/gtins-for-appid st 37365911000001107 :on-date (LocalDate/of 2019 3 13)))
+        "valid on its start date")
+    (is (= [] (dmd/gtins-for-appid st 999)) "unknown AMPP")
+    (is (= [] (dmd/appids-from-gtin st "0000000000000")) "unknown GTIN")
+    (dmd/close st)))
+
+(deftest extended-product-information
+  (let [st (create-and-open-store)
+        amp (dmd/fetch-product st 37365811000001102)
+        vmpp (dmd/fetch-product st 1245011000001108)
+        ampp (dmd/fetch-product st 37365911000001107)
+        comb-vmpp (dmd/fetch-product st 8967511000001109)
+        comb-ampp (dmd/fetch-product st 8968011000001101)]
+    ;; AMP: excipients, licensed routes and additional product information
+    (is (= #{"Propylene glycol" "Butylated hydroxyanisole"}
+           (into #{} (map #(get-in % [:AMP__AP_INGREDIENT/IS :INGREDIENT/NM]))
+                 (:AMP/AP_INGREDIENTS amp))))
+    (is (= ["Oral"] (mapv #(get-in % [:AMP__LICENSED_ROUTE/ROUTE :ROUTE/DESC])
+                          (:AMP/LICENSED_ROUTES amp))))
+    (is (= "8.5mm" (get-in amp [:AMP/AP_INFORMATION :AMP__AP_INFORMATION/SZ_WEIGHT])))
+    (is (= "White" (get-in amp [:AMP/AP_INFORMATION :AMP__AP_INFORMATION/COLOUR :COLOUR/DESC])))
+    (is (empty? (:AMP/AP_INGREDIENTS (dmd/fetch-product st 38847311000001102)))
+        "no excipients recorded for this AMP")
+    ;; VMPP: drug tariff information
+    (is (= "529" (get-in vmpp [:VMPP/DRUG_TARIFF_INFO :VMPP__DRUG_TARIFF_INFO/PRICE])))
+    (is (= "Part VIIIA Category C"
+           (get-in vmpp [:VMPP/DRUG_TARIFF_INFO :VMPP__DRUG_TARIFF_INFO/PAY_CAT :DT_PAYMENT_CATEGORY/DESC])))
+    ;; AMPP: appliance pack, prescribing, price and reimbursement information
+    (is (= "Allowed (in Drug Tariff)"
+           (get-in ampp [:AMPP/APPLIANCE_PACK_INFO :AMPP__APPLIANCE_PACK_INFO/REIMB_STAT :REIMBURSEMENT_STATUS/DESC])))
+    (is (get-in ampp [:AMPP/DRUG_PRODUCT_PRESCRIB_INFO :AMPP__DRUG_PRODUCT_PRESCRIB_INFO/ACBS]))
+    (is (get-in ampp [:AMPP/DRUG_PRODUCT_PRESCRIB_INFO :AMPP__DRUG_PRODUCT_PRESCRIB_INFO/HOSP]))
+    (is (= 3384 (get-in ampp [:AMPP/MEDICINAL_PRODUCT_PRICE :AMPP__MEDICINAL_PRODUCT_PRICE/PRICE])))
+    (is (= "NHS Indicative Price"
+           (get-in ampp [:AMPP/MEDICINAL_PRODUCT_PRICE :AMPP__MEDICINAL_PRODUCT_PRICE/PRICE_BASIS :PRICE_BASIS/DESC])))
+    (is (get-in ampp [:AMPP/REIMBURSEMENT_INFO :AMPP__REIMBURSEMENT_INFO/PX_CHRGS]))
+    (is (= "Special container"
+           (get-in ampp [:AMPP/REIMBURSEMENT_INFO :AMPP__REIMBURSEMENT_INFO/SPEC_CONT :SPEC_CONT/DESC])))
+    (is (= "Discount not deducted - automatic"
+           (get-in ampp [:AMPP/REIMBURSEMENT_INFO :AMPP__REIMBURSEMENT_INFO/DND_IND :DND/DESC])))
+    ;; combination packs and their content
+    (is (= "Combination pack" (get-in comb-vmpp [:VMPP/COMBPACK :COMBINATION_PACK_IND/DESC])))
+    (is (= [1245011000001108]
+           (mapv #(get-in % [:VMPP__COMB_CONTENT/CHLD :VMPP/VPPID]) (:VMPP/COMB_CONTENT comb-vmpp))))
+    (is (= [37365911000001107]
+           (mapv #(get-in % [:AMPP__COMB_CONTENT/CHLD :AMPP/APPID]) (:AMPP/COMB_CONTENT comb-ampp))))
+    (is (empty? (:VMPP/COMB_CONTENT vmpp)) "not a combination pack")
+    (is (empty? (:AMPP/COMB_CONTENT ampp)) "not a combination pack")
+    ;; ingredient by identifier
+    (is (= "Furosemide" (:INGREDIENT/NM (dmd/fetch-ingredient st 387475002))))
     (dmd/close st)))
 
 ;; test basic import, store and fetch across products.
@@ -144,7 +278,7 @@
       (is (= 385098002 (:FORM/CDPREV (get forms 35366811000001106)))))
     (let [ingredients (dmd/fetch-product st 318136009)]   ;; ingredient previous ids now stored
       (is (= #{3512011000001109 3536911000001101}
-             (set (map #(get-in % [:VMP__VIRTUAL_PRODUCT_INGREDIENT/IS 0 :INGREDIENT/ISIDPREV])
+             (set (map #(get-in % [:VMP__VIRTUAL_PRODUCT_INGREDIENT/IS :INGREDIENT/ISIDPREV])
                        (:VMP/VIRTUAL_PRODUCT_INGREDIENTS ingredients))))))
     (dmd/close st)))
 

@@ -11,7 +11,29 @@
             <DISCCD>0001</DISCCD>
             <DISCDT>2020-02-29</DISCDT>
         </AMPP>
+        <AMPP>
+            <APPID>8968011000001101</APPID>
+            <NM>Co-amilofruse 5mg/40mg tablets (Mawdsley-Brooks &amp; Company Ltd) 28 tablet combination pack</NM>
+            <VPPID>8967511000001109</VPPID>
+            <APID>37365811000001102</APID>
+            <COMBPACKCD>0001</COMBPACKCD>
+            <LEGAL_CATCD>0003</LEGAL_CATCD>
+        </AMPP>
     </AMPPS>
+    <APPLIANCE_PACK_INFO>
+        <PACK_INFO>
+            <APPID>37365911000001107</APPID>
+            <REIMB_STATCD>0001</REIMB_STATCD>
+            <PACK_ORDER_NO>510</PACK_ORDER_NO>
+        </PACK_INFO>
+    </APPLIANCE_PACK_INFO>
+    <DRUG_PRODUCT_PRESCRIB_INFO>
+        <PRESCRIB_INFO>
+            <APPID>37365911000001107</APPID>
+            <ACBS>0001</ACBS>
+            <HOSP>0001</HOSP>
+        </PRESCRIB_INFO>
+    </DRUG_PRODUCT_PRESCRIB_INFO>
     <MEDICINAL_PRODUCT_PRICE>
         <PRICE_INFO>
             <APPID>37365911000001107</APPID>
@@ -27,6 +49,14 @@
             <PX_CHRGS>1</PX_CHRGS>
             <DISP_FEES>1</DISP_FEES>
             <BB>0001</BB>
+            <SPEC_CONTCD>0001</SPEC_CONTCD>
+            <DND>0001</DND>
         </REIMB_INFO>
     </REIMBURSEMENT_INFO>
+    <COMB_CONTENT>
+        <CCONTENT>
+            <PRNTAPPID>8968011000001101</PRNTAPPID>
+            <CHLDAPPID>37365911000001107</CHLDAPPID>
+        </CCONTENT>
+    </COMB_CONTENT>
 </ACTUAL_MEDICINAL_PROD_PACKS>

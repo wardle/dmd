@@ -553,9 +553,9 @@
 (s/fdef fetch-ingredient
   :args (s/cat :conn ::conn :isid ::isid))
 (defn fetch-ingredient
-  "Returns the ingredient specified."
+  "Returns the ingredient with the given ISID."
   [conn isid]
-  (jdbc/execute! conn ["select * from ingredient where isid=?" isid]))
+  (jdbc/execute-one! conn ["select * from ingredient where isid=?" isid]))
 
 (s/fdef fetch-vmp-ingredients
   :args (s/cat :conn ::conn :vpid ::vpid))
@@ -645,6 +645,23 @@
   (some-> (jdbc/execute-one! conn ["select * from vmpp where vppid=?" vppid])
           (assoc :TYPE "VMPP")))
 
+(s/fdef fetch-vmpp-drug-tariff-info
+  :args (s/cat :conn ::conn :vppid ::vppid))
+(defn ^:private fetch-vmpp-drug-tariff-info
+  [conn vppid]
+  (when-let [{:VMPP__DRUG_TARIFF_INFO/keys [PAY_CATCD] :as dti}
+             (jdbc/execute-one! conn ["select * from VMPP__DRUG_TARIFF_INFO where vppid=?" vppid])]
+    (assoc dti :VMPP__DRUG_TARIFF_INFO/PAY_CAT (fetch-lookup conn :DT_PAYMENT_CATEGORY PAY_CATCD))))
+
+(s/fdef fetch-vmpp-comb-content
+  :args (s/cat :conn ::conn :vppid ::vppid))
+(defn ^:private fetch-vmpp-comb-content
+  "Returns the child packs of the given VMPP, when it is a combination pack."
+  [conn vppid]
+  (->> (jdbc/execute! conn ["select * from VMPP__COMB_CONTENT where PRNTVPPID=?" vppid])
+       (map (fn [{:VMPP__COMB_CONTENT/keys [CHLDVPPID] :as cc}]
+              (assoc cc :VMPP__COMB_CONTENT/CHLD (fetch-vmpp* conn CHLDVPPID))))))
+
 (s/fdef fetch-vmpp
   :args (s/cat :conn ::conn :vppid ::vppid))
 (defn fetch-vmpp
@@ -656,7 +673,9 @@
            :TYPE "VMPP"
            :VMPP/VP (fetch-vmp conn VPID)
            :VMPP/QTY_UOM (fetch-lookup conn :UNIT_OF_MEASURE QTY_UOMCD)
-           :VMPP/COMBPACK (fetch-lookup conn :COMBINATION_PACK_IND COMBPACKCD))))
+           :VMPP/COMBPACK (fetch-lookup conn :COMBINATION_PACK_IND COMBPACKCD)
+           :VMPP/DRUG_TARIFF_INFO (fetch-vmpp-drug-tariff-info conn vppid) ;; to-one
+           :VMPP/COMB_CONTENT (fetch-vmpp-comb-content conn vppid))))      ;; to-many
 
 (s/fdef fetch-amp*
   :args (s/cat :conn ::conn :apid ::apid))
@@ -665,6 +684,32 @@
   [conn apid]
   (some-> (jdbc/execute-one! conn ["select * from amp where apid=?" apid])
           (assoc :TYPE "AMP")))
+
+(s/fdef fetch-amp-excipients
+  :args (s/cat :conn ::conn :apid ::apid))
+(defn ^:private fetch-amp-excipients
+  "Returns excipients (AP_INGREDIENT) for the given AMP."
+  [conn apid]
+  (->> (jdbc/execute! conn ["select * from AMP__AP_INGREDIENT where apid=?" apid])
+       (map (fn [{:AMP__AP_INGREDIENT/keys [ISID UOMCD] :as api}]
+              (assoc api :AMP__AP_INGREDIENT/IS (fetch-ingredient conn ISID)
+                     :AMP__AP_INGREDIENT/UOM (fetch-lookup conn :UNIT_OF_MEASURE UOMCD))))))
+
+(s/fdef fetch-amp-licensed-routes
+  :args (s/cat :conn ::conn :apid ::apid))
+(defn ^:private fetch-amp-licensed-routes
+  [conn apid]
+  (->> (jdbc/execute! conn ["select * from AMP__LICENSED_ROUTE where apid=?" apid])
+       (map (fn [{:AMP__LICENSED_ROUTE/keys [ROUTECD] :as lr}]
+              (assoc lr :AMP__LICENSED_ROUTE/ROUTE (fetch-lookup conn :ROUTE ROUTECD))))))
+
+(s/fdef fetch-amp-information
+  :args (s/cat :conn ::conn :apid ::apid))
+(defn ^:private fetch-amp-information
+  [conn apid]
+  (when-let [{:AMP__AP_INFORMATION/keys [COLOURCD] :as info}
+             (jdbc/execute-one! conn ["select * from AMP__AP_INFORMATION where apid=?" apid])]
+    (assoc info :AMP__AP_INFORMATION/COLOUR (fetch-lookup conn :COLOUR COLOURCD))))
 
 (s/fdef fetch-amp
   :args (s/cat :conn ::conn :apid ::apid))
@@ -680,7 +725,10 @@
            :AMP/AVAIL_RESTRICT (fetch-lookup conn :AVAILABILITY_RESTRICTION AVAIL_RESTRICTCD)
            :AMP/FLAVOUR (fetch-lookup conn :FLAVOUR FLAVOURCD)
            :AMP/COMBPROD (fetch-lookup conn :COMBINATION_PROD_IND COMBPRODCD)
-           :AMP/VP (fetch-vmp conn VPID))))
+           :AMP/VP (fetch-vmp conn VPID)
+           :AMP/AP_INGREDIENTS (fetch-amp-excipients conn apid)      ;; to-many: excipients
+           :AMP/LICENSED_ROUTES (fetch-amp-licensed-routes conn apid) ;; to-many
+           :AMP/AP_INFORMATION (fetch-amp-information conn apid))))   ;; to-one
 
 (s/fdef fetch-ampp*
   :args (s/cat :conn ::conn :appid ::appid))
@@ -690,10 +738,50 @@
   (some-> (jdbc/execute-one! conn ["select * from ampp where appid=?" appid])
           (assoc :TYPE "AMPP")))
 
+(s/fdef fetch-ampp-appliance-pack-info
+  :args (s/cat :conn ::conn :appid ::appid))
+(defn ^:private fetch-ampp-appliance-pack-info
+  [conn appid]
+  (when-let [{:AMPP__APPLIANCE_PACK_INFO/keys [REIMB_STATCD] :as info}
+             (jdbc/execute-one! conn ["select * from AMPP__APPLIANCE_PACK_INFO where appid=?" appid])]
+    (assoc info :AMPP__APPLIANCE_PACK_INFO/REIMB_STAT (fetch-lookup conn :REIMBURSEMENT_STATUS REIMB_STATCD))))
+
+(s/fdef fetch-ampp-prescribing-info
+  :args (s/cat :conn ::conn :appid ::appid))
+(defn ^:private fetch-ampp-prescribing-info
+  [conn appid]
+  (jdbc/execute-one! conn ["select * from AMPP__DRUG_PRODUCT_PRESCRIB_INFO where appid=?" appid]))
+
+(s/fdef fetch-ampp-price-info
+  :args (s/cat :conn ::conn :appid ::appid))
+(defn ^:private fetch-ampp-price-info
+  [conn appid]
+  (when-let [{:AMPP__MEDICINAL_PRODUCT_PRICE/keys [PRICE_BASISCD] :as price}
+             (jdbc/execute-one! conn ["select * from AMPP__MEDICINAL_PRODUCT_PRICE where appid=?" appid])]
+    (assoc price :AMPP__MEDICINAL_PRODUCT_PRICE/PRICE_BASIS (fetch-lookup conn :PRICE_BASIS PRICE_BASISCD))))
+
+(s/fdef fetch-ampp-reimbursement-info
+  :args (s/cat :conn ::conn :appid ::appid))
+(defn ^:private fetch-ampp-reimbursement-info
+  [conn appid]
+  (when-let [{:AMPP__REIMBURSEMENT_INFO/keys [SPEC_CONTCD DND] :as ri}
+             (jdbc/execute-one! conn ["select * from AMPP__REIMBURSEMENT_INFO where appid=?" appid])]
+    (assoc ri :AMPP__REIMBURSEMENT_INFO/SPEC_CONT (fetch-lookup conn :SPEC_CONT SPEC_CONTCD)
+           :AMPP__REIMBURSEMENT_INFO/DND_IND (fetch-lookup conn :DND DND))))
+
+(s/fdef fetch-ampp-comb-content
+  :args (s/cat :conn ::conn :appid ::appid))
+(defn ^:private fetch-ampp-comb-content
+  "Returns the child packs of the given AMPP, when it is a combination pack."
+  [conn appid]
+  (->> (jdbc/execute! conn ["select * from AMPP__COMB_CONTENT where PRNTAPPID=?" appid])
+       (map (fn [{:AMPP__COMB_CONTENT/keys [CHLDAPPID] :as cc}]
+              (assoc cc :AMPP__COMB_CONTENT/CHLD (fetch-ampp* conn CHLDAPPID))))))
+
 (s/fdef fetch-ampp
   :args (s/cat :conn ::conn :appid ::appid))
 (defn fetch-ampp
-  "Return the given AMPP with extended information, including the parent AMP 
+  "Return the given AMPP with extended information, including the parent AMP
   and VMP."
   [conn appid]
   (when-let [{:AMPP/keys [VPPID APID COMBPACKCD LEGAL_CATCD DISCCD] :as ampp}
@@ -704,7 +792,12 @@
            :AMPP/VPP (fetch-vmpp conn VPPID)
            :AMPP/COMBPACK (fetch-lookup conn :COMBINATION_PACK_IND COMBPACKCD)
            :AMPP/LEGAL_CAT (fetch-lookup conn :LEGAL_CATEGORY LEGAL_CATCD)
-           :AMPP/DISC (fetch-lookup conn :DISCONTINUED_IND DISCCD))))
+           :AMPP/DISC (fetch-lookup conn :DISCONTINUED_IND DISCCD)
+           :AMPP/APPLIANCE_PACK_INFO (fetch-ampp-appliance-pack-info conn appid)        ;; to-one
+           :AMPP/DRUG_PRODUCT_PRESCRIB_INFO (fetch-ampp-prescribing-info conn appid)    ;; to-one
+           :AMPP/MEDICINAL_PRODUCT_PRICE (fetch-ampp-price-info conn appid)             ;; to-one
+           :AMPP/REIMBURSEMENT_INFO (fetch-ampp-reimbursement-info conn appid)          ;; to-one
+           :AMPP/COMB_CONTENT (fetch-ampp-comb-content conn appid))))                   ;; to-many
 
 (s/fdef fetch-product
   :args (s/cat :conn ::conn :id ::product-id))
@@ -806,19 +899,71 @@
   (into #{} (map :IDCURRENT)
         (jdbc/plan conn ["select distinct IDCURRENT from HISTORY where IDPREVIOUS=? and IDPREVIOUS<>IDCURRENT" id])))
 
-(s/fdef vtm-ingredients
+(s/fdef isids-for-vtm
   :args (s/cat :conn ::conn :vtmid ::vtmid))
-(defn vtm-ingredients
+(defn isids-for-vtm
   "Returns ingredient (ISID) identifiers for the given VTM."
   [conn vtmid]
   (into [] (map :ISID) (jdbc/plan conn ["select ISID from VTM__INGREDIENT where VTMID=?" vtmid])))
 
-(s/fdef vtms-for-ingredient
+(s/fdef vtmids-for-ingredient
   :args (s/cat :conn ::conn :isid ::isid))
-(defn vtms-for-ingredient
+(defn vtmids-for-ingredient
   "Returns VTM identifiers for the given ingredient."
   [conn isid]
   (into [] (map :VTMID) (jdbc/plan conn ["select VTMID from VTM__INGREDIENT where ISID=?" isid])))
+
+(s/def ::gtin (s/or :str string? :num int?))
+(s/def ::on-date #(instance? LocalDate %))
+(s/def ::include-expired boolean?)
+
+;; GTIN assignments carry a period of validity: a GTIN applies from its start
+;; date to its end date inclusive; an entry with no end date remains current.
+(def ^:private gtin-validity-clause
+  "(STARTDT is null or STARTDT<=?) and (ENDDT is null or ENDDT>=?)")
+
+(s/fdef gtins-for-appid
+  :args (s/cat :conn ::conn :appid ::appid
+               :opts (s/keys* :opt-un [::on-date ::include-expired])))
+(defn gtins-for-appid
+  "Returns GTINs (Global Trade Item Numbers) for the given AMPP, as a vector
+  of strings. By default, only GTINs valid on the current date are returned:
+  a GTIN is valid from its start date to its end date inclusive, so expired
+  entries, such as for packs no longer in circulation, are omitted.
+  Options:
+  - :on-date         - java.time.LocalDate on which to assess validity;
+                       default, today
+  - :include-expired - when true, return all GTINs irrespective of their
+                       period of validity"
+  [conn appid & {:keys [on-date include-expired]}]
+  (if include-expired
+    (into [] (map :GTIN)
+          (jdbc/plan conn ["select GTIN from GTIN__AMPP where AMPPID=?" appid]))
+    (let [d (str (or on-date (LocalDate/now)))]
+      (into [] (map :GTIN)
+            (jdbc/plan conn [(str "select GTIN from GTIN__AMPP where AMPPID=? and " gtin-validity-clause) appid d d])))))
+
+(s/fdef appids-from-gtin
+  :args (s/cat :conn ::conn :gtin ::gtin
+               :opts (s/keys* :opt-un [::on-date ::include-expired])))
+(defn appids-from-gtin
+  "Returns AMPP identifiers for the given GTIN (Global Trade Item Number),
+  which may be a string or a number. Usually a single identifier, but the
+  data model permits more than one. By default, only assignments valid on
+  the current date are returned: a GTIN is valid from its start date to its
+  end date inclusive, so expired entries are omitted.
+  Options:
+  - :on-date         - java.time.LocalDate on which to assess validity;
+                       default, today
+  - :include-expired - when true, return all AMPPs irrespective of their
+                       period of validity"
+  [conn gtin & {:keys [on-date include-expired]}]
+  (if include-expired
+    (into [] (map :AMPPID)
+          (jdbc/plan conn ["select AMPPID from GTIN__AMPP where GTIN=?" (str gtin)]))
+    (let [d (str (or on-date (LocalDate/now)))]
+      (into [] (map :AMPPID)
+            (jdbc/plan conn [(str "select AMPPID from GTIN__AMPP where GTIN=? and " gtin-validity-clause) (str gtin) d d])))))
 
 (s/fdef plan-products
   :args (s/cat :conn ::conn :product-type (set (keys product-tables))))
@@ -830,6 +975,16 @@
   [conn product-type]
   (let [{:keys [table]} (product-tables product-type)]
     (jdbc/plan conn [(str "select * from " table)])))
+
+(s/fdef plan-ingredients
+  :args (s/cat :conn ::conn))
+(defn plan-ingredients
+  "Returns a reducible (clojure.lang.IReduceInit) over all rows of the
+  INGREDIENT table, for streaming iteration without realising all rows in
+  memory. Each row is a `next.jdbc` row abstraction; access columns by
+  keyword, e.g. (map :ISID) or (map :NM)."
+  [conn]
+  (jdbc/plan conn ["select * from INGREDIENT"]))
 
 (defn ^:private atc->like [s]
   (-> s (str/replace "*" "%") (str/replace "?" "_")))
@@ -896,8 +1051,8 @@
   (into [] (map :VPID)
         (jdbc/plan conn (sql/format {:select :vpid :from :vmpp :where [:in :vppid vppids]}))))
 
-(s/fdef vpids-for-vmpps
-  :args (s/cat :conn ::conn :vppids (s/coll-of ::vpid)))
+(s/fdef apids-for-vpids
+  :args (s/cat :conn ::conn :vpids (s/coll-of ::vpid)))
 (defn apids-for-vpids
   "Return APIDs for the given VPIDs."
   [conn vpids]
@@ -927,14 +1082,14 @@
         (jdbc/plan conn (sql/format {:select :apid :from :ampp :where [:in :appid appids]}))))
 
 (s/fdef appids-for-vppids
-  :args (s/cat :conn ::conn :vppids (s/coll-of :vppid)))
+  :args (s/cat :conn ::conn :vppids (s/coll-of ::vppid)))
 (defn appids-for-vppids
   [conn vppids]
   (into [] (map :APPID)
         (jdbc/plan conn (sql/format {:select :appid :from :ampp :where [:in :vppid vppids]}))))
 
 (s/fdef vppids-for-appids
-  :args (s/cat :conn ::conn :appids (s/coll-of :appid)))
+  :args (s/cat :conn ::conn :appids (s/coll-of ::appid)))
 (defn vppids-for-appids
   [conn appids]
   (into [] (map :VPPID)
@@ -956,14 +1111,14 @@
 (s/fdef vtmids
   :args (s/cat :conn ::conn :id ::product-id))
 (defn vtmids
-  "Return VTM ids for the given product."
+  "Return the set of VTM ids for the given product."
   [conn id]
   (case (product-type conn id)
-    :VTM [id]
+    :VTM #{id}
     :VMP (vtmids-for-vpids conn [id])
     :VMPP (vtmids-for-vpids conn (vpids-for-vmpps conn [id]))
     :AMP (vtmids-for-vpids conn (vpids-for-apids conn [id]))
-    :AMPP (vtmids-for-vpids conn (apids-for-appids conn [id]))
+    :AMPP (vtmids-for-vpids conn (vpids-for-apids conn (apids-for-appids conn [id])))
     nil))
 
 (s/fdef apids
@@ -974,7 +1129,7 @@
   (case (product-type conn id)
     :VTM (apids-for-vpids conn (vpids-for-vtmids conn [id]))
     :VMP (apids-for-vpids conn [id])
-    :VMPP (apids-for-vpids conn (vpids-for-apids conn [id]))
+    :VMPP (apids-for-vpids conn (vpids-for-vmpps conn [id]))
     :AMP [id]
     :AMPP (apids-for-appids conn [id])
     nil))
@@ -993,7 +1148,7 @@
     nil))
 
 (s/fdef appids
-  :args (s/cat :conn :conn :id ::product-id))
+  :args (s/cat :conn ::conn :id ::product-id))
 (defn appids
   "Return AMPP ids for the given product."
   [conn id]
@@ -1004,6 +1159,30 @@
     :AMP (appids-for-apids conn [id])
     :AMPP [id]
     nil))
+
+(s/fdef subsumes?
+  :args (s/cat :conn ::conn :a ::product-id :b ::product-id))
+(defn subsumes?
+  "Returns true if product `a` subsumes product `b`: that is, `a` is an
+  ancestor of `b` in the dm+d product hierarchy, in which an AMPP is both an
+  AMP and a VMPP, an AMP and a VMPP are each a VMP, and a VMP is a VTM.
+  Strict: a product does not subsume itself, so equal identifiers return
+  false, as does any identifier that is not a current product identifier;
+  equivalence is left to the caller."
+  [conn a b]
+  (boolean
+   (when-not (= a b)
+     (case (product-type conn b)
+       :VMP  (some #(= a %) (vtmids conn b))
+       :AMP  (or (some #(= a %) (vpids conn b))
+                 (some #(= a %) (vtmids conn b)))
+       :VMPP (or (some #(= a %) (vpids conn b))
+                 (some #(= a %) (vtmids conn b)))
+       :AMPP (or (some #(= a %) (apids-for-appids conn [b]))
+                 (some #(= a %) (vppids-for-appids conn [b]))
+                 (some #(= a %) (vpids conn b))
+                 (some #(= a %) (vtmids conn b)))
+       nil))))
 
 (s/fdef atc-code-for-vpids
   :args (s/cat :conn ::conn :vpids (s/coll-of ::vpid)))
