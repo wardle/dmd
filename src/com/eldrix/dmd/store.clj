@@ -1,4 +1,4 @@
-(ns com.eldrix.dmd.store4
+(ns com.eldrix.dmd.store
   "dm+d storage using sqlite"
   (:require [clojure.core.async :as async]
             [clojure.data.json :as json]

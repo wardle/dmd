@@ -3,7 +3,7 @@
             [clojure.tools.logging.readable :as log]
             [com.eldrix.dmd.download :as dl]
             [com.eldrix.dmd.import :as dim]
-            [com.eldrix.dmd.store4 :as st4]
+            [com.eldrix.dmd.store :as st]
             [clojure.string :as str]
             [com.eldrix.trud.core :as trud])
   (:import (java.time.format DateTimeFormatter)))
@@ -13,7 +13,7 @@
   [filename dirs & {:keys [_batch-size] :as opts}]
   (when (= 0 (count dirs)) (throw (ex-info "no directories specified" {:filename filename :dirs dirs})))
   (let [release-date (last (sort (remove nil? (map #(:release-date (dim/get-release-metadata %)) dirs))))
-        {:keys [errors]} (st4/create-store filename dirs (assoc opts :release-date release-date))]
+        {:keys [errors]} (st/create-store filename dirs (assoc opts :release-date release-date))]
     (doseq [err errors]
       (log/error "error during import: " err))))
 
@@ -62,37 +62,37 @@
   this is subject to change. `f` can be anything coercible to a file using
   [[clojure.java.io/as-file]]. Throws an exception if the file does not exist."
   [f]
-  (st4/open-store f))
+  (st/open-store f))
 
 (defn sqlite-database?
   "Returns true if `f` is a SQLite 3 database file."
   [f]
-  (st4/sqlite-database? f))
+  (st/sqlite-database? f))
 
 (defn dmd-database?
   "Returns true if `f` is a dm+d SQLite database created by this library.
   Strict: legacy dm+d files predating the application_id marker return false."
   [f]
-  (st4/dmd-database? f))
+  (st/dmd-database? f))
 
 (defn close [st]
-  (st4/close st))
+  (st/close st))
 
 (defn fetch-release-date [store]
-  (st4/fetch-release-date store))
+  (st/fetch-release-date store))
 
 (defn status
   "Returns a structured description of an open dm+d store, including store
   schema version, creation date, dm+d release date, source TRUD release
   information and file inventory when available, and entity counts."
   [store]
-  (st4/status store))
+  (st/status store))
 
 (defn fetch-product [store product-id]
-  (st4/fetch-product store product-id))
+  (st/fetch-product store product-id))
 
 (defn fetch-product-by-exact-name [conn nm]
-  (st4/fetch-product-by-exact-name conn nm))
+  (st/fetch-product-by-exact-name conn nm))
 
 (defn search
   "Search product names, returning a sequence of maps of :SEARCH/ID,
@@ -102,61 +102,61 @@
   - :types - product types to include e.g. #{:VMP :AMP}; default, all
   - :limit - maximum number of results; default 100"
   [conn s & {:keys [_types _limit] :as opts}]
-  (st4/search conn s opts))
+  (st/search conn s opts))
 
 (defn fetch-lookup [conn lookup-kind]
-  (st4/fetch-all-lookup conn lookup-kind))
+  (st/fetch-all-lookup conn lookup-kind))
 
 (def lookup-types
   "Set of lookup types, as keywords, usable with [[fetch-lookup]]."
-  st4/lookup-types)
+  st/lookup-types)
 
 (defn fetch-history
   "Returns all history entries in which `id` is the current identifier,
   ordered by start date, including 'self' entries recording the period of
   validity of the current identifier itself."
   [conn id]
-  (st4/fetch-history conn id))
+  (st/fetch-history conn id))
 
 (defn previous-ids
   "Returns the set of prior identifiers for the given current identifier."
   [conn id]
-  (st4/previous-ids conn id))
+  (st/previous-ids conn id))
 
 (defn current-ids
   "Returns the set of identifiers in current use for the given (usually
   historic) identifier."
   [conn id]
-  (st4/current-ids conn id))
+  (st/current-ids conn id))
 
 (defn vtm-ingredients
   "Returns ingredient (ISID) identifiers for the given VTM."
   [conn vtmid]
-  (st4/vtm-ingredients conn vtmid))
+  (st/vtm-ingredients conn vtmid))
 
 (defn vtms-for-ingredient
   "Returns VTM identifiers for the given ingredient."
   [conn isid]
-  (st4/vtms-for-ingredient conn isid))
+  (st/vtms-for-ingredient conn isid))
 
 (defn plan-products
   "Returns a reducible over all rows of the given product type (:VTM :VMP
   :AMP :VMPP or :AMPP), for streaming iteration; each row is a `next.jdbc`
   row abstraction with columns accessible by keyword."
   [conn product-type]
-  (st4/plan-products conn product-type))
+  (st/plan-products conn product-type))
 
 (defn ^:deprecated vmps-from-atc
   "DEPRECATED: use [[vpids-from-atc]] instead."
   [conn atc]
-  (st4/vmps-from-atc conn atc))
+  (st/vmps-from-atc conn atc))
 
 (defn vpids-from-atc
   "Returns a sequence of VPIDs for the ATC code specified. 
   - conn
   - atc - atc code - supports '*' for multiple character wildcard, and '?' for single character wildcard."
   [conn atc]
-  (st4/vpids-from-atc conn atc))
+  (st/vpids-from-atc conn atc))
 
 (defn ^:deprecated products-from-atc
   "Returns a sequence of products matching the ATC code.
@@ -169,7 +169,7 @@
   ([conn atc]
    (products-from-atc conn atc #{:VTM :VMP :AMP}))
   ([conn atc product-types]
-   (map #(st4/fetch-product conn %) (st4/product-ids-from-atc conn atc product-types))))
+   (map #(st/fetch-product conn %) (st/product-ids-from-atc conn atc product-types))))
 
 (defn ^:deprecated atc->snomed-ecl
   "Create a SNOMED CT ECL expression from the ATC pattern specified, returning
@@ -177,29 +177,29 @@
   Prefer to use [[atc->products-for-ecl]] and the SNOMED CT drug extension
   to optimise the creation of the appropriate ECL expression."
   [conn atc]
-  (st4/atc->ecl conn atc))
+  (st/atc->ecl conn atc))
 
 (defn atc->products-for-ecl
   "Return a map of products that can be used to build a more complete SNOMED CT
   ECL expression that will include all matching UK products. We have to do it
   this way because TF products are not included in the UK dm+d distribution."
   [conn atc]
-  (st4/atc->products-for-ecl conn atc))
+  (st/atc->products-for-ecl conn atc))
 
 (defn vmps-for-product [conn id]
-  (->> (st4/vpids conn id)
-       (map #(st4/fetch-vmp conn %))))
+  (->> (st/vpids conn id)
+       (map #(st/fetch-vmp conn %))))
 
 (defn amps-for-product [conn id]
-  (->> (st4/apids conn id)
-       (map #(st4/fetch-amp conn %))))
+  (->> (st/apids conn id)
+       (map #(st/fetch-amp conn %))))
 
 (defn vtms-for-product [conn id]
-  (->> (st4/vtmids conn id)
-       (map #(st4/fetch-vtm conn %))))
+  (->> (st/vtmids conn id)
+       (map #(st/fetch-vtm conn %))))
 
 (defn atc-for-product [conn id]
-  (st4/atc-code conn id))
+  (st/atc-code conn id))
 
 (comment
   (install-latest "/Users/mark/Dev/trud/api-key.txt" "/Users/mark/Dev/trud/cache/tmp/trud")

@@ -2,7 +2,7 @@
   (:require [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is run-tests]]
             [com.eldrix.dmd.core :as dmd]
-            [com.eldrix.dmd.store4 :as st4]
+            [com.eldrix.dmd.store :as st]
             [clojure.java.io :as io]
             [next.jdbc :as jdbc])
   (:import (java.io File)
@@ -27,7 +27,7 @@
     (with-open [conn (jdbc/get-connection (str "jdbc:sqlite:" not-dmd))]
       (jdbc/execute-one! conn ["create table TEST (id integer)"]))
     (with-open [conn (jdbc/get-connection (str "jdbc:sqlite:" wrong-version))]
-      (jdbc/execute-one! conn [(str "PRAGMA application_id = " st4/application-id)])
+      (jdbc/execute-one! conn [(str "PRAGMA application_id = " st/application-id)])
       (jdbc/execute-one! conn ["PRAGMA user_version = 1"])
       (jdbc/execute-one! conn ["create table TEST (id integer)"]))
     (is (thrown-with-msg? Exception #"file not found" (dmd/open-store "no-such-file.db")))
