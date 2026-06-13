@@ -21,7 +21,12 @@
             :ns-default build}
 
            :dev
-           {:extra-paths ["cmd" "test/src" "test/resources"]}
+           {:extra-paths ["cmd" "test/src" "test/resources"]
+            ;; pathom3 is an optional dependency of the com.eldrix.dmd.graph
+            ;; namespace, provided here only so we can compile, lint and test
+            ;; it; it is intentionally absent from the library's :deps, as
+            ;; consumers of the graph API bring their own pathom3.
+            :extra-deps  {com.wsscode/pathom3 {:mvn/version "2025.01.16-alpha"}}}
 
            :nrepl-server
            {:extra-deps {nrepl/nrepl       {:mvn/version "1.3.1"}
