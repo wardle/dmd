@@ -452,7 +452,7 @@
   (some-> (:METADATA/release (jdbc/execute-one! conn ["select release from metadata"])) LocalDate/parse))
 
 (def ^:private count-tables
-  "Tables counted by [[status]], as a vector of key and table name."
+  "Tables counted by [[status]], as pairs of key and table name."
   [[:VTM "VTM"] [:VMP "VMP"] [:AMP "AMP"] [:VMPP "VMPP"] [:AMPP "AMPP"]
    [:INGREDIENT "INGREDIENT"] [:HISTORY "HISTORY"] [:VTM_INGREDIENT "VTM__INGREDIENT"]
    [:GTIN "GTIN__AMPP"] [:BNF "BNF_DETAILS"]])
@@ -926,8 +926,8 @@
   :args (s/cat :conn ::conn :appid ::appid
                :opts (s/keys* :opt-un [::on-date ::include-expired])))
 (defn gtins-for-appid
-  "Returns GTINs (Global Trade Item Numbers) for the given AMPP, as a vector
-  of strings. By default, only GTINs valid on the current date are returned:
+  "Returns GTINs (Global Trade Item Numbers) for the given AMPP, as strings.
+  By default, only GTINs valid on the current date are returned:
   a GTIN is valid from its start date to its end date inclusive, so expired
   entries, such as for packs no longer in circulation, are omitted.
   Options:
@@ -992,7 +992,7 @@
 (s/fdef vpids-from-atc
   :args (s/cat :conn ::conn :atc ::atc))
 (defn vpids-from-atc
-  "Return a vector of VPIDs matching the given ATC code."
+  "Return the VPIDs matching the given ATC code."
   [conn atc]
   (into [] (map :VPID)
         (jdbc/plan conn ["select vpid from BNF_DETAILS where atc like ?" (atc->like atc)])))
@@ -1005,7 +1005,7 @@
 (s/fdef vpids-from-atc-wo-vtms
   :args (s/cat :conn ::conn :atc ::atc))
 (defn vpids-from-atc-wo-vtms
-  "Return a vector of VPIDs matching the given ATC code/prefix that do not
+  "Return the VPIDs matching the given ATC code/prefix that do not
   have an associated VTM. This is only useful when constructing SNOMED ECL
   expressions that use a combination of VTMs, VMPs and TFs, and therefore do
   not need VMPs unless there is no associated VTM."
@@ -1094,6 +1094,26 @@
   [conn appids]
   (into [] (map :VPPID)
         (jdbc/plan conn (sql/format {:select :vppid :from :ampp :where [:in :appid appids]}))))
+
+(s/fdef parent-vppids-for-vppid
+  :args (s/cat :conn ::conn :vppid ::vppid))
+(defn parent-vppids-for-vppid
+  "Return the VPPIDs of the combination pack(s) of which the given VMPP is a
+  child component; empty when the VMPP is not a child of any combination pack.
+  This is the reverse of [[fetch-vmpp-comb-content]]."
+  [conn vppid]
+  (into [] (map :PRNTVPPID)
+        (jdbc/plan conn (sql/format {:select :prntvppid :from :vmpp__comb_content :where [:= :chldvppid vppid]}))))
+
+(s/fdef parent-appids-for-appid
+  :args (s/cat :conn ::conn :appid ::appid))
+(defn parent-appids-for-appid
+  "Return the APPIDs of the combination pack(s) of which the given AMPP is a
+  child component; empty when the AMPP is not a child of any combination pack.
+  This is the reverse of [[fetch-ampp-comb-content]]."
+  [conn appid]
+  (into [] (map :PRNTAPPID)
+        (jdbc/plan conn (sql/format {:select :prntappid :from :ampp__comb_content :where [:= :chldappid appid]}))))
 
 (s/fdef vpids
   :args (s/cat :conn ::conn :id ::product-id))

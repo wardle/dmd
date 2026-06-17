@@ -87,6 +87,11 @@
     (is (= #{vmpp comb-vmpp} (set (dmd/vppids-for-product st vtm))))
     (is (= #{ampp comb-ampp} (set (dmd/appids-for-product st vtm))))
     (is (= [ampp] (dmd/appids-for-product st vmpp)))
+    ;; reverse combination-pack traversal: a child pack resolves to its parent pack
+    (is (= [comb-vmpp] (dmd/parent-vppids-for-vppid st vmpp)))
+    (is (= [comb-ampp] (dmd/parent-appids-for-appid st ampp)))
+    (is (empty? (dmd/parent-vppids-for-vppid st comb-vmpp)) "a parent combination pack is not itself a child")
+    (is (empty? (dmd/parent-appids-for-appid st comb-ampp)))
     (is (= #{vtm} (dmd/vtmids-for-product st vtm)) "a VTM's VTM is itself, consistently a set")
     (is (= vtm (:VTM/VTMID (first (dmd/vtms-for-product st ampp)))))
     (is (= #{vmpp comb-vmpp} (into #{} (map :VMPP/VPPID) (dmd/vmpps-for-product st vtm))))
@@ -219,6 +224,10 @@
            (mapv #(get-in % [:AMPP__COMB_CONTENT/CHLD :AMPP/APPID]) (:AMPP/COMB_CONTENT comb-ampp))))
     (is (empty? (:VMPP/COMB_CONTENT vmpp)) "not a combination pack")
     (is (empty? (:AMPP/COMB_CONTENT ampp)) "not a combination pack")
+    (is (= [8967511000001109] (mapv :VMPP/VPPID (dmd/parent-packs-for-vppid st 1245011000001108)))
+        "parent-packs-for-vppid should resolve a child VMPP to its parent combination pack VMPP")
+    (is (= [8968011000001101] (mapv :AMPP/APPID (dmd/parent-packs-for-appid st 37365911000001107)))
+        "parent-packs-for-appid should resolve a child AMPP to its parent combination pack AMPP")
     ;; ingredient by identifier
     (is (= "Furosemide" (:INGREDIENT/NM (dmd/fetch-ingredient st 387475002))))
     (dmd/close st)))

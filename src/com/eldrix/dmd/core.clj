@@ -194,8 +194,8 @@
   (st/fetch-ingredient conn isid))
 
 (defn gtins-for-appid
-  "Returns GTINs (Global Trade Item Numbers) for the given AMPP, as a vector
-  of strings. By default, only GTINs valid on the current date are returned:
+  "Returns GTINs (Global Trade Item Numbers) for the given AMPP, as strings.
+  By default, only GTINs valid on the current date are returned:
   a GTIN is valid from its start date to its end date inclusive, so expired
   entries, such as for packs no longer in circulation, are omitted.
   Options:
@@ -275,7 +275,7 @@
   (st/atc->products-for-ecl conn atc))
 
 (defn vpids-for-product
-  "Returns VMP identifiers for the given product, as a vector."
+  "Returns VMP identifiers for the given product."
   [conn product-id]
   (st/vpids conn product-id))
 
@@ -285,17 +285,17 @@
   (st/vtmids conn product-id))
 
 (defn apids-for-product
-  "Returns AMP identifiers for the given product, as a vector."
+  "Returns AMP identifiers for the given product."
   [conn product-id]
   (st/apids conn product-id))
 
 (defn vppids-for-product
-  "Returns VMPP identifiers for the given product, as a vector."
+  "Returns VMPP identifiers for the given product."
   [conn product-id]
   (st/vppids conn product-id))
 
 (defn appids-for-product
-  "Returns AMPP identifiers for the given product, as a vector."
+  "Returns AMPP identifiers for the given product."
   [conn product-id]
   (st/appids conn product-id))
 
@@ -343,6 +343,40 @@
   [conn product-id]
   (->> (st/appids conn product-id)
        (map #(st/fetch-ampp conn %))))
+
+(defn parent-packs-for-vppid
+  "Returns the combination pack VMPP(s) of which the given VMPP is a child
+  component, as extended product maps; empty when the VMPP is not a child of
+  any combination pack. This is the reverse of the :VMPP/COMB_CONTENT
+  relationship resolved by [[fetch-product]]; see [[parent-vppids-for-vppid]]
+  for identifiers only."
+  [conn vppid]
+  (->> (st/parent-vppids-for-vppid conn vppid)
+       (map #(st/fetch-vmpp conn %))))
+
+(defn parent-vppids-for-vppid
+  "Returns the VPPIDs of the combination pack(s) of which the given VMPP is a
+  child component; empty when the VMPP is not a child of any combination pack.
+  See [[parent-packs-for-vppid]] for extended product maps."
+  [conn vppid]
+  (st/parent-vppids-for-vppid conn vppid))
+
+(defn parent-packs-for-appid
+  "Returns the combination pack AMPP(s) of which the given AMPP is a child
+  component, as extended product maps; empty when the AMPP is not a child of
+  any combination pack. This is the reverse of the :AMPP/COMB_CONTENT
+  relationship resolved by [[fetch-product]]; see [[parent-appids-for-appid]]
+  for identifiers only."
+  [conn appid]
+  (->> (st/parent-appids-for-appid conn appid)
+       (map #(st/fetch-ampp conn %))))
+
+(defn parent-appids-for-appid
+  "Returns the APPIDs of the combination pack(s) of which the given AMPP is a
+  child component; empty when the AMPP is not a child of any combination pack.
+  See [[parent-packs-for-appid]] for extended product maps."
+  [conn appid]
+  (st/parent-appids-for-appid conn appid))
 
 (defn atc-for-product
   "Returns the ATC code for the given product. When a product maps to more
