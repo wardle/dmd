@@ -1,5 +1,13 @@
 # CHANGELOG
 
+# v1.0.227 - 2026-06-17
+
+* Add reverse combination-pack accessors, resolving a child pack to the
+  combination pack(s) of which it is a component: `parent-packs-for-vppid`
+  and `parent-packs-for-appid` (extended product maps), with id-only
+  `parent-vppids-for-vppid` and `parent-appids-for-appid`. The relationship
+  is to-many, as a component pack may belong to more than one combination pack.
+
 # v1.0.225 - 2026-06-13
 
 A major reworking of storage and the query API. Databases must be rebuilt:
